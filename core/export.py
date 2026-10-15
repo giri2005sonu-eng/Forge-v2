@@ -11,7 +11,8 @@ from .wiring import WiringPlan, generate_wiring_plan
 
 
 def generate_markdown_report(build: Build, req: Requirements, config: dict, spec_defs: dict,
-                             power: Optional[PowerAnalysis] = None, wiring: Optional[WiringPlan] = None) -> str:
+                             power: Optional[PowerAnalysis] = None, wiring: Optional[WiringPlan] = None,
+                             include_power: bool = True, include_wiring: bool = True) -> str:
     if power is None:
         power = analyze_power(build, config)
     if wiring is None:
@@ -74,7 +75,7 @@ def generate_markdown_report(build: Build, req: Requirements, config: dict, spec
         ev_str = "; ".join(f"{e.field}={e.value}{(' ' + e.unit) if e.unit else ''}" for e in c.evidence) or "None"
         lines.append(f"| {icon} | {c.category.title()} | {c.title} | {c.message} | {ev_str} |")
 
-    if power:
+    if power and include_power:
         lines.extend([
             "",
             "---",
@@ -89,7 +90,7 @@ def generate_markdown_report(build: Build, req: Requirements, config: dict, spec
             f"- **Driver Power Dissipation:** {power.driver_thermal_loss_w:.2f} W ({'Needs heatsink' if power.thermal_warning else 'Acceptable passive cooling'})",
         ])
 
-    if wiring:
+    if wiring and include_wiring:
         lines.extend([
             "",
             "---",
@@ -123,8 +124,10 @@ def generate_markdown_report(build: Build, req: Requirements, config: dict, spec
     return "\n".join(lines)
 
 
-def generate_html_report(build: Build, req: Requirements, config: dict, spec_defs: dict) -> str:
-    md = generate_markdown_report(build, req, config, spec_defs)
+def generate_html_report(build: Build, req: Requirements, config: dict, spec_defs: dict,
+                        include_power: bool = True, include_wiring: bool = True) -> str:
+    power = analyze_power(build, config) if include_power else None
+    wiring = generate_wiring_plan(build) if include_wiring else None
     # Simple, standalone HTML generator with responsive CSS styling
     html_lines = [
         "<!DOCTYPE html>",
@@ -172,6 +175,21 @@ def generate_html_report(build: Build, req: Requirements, config: dict, spec_def
         html_lines.append(f"<tr><td><span class='badge {cls}'>{c.status.upper()}</span></td><td>{c.category}</td><td>{c.title}</td><td>{c.message}</td></tr>")
     html_lines.extend([
         "</tbody></table>",
-        "</body></html>"
     ])
+    if include_power and power:
+        html_lines.extend([
+            "<h2>Power & Battery Discharge Analysis</h2>",
+            f"<div class='card'><strong>Idle:</strong> {power.system_idle_current_a * 1000:.0f} mA | <strong>Typical:</strong> {power.system_typical_current_a * 1000:.0f} mA | <strong>Peak stall:</strong> {power.system_peak_stall_current_a:.2f} A</div>",
+        ])
+    if include_wiring and wiring:
+        html_lines.extend([
+            "<h2>Pinout & Interconnect Wiring Guide</h2>",
+            "<table><thead><tr><th>From</th><th>Pin</th><th>To</th><th>Pin</th><th>Signal</th><th>Notes</th></tr></thead><tbody>"
+        ])
+        for w in wiring.connections:
+            html_lines.append(f"<tr><td>{w.source_component}</td><td>{w.source_pin}</td><td>{w.target_component}</td><td>{w.target_pin}</td><td>{w.wire_type}</td><td>{w.notes or ''}</td></tr>")
+        html_lines.extend([
+            "</tbody></table>",
+        ])
+    html_lines.append("</body></html>")
     return "\n".join(html_lines)

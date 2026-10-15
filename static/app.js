@@ -35,7 +35,7 @@ $('#runTests').addEventListener('click',async e=>{const btn=e.currentTarget;setB
 function renderPower(){const b=state.activeBuild;$('#powerPanel').classList.toggle('hidden',!!b);$('#powerContent').classList.toggle('hidden',!b);if(!b)return;const p=b.power;if(!p){$('#powerMetrics').innerHTML='<div class="panel">Power analysis unavailable for this build.</div>';return;}const metrics=[['IDLE CURRENT',num(p.system_idle_current_a*1000,0)+' mA','Estimated idle draw'],['TYPICAL CURRENT',num(p.system_typical_current_a*1000,0)+' mA','40% motor load assumption'],['PEAK STALL CURRENT',num(p.system_peak_stall_current_a,2)+' A','All motors stalled'],['DISCHARGE MARGIN',num(p.battery_safety_margin_pct,1)+'%','Battery current margin'],['USABLE CAPACITY',num(p.battery_usable_mah,0)+' mAh','80% of rated capacity'],['TYPICAL RUNTIME',num(p.runtime_typical_h,1)+' h','Modelled estimate'],['DRIVER THERMAL LOSS',num(p.driver_thermal_loss_w,2)+' W','Heat dissipation estimate'],['STALL RUNTIME',num(p.runtime_stall_min,1)+' min','Continuous worst-case stall']];$('#powerMetrics').innerHTML=metrics.map(m=>`<article class="metric-card"><div class="metric-top">${esc(m[0])}</div><div class="metric-value" style="font-size:23px">${esc(m[1])}</div><div class="metric-foot">${esc(m[2])}</div></article>`).join('');$('#wiringRows').innerHTML=b.wiring.connections.map(w=>`<tr><td><b>${esc(w.source_component)}</b></td><td>${esc(w.source_pin)}</td><td>${esc(w.target_component)}</td><td>${esc(w.target_pin)}</td><td><span class="tag">${esc(w.wire_type)}</span>${w.notes?`<small style="display:block;color:#929a9a;margin-top:4px">${esc(w.notes)}</small>`:''}</td></tr>`).join('');notice('#wiringWarnings',[...(b.wiring.warnings||[]),...(p.thermal_warning?[p.thermal_warning]:[])].map(esc).join('<br>'),(b.wiring.warnings?.length||p.thermal_warning)?'warn':'');$('#assemblySteps').innerHTML=b.wiring.assembly_steps.map(s=>`<li>${esc(s)}</li>`).join('');$('#mermaidDiagram').textContent=b.wiring.mermaid_diagram||'No diagram available.';}
 $('#copyDiagram').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('#mermaidDiagram').textContent);toast('Mermaid source copied.');}catch(e){toast('Clipboard permission was not available.','error');}});
 function renderReports(){const b=state.activeBuild;$('#reportEmpty').classList.toggle('hidden',!!b);$('#reportContent').classList.toggle('hidden',!b);if(!b)return;$('#ledgerCount').textContent=`${b.ledger.length} RECORDS`;$('#ledgerRows').innerHTML=b.ledger.map(r=>`<tr><td><b>${esc(r.Part||r.part||'—')}</b></td><td>${esc(r.Field||r.field||'—')}</td><td>${esc(r.Value??r.value??'—')} ${esc(r.Unit||r.unit||'')}</td><td><span class="tag ${(r.Method||r.method)==='scraped'?'pass':''}">${esc((r.Method||r.method||'unknown').toUpperCase())}</span></td><td>${(r.Source||r.source_url)?`<a class="source-link" href="${esc(r.Source||r.source_url)}" target="_blank" rel="noopener">Open source ↗</a>`:'—'}</td><td>${esc(r['Retrieved (UTC)']||r.retrieved_at||'—')}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state">No evidence records.</td></tr>';}
-async function downloadExport(kind){try{const res=await fetch('/api/export/'+encodeURIComponent(kind));if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.detail||'Export failed');}const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=kind==='bom.csv'?'robot_bom.csv':kind==='ledger.csv'?'evidence_ledger.csv':kind==='report.md'?'robot_report.md':'robot_report.html';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(a.href);toast('Report downloaded.');}catch(e){toast(e.message,'error');}}
+async function downloadExport(kind){try{const params=new URLSearchParams();const includePower=$('#includePowerToggle')?.checked!==false;const includeWiring=$('#includeWiringToggle')?.checked!==false;params.set('include_power', String(includePower));params.set('include_wiring', String(includeWiring));const res=await fetch(`/api/export/${encodeURIComponent(kind)}?${params.toString()}`);if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.detail||'Export failed');}const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=kind==='bom.csv'?'robot_bom.csv':kind==='ledger.csv'?'evidence_ledger.csv':kind==='report.md'?'robot_report.md':'robot_report.html';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(a.href);toast('Report downloaded.');}catch(e){toast(e.message,'error');}}
 $$('[data-export]').forEach(b=>b.addEventListener('click',()=>downloadExport(b.dataset.export)));
 $('#refreshPartsBtn').addEventListener('click',async e=>{const btn=e.currentTarget;const ids=[...$('#refreshParts').selectedOptions].map(o=>o.value);if(!ids.length){notice('#refreshOutput','Select at least one part first.','warn');return;}setBusy(btn,true,'Refreshing vendor pages…');try{const d=await api('/api/live/refresh',{method:'POST',body:JSON.stringify({category:$('#refreshCategory').value,part_ids:ids,pages_per_part:Number($('#refreshPages').value)})});notice('#refreshOutput',d.results.map(r=>`<b>${esc(r.part)}</b>: ${r.error?esc(r.error):esc(JSON.stringify(r.report?.changes||r.report?.problems||r.report||{}))}`).join('<br>'));await loadCatalog();toast('Refresh run completed.');}catch(err){notice('#refreshOutput',esc(err.message),'error');}finally{setBusy(btn,false);}});
 $('#discoverBtn').addEventListener('click',async e=>{const btn=e.currentTarget;setBusy(btn,true,'Searching vendor listings…');notice('#discoverOutput','');try{const d=await api('/api/live/discover',{method:'POST',body:JSON.stringify({category:$('#discoverCategory').value,query:$('#discoverQuery').value,kind:$('#discoverCategory').value==='sensor'?$('#discoverKind').value||null:null})});state.discoveries=d.items||[];notice('#discoverOutput',`${state.discoveries.length} candidate(s) found. ${esc((d.report?.problems||[]).join(' · '))}`);if(state.discoveries.length){$('#discoverOutput').insertAdjacentHTML('beforeend',`<div class="table-wrap" style="margin-top:8px"><table class="data-table"><thead><tr><th>PART</th><th>PRICE</th><th>SPECS</th><th>ADD</th></tr></thead><tbody>${state.discoveries.map((p,i)=>`<tr><td><b>${esc(p.name)}</b><small style="display:block">${esc(p.vendor)}</small></td><td>${money(p.price_value)}</td><td>${Object.keys(p.specs_flat||{}).length}</td><td><input type="checkbox" data-discover-add="${i}" checked></td></tr>`).join('')}</tbody></table></div><button class="btn btn-primary" id="addDiscovered" style="width:100%;margin-top:9px">Add selected candidates</button>`);$('#addDiscovered').addEventListener('click',addDiscovered);}}catch(err){notice('#discoverOutput',esc(err.message),'error');}finally{setBusy(btn,false);}});
@@ -118,5 +118,343 @@ function renderSourcePrices(prices){
   $$('[data-use-url]').forEach(b=>b.onclick=()=>applySourcePrice(b.dataset.useUrl,b));
   const lowBtn=$('#srcUseLowest'); if(lowBtn) lowBtn.classList.toggle('hidden',!priced.length);
 }
+
+const projectRobotIdeas = [
+  { id: 'mobile-robot', name: 'Autonomous mobile robot', domain: 'autonomous', focus: 'Line following, obstacle avoidance, or indoor patrol', technologies: 'ESP32 · motor driver · distance/line sensors', domains: ['autonomous', 'iot'], hardware: ['esp32', 'arduino', 'pi'], software: ['c', 'python', 'ros'], environments: ['indoor', 'outdoor'], difficulty: 6, weeks: 6, scope: 7, budgetTier: 2, budgetLabel: 'Low–moderate', projectTypes: ['mini', 'capstone', 'lab'], summary: 'A tangible robot with a clear live demo and room to grow from basic control to mapping.' },
+  { id: 'iot-system', name: 'Smart environment monitor', domain: 'iot', focus: 'Room conditions, energy use, or equipment monitoring', technologies: 'ESP32 · sensor suite · wireless dashboard', domains: ['iot', 'ev', 'health'], hardware: ['esp32', 'arduino', 'pi'], software: ['c', 'python'], environments: ['indoor', 'industrial'], difficulty: 4, weeks: 4, scope: 6, budgetTier: 1, budgetLabel: 'Low', projectTypes: ['mini', 'capstone', 'lab'], summary: 'A low-cost connected system with measurable data, alerts, and a straightforward prototype path.' },
+  { id: 'vision-robot', name: 'Edge-vision inspection rover', domain: 'vision', focus: 'Object detection, visual tracking, or surface inspection', technologies: 'Raspberry Pi / Jetson · camera · OpenCV', domains: ['vision', 'autonomous'], hardware: ['pi', 'jetson'], software: ['python', 'opencv', 'ros'], environments: ['indoor', 'industrial'], difficulty: 8, weeks: 10, scope: 9, budgetTier: 3, budgetLabel: 'Moderate–high', projectTypes: ['capstone', 'research'], summary: 'Combines robotics and computer vision, with a strong path to measurable experiments and a research-style report.' },
+  { id: 'assistive-device', name: 'Assistive mobility or gesture aid', domain: 'health', focus: 'Gesture-controlled aid, smart cane, or posture feedback', technologies: 'ESP32 · IMU / ranging sensors · haptic feedback', domains: ['health', 'iot'], hardware: ['esp32', 'arduino', 'pi'], software: ['c', 'python'], environments: ['indoor', 'outdoor'], difficulty: 6, weeks: 7, scope: 8, budgetTier: 2, budgetLabel: 'Low–moderate', projectTypes: ['mini', 'capstone', 'research'], summary: 'A user-centered prototype with a practical validation story and meaningful room for sensor experiments.' },
+  { id: 'uav-platform', name: 'UAV telemetry and navigation', domain: 'uav', focus: 'Flight telemetry, waypoint navigation, or payload sensing', technologies: 'STM32 / flight controller · GPS · telemetry radio', domains: ['uav', 'autonomous'], hardware: ['stm32', 'pi', 'jetson'], software: ['c', 'python', 'ros'], environments: ['outdoor'], difficulty: 9, weeks: 12, scope: 9, budgetTier: 4, budgetLabel: 'High', projectTypes: ['capstone', 'research'], summary: 'A technically ambitious platform for teams with flight-safe test access and enough time for integration.' },
+  { id: 'ev-power', name: 'EV battery and motor test bench', domain: 'ev', focus: 'Battery monitoring, motor control, or regenerative braking demo', technologies: 'STM32 · current/voltage sensing · protected power stage', domains: ['ev', 'iot'], hardware: ['stm32', 'arduino', 'pi'], software: ['c', 'python'], environments: ['indoor', 'industrial'], difficulty: 8, weeks: 10, scope: 9, budgetTier: 3, budgetLabel: 'Moderate–high', projectTypes: ['capstone', 'research', 'lab'], summary: 'A credible power-electronics project with instrumentable results and careful safety boundaries.' }
+];
+
+const projectFitQuestions = [
+  { key: 'degree', title: 'What are you studying?', hint: 'We use this to connect the project to your coursework.', options: [['robotics', 'Robotics / automation'], ['electrical', 'Electrical / electronics'], ['mechanical', 'Mechanical engineering'], ['mechatronics', 'Mechatronics'], ['cs', 'Computer science'], ['other', 'Another program']] },
+  { key: 'year', title: 'Which year are you in?', hint: 'This helps calibrate the expected technical ramp-up.', options: [['1', '1st year'], ['2', '2nd year'], ['3', '3rd year'], ['4', '4th year / graduate']] },
+  { key: 'projectType', title: 'What are you making this for?', hint: 'Project expectations affect how broad the recommendation should be.', options: [['lab', 'A lab assignment'], ['mini', 'A mini-project'], ['capstone', 'A capstone / final-year project'], ['research', 'A research project']] },
+  { key: 'evaluationFocus', title: 'What matters most in the evaluation?', hint: 'Choose the outcome you most need to demonstrate.', options: [['demo', 'A working hardware demo'], ['report', 'Measured results and a strong report'], ['research', 'Novelty and research depth'], ['custom', 'A custom engineering solution']] },
+  { key: 'teamSize', title: 'How many people are on your team?', hint: 'Larger teams can take on more parallel integration work.', options: [['solo', 'Just me'], ['pair', 'Two people'], ['small', 'Three or four people'], ['large', 'Five or more people']] },
+  { key: 'timeline', title: 'How much time do you have?', hint: 'Select the full time available, including testing and write-up.', options: [['2', 'About 2 weeks'], ['4', 'About 1 month'], ['12', 'About 3 months'], ['16', 'A full semester or longer']] },
+  { key: 'budget', title: 'What is your approximate parts budget?', hint: 'This is a project-level estimate, not a BOM quote.', options: [['low', 'Under ₹5,000'], ['mid', '₹5,000–₹15,000'], ['high', '₹15,000–₹40,000'], ['very-high', 'Above ₹40,000']] },
+  { key: 'platform', title: 'Which hardware platform do you prefer or have?', hint: 'You can choose a mixed stack if the project needs a companion computer.', options: [['arduino', 'Arduino'], ['esp32', 'ESP32'], ['stm32', 'STM32'], ['pi', 'Raspberry Pi'], ['jetson', 'Jetson Nano'], ['mixed', 'A mixed controller + computer stack']] },
+  { key: 'software', title: 'Which software are you comfortable using?', hint: 'A project can still introduce a new stack; this just improves the initial fit.', options: [['c', 'C / C++'], ['python', 'Python / MicroPython'], ['ros', 'ROS / ROS 2'], ['opencv', 'OpenCV / edge AI']] },
+  { key: 'fabrication', title: 'What workshop access do you have?', hint: 'Think about tools you can reliably use during the project.', options: [['none', 'No workshop or fabrication access'], ['basic', 'Soldering and basic hand tools'], ['cad', 'CAD and 3D printing'], ['pcb', 'PCB design and fabrication']] },
+  { key: 'domain', title: 'Which problem area excites you most?', hint: 'This is the strongest signal in the idea ranking.', options: [['autonomous', 'Autonomous robots'], ['iot', 'IoT and smart systems'], ['vision', 'Computer vision / edge AI'], ['uav', 'Drones and UAVs'], ['health', 'Assistive technology / healthcare'], ['ev', 'Electric vehicles / power electronics']] },
+  { key: 'environment', title: 'Where should the system operate?', hint: 'Environment affects sensing, enclosure, and test requirements.', options: [['indoor', 'Indoor spaces'], ['outdoor', 'Outdoor / campus'], ['industrial', 'Industrial or equipment area'], ['water', 'Wet, rough, or off-road conditions']] },
+  { key: 'availability', title: 'How will you source components?', hint: 'A local-first design can reduce delays and substitutions.', options: [['local', 'Prefer parts available locally'], ['online', 'Online shipping is fine']] }
+];
+
+const projectFitState = { step: 0, answers: {}, recommendations: [], selectedId: null, specStep: 0, specAnswers: {}, report: null };
+const fitStageIds = ['fitIntro', 'fitSurveyScreen', 'fitSelectionScreen', 'fitSpecScreen', 'fitReportScreen'];
+
+function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
+
+function showFitStage(stageId) {
+  fitStageIds.forEach(id => document.getElementById(id).classList.toggle('hidden', id !== stageId));
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function enterWorkspace(page = 'overview') {
+  document.body.classList.add('app-live');
+  goto(page);
+}
+
+function startProjectFit() {
+  projectFitState.step = 0;
+  projectFitState.answers = {};
+  projectFitState.recommendations = [];
+  projectFitState.selectedId = null;
+  projectFitState.specStep = 0;
+  projectFitState.specAnswers = {};
+  projectFitState.report = null;
+  showFitStage('fitSurveyScreen');
+  renderProjectFitQuestion();
+}
+
+function renderProjectFitQuestion() {
+  const question = projectFitQuestions[projectFitState.step];
+  const progress = ((projectFitState.step + 1) / projectFitQuestions.length) * 100;
+  document.getElementById('fitSurveyCount').textContent = `QUESTION ${projectFitState.step + 1} OF ${projectFitQuestions.length}`;
+  document.getElementById('fitSurveyProgress').style.width = `${progress}%`;
+  document.getElementById('fitSurveyQuestion').textContent = question.title;
+  document.getElementById('fitSurveyHint').textContent = question.hint;
+  document.getElementById('fitSurveyOptions').innerHTML = question.options.map(([value, label]) => `
+    <button class="fit-survey-option ${projectFitState.answers[question.key] === value ? 'is-selected' : ''}" type="button" role="radio" aria-checked="${projectFitState.answers[question.key] === value}" data-fit-answer="${esc(value)}">
+      <span class="fit-option-mark" aria-hidden="true"></span><span>${esc(label)}</span>
+    </button>
+  `).join('');
+  document.querySelectorAll('[data-fit-answer]').forEach(button => button.addEventListener('click', () => {
+    projectFitState.answers[question.key] = button.dataset.fitAnswer;
+    renderProjectFitQuestion();
+  }));
+  document.getElementById('fitSurveyBack').disabled = projectFitState.step === 0;
+  document.getElementById('fitQuestionNext').disabled = !projectFitState.answers[question.key];
+}
+
+function finishProjectFitQuestion(skipped = false) {
+  const question = projectFitQuestions[projectFitState.step];
+  if (skipped) projectFitState.answers[question.key] = null;
+  else if (!projectFitState.answers[question.key]) return;
+
+  if (projectFitState.step < projectFitQuestions.length - 1) {
+    projectFitState.step += 1;
+    renderProjectFitQuestion();
+    return;
+  }
+
+  projectFitState.recommendations = buildRecommendationScores(projectFitState.answers);
+  projectFitState.selectedId = null;
+  renderRecommendationCards(projectFitState.recommendations);
+  showFitStage('fitSelectionScreen');
+}
+
+function returnToSurvey() {
+  projectFitState.step = projectFitQuestions.length - 1;
+  showFitStage('fitSurveyScreen');
+  renderProjectFitQuestion();
+}
+
+function projectSpecQuestionsFor(project) {
+  const missions = {
+    'mobile-robot': [['line', 'Follow a line / marked path'], ['avoid', 'Avoid obstacles'], ['patrol', 'Patrol or monitor an indoor area'], ['delivery', 'Carry a small item between points']],
+    'iot-system': [['climate', 'Monitor temperature and humidity'], ['energy', 'Track energy or power use'], ['equipment', 'Monitor a machine or storage area'], ['alert', 'Build a sensor-based alert system']],
+    'vision-robot': [['detect', 'Detect and classify objects'], ['track', 'Track a moving object'], ['inspect', 'Inspect a surface or product'], ['navigate', 'Navigate using visual landmarks']],
+    'assistive-device': [['gesture', 'Gesture-controlled assistance'], ['mobility', 'Mobility or obstacle alerts'], ['posture', 'Posture or movement feedback'], ['wearable', 'Wearable health or activity sensing']],
+    'uav-platform': [['telemetry', 'Collect flight and sensor telemetry'], ['waypoint', 'Navigate between waypoints'], ['mapping', 'Map or inspect an area'], ['payload', 'Carry a lightweight sensor payload']],
+    'ev-power': [['battery', 'Monitor battery voltage and current'], ['motor', 'Control a low-voltage motor'], ['thermal', 'Measure temperature and thermal behavior'], ['regen', 'Demonstrate regenerative braking concepts']]
+  };
+  const targets = {
+    'mobile-robot': [['runtime', 'Maximize operating time'], ['accuracy', 'Repeatable path tracking'], ['speed', 'Higher travel speed'], ['payload', 'Carry a useful payload']],
+    'iot-system': [['uptime', 'Long unattended uptime'], ['accuracy', 'Stable sensor accuracy'], ['response', 'Fast alerts'], ['cost', 'Lowest practical cost']],
+    'vision-robot': [['accuracy', 'Detection accuracy'], ['realtime', 'Real-time frame rate'], ['lighting', 'Work across changing light'], ['runtime', 'Longer mobile runtime']],
+    'assistive-device': [['reliability', 'Reliable alerts with few false triggers'], ['response', 'Fast response'], ['comfort', 'Low weight and comfort'], ['runtime', 'All-day battery life']],
+    'uav-platform': [['flighttime', 'Longer flight time'], ['range', 'Greater communication range'], ['payload', 'More payload capacity'], ['stability', 'Stable autonomous flight']],
+    'ev-power': [['voltage', 'Accurate voltage measurements'], ['current', 'Accurate current measurements'], ['thermal', 'Thermal monitoring'], ['control', 'Precise motor control']]
+  };
+  return [
+    { key: 'mission', title: 'What should the project do first?', hint: 'Pick the primary function for the first working prototype.', options: missions[project.id] },
+    { key: 'environment', title: 'Where will it operate?', hint: 'This affects enclosure, wheel/frame choice, and sensor protection.', options: [['indoor', 'Indoor, clean and level'], ['outdoor', 'Outdoor, mostly level'], ['rough', 'Uneven, dusty, or wet'], ['industrial', 'Near machinery or electrical equipment']] },
+    { key: 'target', title: 'What is the main performance target?', hint: 'This will be called out as the project success criterion.', options: targets[project.id] },
+    { key: 'sizeLoad', title: 'How large or heavy should it be?', hint: 'Choose a rough packaging or payload envelope.', options: [['compact', 'Compact and lightweight'], ['small-load', 'Carry up to about 500 g'], ['medium-load', 'Carry about 0.5–2 kg'], ['larger', 'Larger payload or bench-mounted system']] },
+    { key: 'budget', title: 'Set the maximum parts budget', hint: 'Live prices may be missing; the report will mark those BOM rows as TBD.', options: [['low', 'Under ₹5,000'], ['mid', '₹5,000–₹15,000'], ['high', '₹15,000–₹40,000'], ['very-high', 'Above ₹40,000']] },
+    { key: 'fabrication', title: 'How will you make the structure?', hint: 'This determines whether CAD drawings or custom mounting parts are needed.', options: [['kit', 'Use an off-the-shelf kit / enclosure'], ['hand', 'Hand tools and basic workshop'], ['laser', 'Laser-cut plates or sheet material'], ['3d', 'CAD and 3D printing']] },
+    { key: 'power', title: 'What power source should it use?', hint: 'Choose the intended source for the prototype.', options: [['battery', 'Rechargeable battery'], ['mains', 'Mains adapter / bench supply'], ['solar', 'Solar-assisted power'], ['host', 'Powered by an existing system']] }
+  ];
+}
+
+function startProjectSpecifications() {
+  projectFitState.specStep = 0;
+  projectFitState.specAnswers = {};
+  projectFitState.report = null;
+  renderProjectSpecQuestion();
+  showFitStage('fitSpecScreen');
+}
+
+function renderProjectSpecQuestion() {
+  const project = projectFitState.recommendations.find(item => item.id === projectFitState.selectedId);
+  const questions = projectSpecQuestionsFor(project);
+  const question = questions[projectFitState.specStep];
+  document.getElementById('fitSpecCount').textContent = `PROJECT SPEC ${projectFitState.specStep + 1} OF ${questions.length}`;
+  document.getElementById('fitSpecProgress').style.width = `${((projectFitState.specStep + 1) / questions.length) * 100}%`;
+  document.getElementById('fitSpecBack').setAttribute('aria-label', projectFitState.specStep > 0 ? 'Go to previous specification question' : 'Go back to project choices');
+  document.getElementById('fitSpecProjectName').textContent = project.name.toUpperCase();
+  document.getElementById('fitSpecQuestion').textContent = question.title;
+  document.getElementById('fitSpecHint').textContent = question.hint;
+  document.getElementById('fitSpecOptions').innerHTML = question.options.map(([value, label]) => `
+    <button class="fit-survey-option ${projectFitState.specAnswers[question.key] === value ? 'is-selected' : ''}" type="button" role="radio" aria-checked="${projectFitState.specAnswers[question.key] === value}" data-fit-spec="${esc(value)}"><span class="fit-option-mark" aria-hidden="true"></span><span>${esc(label)}</span></button>
+  `).join('');
+  document.querySelectorAll('[data-fit-spec]').forEach(button => button.addEventListener('click', () => {
+    projectFitState.specAnswers[question.key] = button.dataset.fitSpec;
+    renderProjectSpecQuestion();
+  }));
+  document.getElementById('fitSpecNext').disabled = !projectFitState.specAnswers[question.key];
+  document.getElementById('fitSpecNext').innerHTML = projectFitState.specStep === questions.length - 1 ? 'Generate engineering report <span>→</span>' : 'Next <span>→</span>';
+}
+
+function finishProjectSpecQuestion(skipped = false) {
+  const project = projectFitState.recommendations.find(item => item.id === projectFitState.selectedId);
+  const questions = projectSpecQuestionsFor(project);
+  const question = questions[projectFitState.specStep];
+  if (skipped) projectFitState.specAnswers[question.key] = null;
+  else if (!projectFitState.specAnswers[question.key]) return;
+  if (projectFitState.specStep < questions.length - 1) {
+    projectFitState.specStep += 1;
+    renderProjectSpecQuestion();
+    return;
+  }
+  generateProjectReport();
+}
+
+async function generateProjectReport() {
+  const selected = projectFitState.recommendations.find(item => item.id === projectFitState.selectedId);
+  showFitStage('fitReportScreen');
+  document.getElementById('fitReportLoading').classList.remove('hidden');
+  document.getElementById('fitReportError').classList.add('hidden');
+  document.getElementById('fitReportOutput').classList.add('hidden');
+  document.getElementById('fitReportActions').classList.add('hidden');
+  document.getElementById('fitSourceBadge').textContent = 'PREPARING';
+  document.getElementById('fitReportLoadingText').textContent = state.meta?.tinyfish_configured ? 'Searching vendors and verifying available prices with TinyFish…' : 'Preparing a catalog-based report; TinyFish is not configured in this session…';
+  try {
+    const report = await api('/api/project/report', { method: 'POST', body: JSON.stringify({ project_id: selected.id, project_answers: projectFitState.specAnswers, survey_answers: projectFitState.answers }) });
+    projectFitState.report = report;
+    renderProjectReport(report);
+  } catch (error) {
+    document.getElementById('fitReportLoading').classList.add('hidden');
+    const errorBox = document.getElementById('fitReportError');
+    errorBox.innerHTML = `<p>${esc(error.message)}</p><button id="fitRetryReport" class="fit-primary" type="button">Retry sourcing <span>↻</span></button>`;
+    errorBox.classList.remove('hidden');
+    document.getElementById('fitRetryReport').addEventListener('click', generateProjectReport);
+  }
+}
+
+function buildRecommendationScores(values) {
+  const years = Number(values.year || 2);
+  const budgetIndex = { low: 1, mid: 2, high: 3, 'very-high': 4 }[values.budget] || 2;
+  const timelineWeeks = Number(values.timeline || 12);
+
+  return projectRobotIdeas.map(robot => {
+    let relevance = 4;
+    relevance += values.domain && robot.domains.includes(values.domain) ? 3 : 0;
+    relevance += values.platform && robot.hardware.includes(values.platform) ? 2 : 0;
+    relevance += values.software && robot.software.includes(values.software) ? 1 : 0;
+    relevance += values.environment && robot.environments.includes(values.environment) ? 1 : 0;
+    relevance += values.availability === 'local' && ['mobile-robot', 'iot-system', 'assistive-device'].includes(robot.id) ? 1 : 0;
+    relevance += values.evaluationFocus === 'demo' && robot.projectTypes.includes('mini') ? 1 : 0;
+    relevance += values.evaluationFocus === 'research' && robot.scope >= 8 ? 1 : 0;
+    relevance += values.projectType === 'capstone' && robot.scope >= 8 ? 1 : 0;
+    relevance += values.degree === 'cs' && ['vision-robot', 'iot-system'].includes(robot.id) ? 1 : 0;
+    relevance += ['electrical', 'mechatronics'].includes(values.degree) && robot.domain === 'ev' ? 2 : 0;
+    relevance += values.degree === 'mechanical' && robot.domain === 'autonomous' ? 1 : 0;
+    relevance -= values.environment === 'water' && !['uav-platform', 'mobile-robot'].includes(robot.id) ? 1 : 0;
+
+    const fabricationAdjustment = values.fabrication === 'none' ? 0 : values.fabrication === 'basic' ? 1 : values.fabrication ? 2 : 0;
+    const readiness = 2 + years + fabricationAdjustment + (['small', 'large'].includes(values.teamSize) ? 1 : 0);
+    const difficulty = clamp(Math.round(11 - Math.abs(robot.difficulty - readiness) * 1.4), 2, 10);
+    const timeFit = clamp(Math.round(Math.min(10, timelineWeeks / robot.weeks * 10)), 1, 10);
+    const budgetFits = !values.budget || budgetIndex >= robot.budgetTier;
+    const projectTypeFit = !values.projectType ? 0 : robot.projectTypes.includes(values.projectType) ? 2 : -1;
+    const scopeFit = clamp(5 + projectTypeFit + (values.teamSize === 'solo' && robot.scope > 8 ? -2 : 0) + (values.projectType === 'research' && robot.scope >= 8 ? 2 : 0) + (budgetFits ? 1 : -2), 1, 10);
+    const relevanceScore = clamp(relevance, 1, 10);
+    const budgetPenalty = values.budget ? Math.max(0, robot.budgetTier - budgetIndex) * 0.8 : 0;
+    const fit = relevanceScore * 0.4 + difficulty * 0.2 + timeFit * 0.25 + scopeFit * 0.15 - budgetPenalty;
+    const reasons = [];
+    if (values.domain && robot.domains.includes(values.domain)) reasons.push('matches your interest area');
+    if (values.platform && robot.hardware.includes(values.platform)) reasons.push(`works with your ${values.platform === 'pi' ? 'Raspberry Pi' : values.platform.toUpperCase()} preference`);
+    if (values.timeline && timeFit >= 7) reasons.push('fits the time you have');
+    if (values.projectType && scopeFit >= 7) reasons.push('has the right depth for your project type');
+
+    return { ...robot, relevance: relevanceScore, difficulty, timeFit, scopeFit, fit, reason: reasons.slice(0, 2).join(' and ') || 'offers a balanced match for your constraints' };
+  }).sort((a, b) => b.fit - a.fit).slice(0, 3);
+}
+
+function radarChart(item) {
+  const values = [item.relevance, item.difficulty, item.timeFit, item.scopeFit];
+  const centerX = 100;
+  const centerY = 88;
+  const radius = 57;
+  const axes = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const pointsFor = scale => axes.map(([x, y]) => `${centerX + x * radius * scale},${centerY + y * radius * scale}`).join(' ');
+  const resultPoints = values.map((value, index) => `${centerX + axes[index][0] * radius * value / 10},${centerY + axes[index][1] * radius * value / 10}`).join(' ');
+  return `<svg class="radar-chart" viewBox="0 0 200 176" role="img" aria-label="Four-factor scores: relevance ${values[0]}, difficulty fit ${values[1]}, time fit ${values[2]}, project scope ${values[3]} out of 10">
+    <polygon class="radar-grid" points="${pointsFor(1)}"></polygon><polygon class="radar-grid" points="${pointsFor(.75)}"></polygon><polygon class="radar-grid" points="${pointsFor(.5)}"></polygon><polygon class="radar-grid" points="${pointsFor(.25)}"></polygon>
+    <line class="radar-axis" x1="100" y1="88" x2="100" y2="31"></line><line class="radar-axis" x1="100" y1="88" x2="157" y2="88"></line><line class="radar-axis" x1="100" y1="88" x2="100" y2="145"></line><line class="radar-axis" x1="100" y1="88" x2="43" y2="88"></line>
+    <polygon class="radar-area" points="${resultPoints}"></polygon>
+    ${values.map((value, index) => `<circle class="radar-point" cx="${centerX + axes[index][0] * radius * value / 10}" cy="${centerY + axes[index][1] * radius * value / 10}" r="3"></circle>`).join('')}
+  </svg>`;
+}
+
+function renderProjectReport(report) {
+  const output = document.getElementById('fitReportOutput');
+  const sourceBadge = document.getElementById('fitSourceBadge');
+  const priceText = value => value == null ? 'TBD' : money(value);
+  const sourceLinks = (row) => (row.sources || []).map(source => `
+    <div class="report-source"><a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.vendor || source.domain)} ↗</a>${source.title ? `<small>${esc(source.title)}</small>` : ''}<span>${source.source_type === 'tinyfish_search' ? 'TinyFish product result' : 'Vendor search page · not a product result'}</span><span>${source.price == null ? 'Price unverified' : `${money(source.price)} · ${esc(source.method || 'quote verified')}`}</span>${source.quote ? `<small>“${esc(source.quote)}”</small>` : ''}${source.error ? `<small>${esc(source.error)}</small>` : ''}</div>
+  `).join('') || '<span class="report-no-source">No live listing found for this line.</span>';
+  sourceBadge.textContent = report.sourcing.status === 'live' ? `TINYFISH · ${report.sourcing.verified_price_count} VERIFIED PRICES` : report.sourcing.status === 'partial' ? 'TINYFISH · PARTIAL' : 'NO LIVE SOURCES';
+  sourceBadge.className = `fit-source-badge ${report.sourcing.status === 'live' ? 'is-live' : ''}`;
+  output.innerHTML = `
+    <section class="fit-report-project"><div><span>SELECTED PROJECT</span><h2>${esc(report.project.name)}</h2><p>${esc(report.project.focus)}</p></div><span class="fit-report-date">${esc(report.generated_at || '')}</span></section>
+    <section class="fit-report-section"><h2>Project specifications</h2><div class="fit-report-spec-grid">${report.requirements.map(item => `<div><small>${esc(item.label)}</small><b>${esc(item.value || 'Not specified')}</b></div>`).join('')}</div></section>
+    <section class="fit-report-section"><div class="fit-report-section-head"><div><span class="fit-report-kicker">PROCUREMENT PLAN</span><h2>Bill of materials</h2></div><span class="fit-report-total">${report.verified_total_inr == null ? 'Partial total' : `Verified subtotal ${money(report.verified_total_inr)}`}</span></div>
+      <div class="fit-report-table-wrap"><table class="fit-report-table"><thead><tr><th>Component</th><th>Qty</th><th>Design requirement</th><th>Unit</th><th>Line</th><th>Stock</th><th>Live source evidence</th></tr></thead><tbody>${report.bom.map(row => `<tr><td><b>${esc(row.name)}</b><small>${esc(row.category)}</small></td><td>${esc(row.qty)}</td><td>${esc(row.requirements)}</td><td>${priceText(row.unit_price)}</td><td>${priceText(row.line_total)}</td><td>${row.in_stock === true ? 'In stock' : row.in_stock === false ? 'Out of stock' : 'Unknown'}</td><td>${sourceLinks(row)}</td></tr>`).join('')}</tbody></table></div>
+    </section>
+    <section class="fit-report-section"><div class="fit-report-section-head"><div><span class="fit-report-kicker">CONCEPTUAL CONNECTIONS</span><h2>Wiring plan</h2></div></div><p class="fit-report-note">${esc(report.wiring.note)}</p><div class="fit-report-table-wrap"><table class="fit-report-table"><thead><tr><th>From</th><th>To</th><th>Connection</th><th>Implementation note</th></tr></thead><tbody>${report.wiring.connections.map(row => `<tr><td>${esc(row.from)}</td><td>${esc(row.to)}</td><td>${esc(row.signal)}</td><td>${esc(row.notes)}</td></tr>`).join('')}</tbody></table></div></section>
+    <section class="fit-report-section fit-chassis-report"><div class="fit-report-section-head"><div><span class="fit-report-kicker">MECHANICAL PACKAGE</span><h2>Chassis & CAD</h2></div><span class="cad-status ${report.chassis.cad_needed ? 'cad-needed' : ''}">${report.chassis.cad_needed ? 'CAD NEEDED' : 'CAD OPTIONAL'}</span></div><p>${esc(report.chassis.recommendation)}</p><div class="fit-report-spec-grid"><div><small>STRUCTURE</small><b>${esc(report.chassis.structure)}</b></div><div><small>MATERIAL / FABRICATION</small><b>${esc(report.chassis.material)}</b></div><div><small>CAD DECISION</small><b>${esc(report.chassis.cad_reason)}</b></div><div><small>DRAWINGS / PARTS TO MODEL</small><b>${esc(report.chassis.cad_deliverables.join(', '))}</b></div></div></section>
+    <section class="fit-report-section fit-report-notes"><h2>Sourcing notes & checks</h2><p>${esc(report.sourcing.message)}</p>${report.warnings.length ? `<ul>${report.warnings.map(warning => `<li>${esc(warning)}</li>`).join('')}</ul>` : '<p>No additional project-specific warnings.</p>'}</section>`;
+  document.getElementById('fitReportLoading').classList.add('hidden');
+  document.getElementById('fitReportError').classList.add('hidden');
+  output.classList.remove('hidden');
+  document.getElementById('fitReportActions').classList.remove('hidden');
+}
+
+function downloadProjectReport() {
+  const report = projectFitState.report;
+  if (!report?.markdown) return;
+  const blob = new Blob([report.markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${report.project.id}_engineering_report.md`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderRecommendationCards(items, answers) {
+  const options = document.getElementById('fitProjectOptions');
+  options.innerHTML = items.map((item, index) => `
+    <button class="fit-project-option ${projectFitState.selectedId === item.id ? 'is-selected' : ''}" type="button" role="radio" aria-checked="${projectFitState.selectedId === item.id}" data-fit-project="${esc(item.id)}">
+      <span class="fit-project-top"><span>OPTION 0${index + 1} ${index === 0 ? '· TOP MATCH' : ''}</span><span class="fit-project-check" aria-hidden="true"></span></span>
+      <span class="fit-project-name">${esc(item.name)}</span>
+      <span class="fit-project-summary">${esc(item.summary)}</span>
+      <span class="fit-project-chart">${radarChart(item)}</span>
+      <span class="fit-project-meta"><span>${item.fit.toFixed(1)} / 10 match</span><span>${item.weeks} weeks · ${esc(item.budgetLabel)} budget</span></span>
+    </button>
+  `).join('');
+  options.querySelectorAll('[data-fit-project]').forEach(button => button.addEventListener('click', () => {
+    projectFitState.selectedId = button.dataset.fitProject;
+    renderRecommendationCards(items, answers);
+  }));
+  document.getElementById('fitSelectionContinue').disabled = !projectFitState.selectedId;
+}
+
+document.getElementById('fitBeginSurvey').addEventListener('click', startProjectFit);
+document.getElementById('fitSkipSurvey').addEventListener('click', () => enterWorkspace());
+document.getElementById('fitSurveyBack').addEventListener('click', () => {
+  if (projectFitState.step > 0) {
+    projectFitState.step -= 1;
+    renderProjectFitQuestion();
+  } else {
+    showFitStage('fitIntro');
+  }
+});
+document.getElementById('fitQuestionNext').addEventListener('click', () => finishProjectFitQuestion());
+document.getElementById('fitQuestionSkip').addEventListener('click', () => finishProjectFitQuestion(true));
+document.getElementById('fitSelectionBack').addEventListener('click', returnToSurvey);
+document.getElementById('fitSelectionContinue').addEventListener('click', startProjectSpecifications);
+document.getElementById('fitSpecBack').addEventListener('click', () => {
+  if (projectFitState.specStep > 0) {
+    projectFitState.specStep -= 1;
+    renderProjectSpecQuestion();
+  } else {
+    showFitStage('fitSelectionScreen');
+  }
+});
+document.getElementById('fitSpecNext').addEventListener('click', () => finishProjectSpecQuestion());
+document.getElementById('fitSpecSkip').addEventListener('click', () => finishProjectSpecQuestion(true));
+document.getElementById('fitReportBack').addEventListener('click', () => {
+  const project = projectFitState.recommendations.find(item => item.id === projectFitState.selectedId);
+  projectFitState.specStep = projectSpecQuestionsFor(project).length - 1;
+  renderProjectSpecQuestion();
+  showFitStage('fitSpecScreen');
+});
+document.getElementById('fitEditSpecifications').addEventListener('click', () => {
+  const project = projectFitState.recommendations.find(item => item.id === projectFitState.selectedId);
+  projectFitState.specStep = projectSpecQuestionsFor(project).length - 1;
+  renderProjectSpecQuestion();
+  showFitStage('fitSpecScreen');
+});
+document.getElementById('fitDownloadReport').addEventListener('click', downloadProjectReport);
 
 init();

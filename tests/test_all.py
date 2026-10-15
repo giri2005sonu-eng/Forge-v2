@@ -220,6 +220,23 @@ def test_refresh_survives_llm_failure():
     assert updated.price.value == 130 and any("extraction failed" in p for p in rep["problems"])
 
 
+def test_report_generation_supports_disabling_power_and_wiring():
+    from core.power import analyze_power
+    from core.wiring import generate_wiring_plan
+    from core.reporting.export import generate_markdown_report
+
+    ctx = Requirements().to_ctx(CFG)
+    sel = select_build(SEED, ctx, CFG, RULES)
+    build = sel.chosen
+    power = analyze_power(build, CFG)
+    wiring = generate_wiring_plan(build)
+
+    md = generate_markdown_report(build, Requirements(), CFG, SD, power=power, wiring=wiring,
+                                 include_power=False, include_wiring=False)
+    assert "Power & Battery Discharge Analysis" not in md
+    assert "Pinout & Interconnect Wiring Guide" not in md
+
+
 def test_discover_creates_scraped_part_that_validates():
     parts, rep = discover_parts("driver", "q", FakeTF({"https://robu.in/l298n": PAGE}), lambda p, s: _good_raw(), SD, ["robu.in"])
     assert len(parts) == 1

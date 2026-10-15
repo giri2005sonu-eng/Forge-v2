@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv, io, os, json
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +23,7 @@ from core.live import discover_parts, import_part_from_url, refresh_part
 from core.llm import DEFAULT_MODEL, GeminiClient, LLMError
 from core.parser import heuristic_parse, parse_requirements
 from core.power import analyze_power
+from core.project_report import generate_project_report
 from core.rules import load_rules
 from core.schemas import Part, Requirements
 from core.sourcing import ApplyError, apply_price, check_prices, clear_cache, find_sources
@@ -80,6 +81,11 @@ class ApplyPriceRequest(BaseModel):
 
 class SwapRequest(BaseModel):
     part_ids: dict[str, str]
+
+class ProjectReportRequest(BaseModel):
+    project_id: Literal['mobile-robot', 'iot-system', 'vision-robot', 'assistive-device', 'uav-platform', 'ev-power']
+    project_answers: dict[str, str | None] = Field(default_factory=dict)
+    survey_answers: dict[str, str | None] = Field(default_factory=dict)
 
 
 def _llm():
@@ -237,6 +243,15 @@ def live_discover(body: DiscoverRequest):
         return {'items':[_part(p) for p in found], 'report':report}
     except (TinyFishError,LLMError) as e: raise HTTPException(502,str(e))
 
+@app.post('/api/project/report')
+def project_report(body: ProjectReportRequest):
+    llm = _llm()
+    try:
+        return generate_project_report(body.project_id, body.project_answers, body.survey_answers,
+                                       _tf(), llm.json if llm else None, SPEC_DEFS, CONFIG['allowed_vendor_domains'])
+    except Exception as e:
+        raise HTTPException(500, f'Project report generation failed: {e}')
+
 @app.post('/api/live/import-url')
 def live_import(body: ImportUrlRequest):
     if not (_runtime_keys['gemini'] and _runtime_keys['tinyfish']): raise HTTPException(400,'Configure both Gemini and TinyFish API keys in Settings first.')
@@ -282,7 +297,7 @@ def tests():
     return {'passed':sum(1 for r in results if r['ok']),'total':len(results),'items':results}
 
 @app.get('/api/export/{kind}')
-def export(kind: str):
+def export(kind: str, include_power: bool = True, include_wiring: bool = True):
     b=_active.get('build'); req=_active.get('requirements'); ctx=_active.get('ctx')
     if not b or not req: raise HTTPException(409,'Build a BOM before exporting reports.')
     if kind=='bom.csv':
@@ -290,10 +305,15 @@ def export(kind: str):
     elif kind=='ledger.csv':
         content=ledger_table(b,SPEC_DEFS).to_csv(index=False); media='text/csv'; filename='evidence_ledger.csv'
     elif kind=='report.md':
-        power=analyze_power(b,CONFIG); wiring=generate_wiring_plan(b)
-        content=generate_markdown_report(b,req,CONFIG,SPEC_DEFS,power,wiring); media='text/markdown'; filename='robot_report.md'
+        power=analyze_power(b,CONFIG) if include_power else None
+        wiring=generate_wiring_plan(b) if include_wiring else None
+        content=generate_markdown_report(b,req,CONFIG,SPEC_DEFS,power,wiring,
+                                        include_power=include_power, include_wiring=include_wiring)
+        media='text/markdown'; filename='robot_report.md'
     elif kind=='report.html':
-        content=generate_html_report(b,req,CONFIG,SPEC_DEFS); media='text/html'; filename='robot_report.html'
+        content=generate_html_report(b,req,CONFIG,SPEC_DEFS,
+                                    include_power=include_power, include_wiring=include_wiring)
+        media='text/html'; filename='robot_report.html'
     else: raise HTTPException(404,'Unknown export format')
     return Response(content=content,media_type=media,headers={'Content-Disposition':f'attachment; filename="{filename}"'})
 
