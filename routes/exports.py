@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/export", tags=["Exports"])
 
 
 @router.get("/{kind}")
-def export(kind: str):
+def export(kind: str, include_power: bool = True, include_wiring: bool = True):
     state = get_state()
     b = state.active.get("build")
     req = state.active.get("requirements")
@@ -31,11 +31,15 @@ def export(kind: str):
     elif kind == "report.md":
         power = analyze_power(b, state.config)
         wiring = generate_wiring_plan(b)
-        content = generate_markdown_report(b, req, state.config, state.spec_defs, power, wiring)
+        content = generate_markdown_report(b, req, state.config, state.spec_defs, power, wiring,
+                                          include_power=include_power, include_wiring=include_wiring)
         media = "text/markdown"
         filename = "robot_report.md"
     elif kind == "report.html":
-        content = generate_html_report(b, req, state.config, state.spec_defs)
+        power = analyze_power(b, state.config)
+        wiring = generate_wiring_plan(b)
+        content = generate_html_report(b, req, state.config, state.spec_defs, power, wiring,
+                                      include_power=include_power, include_wiring=include_wiring)
         media = "text/html"
         filename = "robot_report.html"
     else:

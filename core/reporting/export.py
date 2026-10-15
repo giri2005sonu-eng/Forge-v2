@@ -11,7 +11,8 @@ from core.wiring import WiringPlan, generate_wiring_plan
 
 
 def generate_markdown_report(build: Build, req: Requirements, config: dict, spec_defs: dict,
-                             power: Optional[PowerAnalysis] = None, wiring: Optional[WiringPlan] = None) -> str:
+                             power: Optional[PowerAnalysis] = None, wiring: Optional[WiringPlan] = None,
+                             include_power: bool = True, include_wiring: bool = True) -> str:
     if power is None:
         power = analyze_power(build, config)
     if wiring is None:
@@ -74,7 +75,7 @@ def generate_markdown_report(build: Build, req: Requirements, config: dict, spec
         ev_str = "; ".join(f"{e.field}={e.value}{(' ' + e.unit) if e.unit else ''}" for e in c.evidence) or "None"
         lines.append(f"| {icon} | {c.category.title()} | {c.title} | {c.message} | {ev_str} |")
 
-    if power:
+    if include_power and power:
         lines.extend([
             "",
             "---",
@@ -89,7 +90,7 @@ def generate_markdown_report(build: Build, req: Requirements, config: dict, spec
             f"- **Driver Power Dissipation:** {power.driver_thermal_loss_w:.2f} W ({'Needs heatsink' if power.thermal_warning else 'Acceptable passive cooling'})",
         ])
 
-    if wiring:
+    if include_wiring and wiring:
         lines.extend([
             "",
             "---",
@@ -123,8 +124,11 @@ def generate_markdown_report(build: Build, req: Requirements, config: dict, spec
     return "\n".join(lines)
 
 
-def generate_html_report(build: Build, req: Requirements, config: dict, spec_defs: dict) -> str:
-    md = generate_markdown_report(build, req, config, spec_defs)
+def generate_html_report(build: Build, req: Requirements, config: dict, spec_defs: dict,
+                        power: Optional[PowerAnalysis] = None, wiring: Optional[WiringPlan] = None,
+                        include_power: bool = True, include_wiring: bool = True) -> str:
+    md = generate_markdown_report(build, req, config, spec_defs, power=power, wiring=wiring,
+                                 include_power=include_power, include_wiring=include_wiring)
     # Simple, standalone HTML generator with responsive CSS styling
     html_lines = [
         "<!DOCTYPE html>",
