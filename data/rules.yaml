@@ -1,0 +1,146 @@
+# Validator rules as DATA. Each rule: needs (inputs), check (formula), messages.
+# Status logic: any needed value missing -> UNKNOWN (never guessed); else check true -> PASS, false -> FAIL.
+# Refs: <role>.<spec>  (role = controller|driver|motor|battery|sensor|chassis), req.<field>, derived.<field>
+rules:
+  # ---------------- POWER ----------------
+  - id: batt_driver_min
+    title: "Battery voltage >= driver minimum supply"
+    category: power
+    needs: [battery.nominal_v, driver.motor_supply_min_v]
+    check: "battery.nominal_v >= driver.motor_supply_min_v"
+    pass_msg: "Battery {battery.nominal_v} V meets {driver.name} minimum supply of {driver.motor_supply_min_v} V"
+    fail_msg: "Battery {battery.nominal_v} V is below {driver.name} minimum motor supply of {driver.motor_supply_min_v} V"
+
+  - id: batt_driver_max
+    title: "Battery full-charge voltage <= driver maximum supply"
+    category: power
+    needs: [battery.max_v, driver.motor_supply_max_v]
+    check: "battery.max_v <= driver.motor_supply_max_v"
+    pass_msg: "Fully charged battery ({battery.max_v} V) is within {driver.name} limit of {driver.motor_supply_max_v} V"
+    fail_msg: "Fully charged battery ({battery.max_v} V) exceeds {driver.name} maximum supply of {driver.motor_supply_max_v} V"
+
+  - id: motor_min_v
+    title: "Voltage left after driver drop >= motor minimum"
+    category: power
+    needs: [derived.motor_supply_nominal_v, motor.min_voltage_v, driver.voltage_drop_v, battery.nominal_v]
+    check: "derived.motor_supply_nominal_v >= motor.min_voltage_v"
+    pass_msg: "Motors get about {derived.motor_supply_nominal_v} V (battery {battery.nominal_v} V minus {driver.voltage_drop_v} V driver drop); needs at least {motor.min_voltage_v} V"
+    fail_msg: "Driver drops about {driver.voltage_drop_v} V, so {battery.nominal_v} V battery leaves only {derived.motor_supply_nominal_v} V at the motors (they need at least {motor.min_voltage_v} V)"
+
+  - id: motor_max_v
+    title: "Voltage at motors when fully charged <= motor maximum"
+    category: power
+    needs: [derived.motor_supply_max_v, motor.max_voltage_v, driver.voltage_drop_v, battery.max_v]
+    check: "derived.motor_supply_max_v <= motor.max_voltage_v"
+    pass_msg: "Motors see at most {derived.motor_supply_max_v} V; their maximum is {motor.max_voltage_v} V"
+    fail_msg: "Motors would see up to {derived.motor_supply_max_v} V (battery {battery.max_v} V minus {driver.voltage_drop_v} V drop) but {motor.name} is rated max {motor.max_voltage_v} V"
+
+  - id: ctrl_vin_min
+    title: "Battery voltage >= controller VIN minimum"
+    category: power
+    needs: [battery.nominal_v, controller.vin_min_v]
+    check: "battery.nominal_v >= controller.vin_min_v"
+    pass_msg: "Battery {battery.nominal_v} V meets {controller.name} VIN minimum of {controller.vin_min_v} V"
+    fail_msg: "Battery {battery.nominal_v} V is below {controller.name} VIN minimum of {controller.vin_min_v} V (needs a boost converter)"
+
+  - id: ctrl_vin_max
+    title: "Battery full-charge voltage <= controller VIN maximum"
+    category: power
+    needs: [battery.max_v, controller.vin_max_v]
+    check: "battery.max_v <= controller.vin_max_v"
+    pass_msg: "Fully charged battery ({battery.max_v} V) is within {controller.name} VIN maximum of {controller.vin_max_v} V"
+    fail_msg: "Fully charged battery ({battery.max_v} V) exceeds {controller.name} VIN maximum of {controller.vin_max_v} V"
+
+  # ---------------- CURRENT ----------------
+  - id: driver_stall
+    title: "Motor stall current <= driver current rating"
+    category: current
+    needs: [motor.stall_current_a, driver.max_continuous_current_a]
+    check: "driver.max_continuous_current_a >= motor.stall_current_a"
+    pass_msg: "{driver.name} ({driver.max_continuous_current_a} A per channel) covers {motor.name} stall current of {motor.stall_current_a} A"
+    fail_msg: "{driver.name} is rated {driver.max_continuous_current_a} A per channel but {motor.name} stalls at {motor.stall_current_a} A"
+
+  - id: driver_channels
+    title: "Driver has enough motor channels"
+    category: current
+    needs: [driver.channels, req.motor_count]
+    check: "driver.channels >= req.motor_count"
+    pass_msg: "{driver.name} has {driver.channels} channels for {req.motor_count} motors"
+    fail_msg: "{driver.name} has only {driver.channels} channels but {req.motor_count} motors are needed"
+
+  - id: batt_peak
+    title: "Battery can supply worst-case (all motors stalled) current"
+    category: current
+    needs: [battery.max_discharge_current_a, derived.peak_current_a]
+    check: "battery.max_discharge_current_a >= derived.peak_current_a"
+    pass_msg: "Battery can deliver {battery.max_discharge_current_a} A; worst-case draw is {derived.peak_current_a} A"
+    fail_msg: "Worst-case draw is {derived.peak_current_a} A but {battery.name} can only deliver {battery.max_discharge_current_a} A"
+
+  - id: batt_runtime
+    title: "Estimated runtime >= requested minimum"
+    category: current
+    needs: [derived.runtime_h, req.min_runtime_h]
+    check: "derived.runtime_h >= req.min_runtime_h"
+    pass_msg: "Estimated runtime {derived.runtime_h} h meets the {req.min_runtime_h} h target"
+    fail_msg: "Estimated runtime {derived.runtime_h} h is below the {req.min_runtime_h} h target"
+
+  # ---------------- LOGIC LEVEL ----------------
+  - id: logic_high
+    title: "Controller HIGH level is recognised by driver"
+    category: logic
+    needs: [controller.logic_voltage_v, driver.logic_high_min_v]
+    check: "controller.logic_voltage_v >= driver.logic_high_min_v"
+    pass_msg: "{controller.name} outputs {controller.logic_voltage_v} V; {driver.name} needs at least {driver.logic_high_min_v} V for HIGH"
+    fail_msg: "{controller.name} outputs only {controller.logic_voltage_v} V but {driver.name} needs {driver.logic_high_min_v} V for HIGH"
+
+  - id: logic_max
+    title: "Controller logic level <= driver input maximum"
+    category: logic
+    needs: [controller.logic_voltage_v, driver.logic_input_max_v]
+    check: "controller.logic_voltage_v <= driver.logic_input_max_v"
+    pass_msg: "{controller.logic_voltage_v} V logic is within {driver.name} input limit of {driver.logic_input_max_v} V"
+    fail_msg: "{controller.logic_voltage_v} V logic exceeds {driver.name} input limit of {driver.logic_input_max_v} V"
+
+  - id: sensor_supply
+    title: "Sensor works at controller logic voltage"
+    category: logic
+    needs: [sensor.min_supply_v, controller.logic_voltage_v, sensor.max_supply_v]
+    check: "sensor.min_supply_v <= controller.logic_voltage_v <= sensor.max_supply_v"
+    pass_msg: "{sensor.name} runs on {sensor.min_supply_v}-{sensor.max_supply_v} V, compatible with {controller.logic_voltage_v} V logic"
+    fail_msg: "{sensor.name} needs {sensor.min_supply_v}-{sensor.max_supply_v} V but {controller.name} logic is {controller.logic_voltage_v} V (level shifting or a different sensor needed)"
+
+  # ---------------- INTERFACE ----------------
+  - id: pins_digital
+    title: "Controller has enough I/O pins"
+    category: interface
+    needs: [controller.digital_io_pins, derived.pins_required]
+    check: "controller.digital_io_pins >= derived.pins_required"
+    pass_msg: "{controller.name} has {controller.digital_io_pins} I/O pins; build needs {derived.pins_required}"
+    fail_msg: "Build needs {derived.pins_required} I/O pins but {controller.name} has only {controller.digital_io_pins}"
+
+  - id: pins_pwm
+    title: "Controller has enough PWM pins"
+    category: interface
+    needs: [controller.pwm_pins, derived.pwm_required]
+    check: "controller.pwm_pins >= derived.pwm_required"
+    pass_msg: "{controller.name} has {controller.pwm_pins} PWM pins; build needs {derived.pwm_required}"
+    fail_msg: "Build needs {derived.pwm_required} PWM pins but {controller.name} has only {controller.pwm_pins}"
+
+  # ---------------- FEATURE ----------------
+  - id: feature_bt
+    title: "Bluetooth requirement"
+    category: feature
+    when: "req.needs_bluetooth"
+    needs: [controller.bluetooth]
+    check: "controller.bluetooth == True"
+    pass_msg: "{controller.name} has built-in Bluetooth"
+    fail_msg: "Bluetooth was requested but {controller.name} has no built-in Bluetooth"
+
+  # ---------------- MECHANICAL ----------------
+  - id: chassis_motor
+    title: "Chassis fits the motor type"
+    category: mechanical
+    needs: [chassis.motor_type, motor.motor_type]
+    check: "chassis.motor_type == motor.motor_type"
+    pass_msg: "{chassis.name} mounts {chassis.motor_type} motors, matching {motor.name}"
+    fail_msg: "{chassis.name} mounts {chassis.motor_type} motors but {motor.name} is {motor.motor_type}"

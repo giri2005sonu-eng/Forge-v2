@@ -1,0 +1,41 @@
+[
+  {"name": "Known-good line follower (Nano + L298N + N20 + 2S + 5ch array)",
+   "req": {"robot_type": "line_follower", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": false, "sensor_channels": 5, "budget_inr": 3000},
+   "parts": {"controller": "ctrl_nano", "driver": "drv_l298n", "motor": "mot_n20_100", "battery": "bat_2s", "sensor": "sen_line5", "chassis": "chs_n20"},
+   "expect_status": "verified", "expect_fail": [], "expect_unknown": []},
+
+  {"name": "L298N on a single 3.7V cell (voltage drop story)",
+   "req": {"robot_type": "line_follower", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": false, "sensor_channels": 5, "budget_inr": 3000},
+   "parts": {"controller": "ctrl_esp32", "driver": "drv_l298n", "motor": "mot_n20_100", "battery": "bat_1s", "sensor": "sen_line5", "chassis": "chs_n20"},
+   "expect_status": "invalid", "expect_fail": ["batt_driver_min", "ctrl_vin_min", "motor_min_v"], "expect_unknown": []},
+
+  {"name": "Under-rated driver for TT motors on a 2S pack",
+   "req": {"robot_type": "line_follower", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": false, "sensor_channels": 5, "budget_inr": 3000},
+   "parts": {"controller": "ctrl_nano", "driver": "drv_tb6612", "motor": "mot_tt", "battery": "bat_2s", "sensor": "sen_line5", "chassis": "chs_tt"},
+   "expect_status": "invalid", "expect_fail": ["driver_stall", "motor_max_v"], "expect_unknown": []},
+
+  {"name": "3.3V ESP32 with 5V-only ultrasonic sensor",
+   "req": {"robot_type": "obstacle_avoider", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": false, "sensor_channels": 1, "budget_inr": 3500},
+   "parts": {"controller": "ctrl_esp32", "driver": "drv_tb6612", "motor": "mot_n20_100", "battery": "bat_2s", "sensor": "sen_hcsr04", "chassis": "chs_n20"},
+   "expect_status": "invalid", "expect_fail": ["sensor_supply"], "expect_unknown": []},
+
+  {"name": "Bluetooth requested but Arduino Uno chosen",
+   "req": {"robot_type": "line_follower", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": true, "sensor_channels": 5, "budget_inr": 3000},
+   "parts": {"controller": "ctrl_uno", "driver": "drv_drv8833", "motor": "mot_n20_100", "battery": "bat_2s", "sensor": "sen_line5", "chassis": "chs_n20"},
+   "expect_status": "invalid", "expect_fail": ["feature_bt"], "expect_unknown": []},
+
+  {"name": "Battery cannot supply worst-case current (6xAA alkaline)",
+   "req": {"robot_type": "line_follower", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": false, "sensor_channels": 5, "budget_inr": 3000},
+   "parts": {"controller": "ctrl_nano", "driver": "drv_l298n", "motor": "mot_n20_100", "battery": "bat_6aa", "sensor": "sen_line5", "chassis": "chs_n20"},
+   "expect_status": "invalid", "expect_fail": ["batt_peak"], "expect_unknown": []},
+
+  {"name": "Motor stall current not listed -> UNKNOWN, not guessed",
+   "req": {"robot_type": "line_follower", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": false, "sensor_channels": 5, "budget_inr": 3000},
+   "parts": {"controller": "ctrl_nano", "driver": "drv_l298n", "motor": "mot_n20_unknown", "battery": "bat_2s", "sensor": "sen_line5", "chassis": "chs_n20"},
+   "expect_status": "unverified", "expect_fail": [], "expect_unknown": ["batt_peak", "batt_runtime", "driver_stall"]},
+
+  {"name": "Chassis does not fit motor type",
+   "req": {"robot_type": "line_follower", "motor_count": 2, "min_runtime_h": 1.0, "needs_bluetooth": false, "sensor_channels": 5, "budget_inr": 3000},
+   "parts": {"controller": "ctrl_nano", "driver": "drv_l298n", "motor": "mot_n20_100", "battery": "bat_2s", "sensor": "sen_line5", "chassis": "chs_tt"},
+   "expect_status": "invalid", "expect_fail": ["chassis_motor"], "expect_unknown": []}
+]
