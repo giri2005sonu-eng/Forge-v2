@@ -1,0 +1,242 @@
+================================================================================
+BUILDERBOT — PROJECT OVERVIEW, ROADMAP & PIPELINE ARCHITECTURE
+================================================================================
+
+TABLE OF CONTENTS:
+1. Current Features (In Short)
+2. Next Recommended Major Changes
+3. Next Recommended Minor Changes
+4. Pipeline & File Organization Strategy (For Maximum Cleanliness & Presentation)
+
+================================================================================
+1. CURRENT FEATURES (IN SHORT)
+================================================================================
+
+BuilderBot is an engineering-first robot design and Bill of Materials (BOM)
+optimization agent built with FastAPI (backend) and vanilla HTML/CSS/JS (frontend).
+
+* Natural Language Requirement Parsing:
+  - Extracts robot type, budget (INR), motor count, runtime, Bluetooth, and sensor
+    channel constraints from natural language descriptions.
+  - Supports Google Gemini LLM extraction with an offline heuristic fallback parser.
+
+* Cost-Ordered BOM Selection:
+  - Iterates through catalog candidates to produce the lowest-cost configuration
+    satisfying user constraints and vendor shipping estimates.
+
+* Deterministic Compatibility Engine:
+  - Validates components against a formal rule graph (`rules.yaml`, `spec_defs.yaml`).
+  - Classifies checks into explicit PASS, FAIL, or UNKNOWN states; never assumes
+    unspecified tolerances.
+
+* Power & Battery Discharge Modeling:
+  - Calculates total continuous/peak current draw, battery C-rate margins, estimated
+    run-time under load, and motor driver thermal safety headroom.
+
+* Wiring & Interconnect Synthesis:
+  - Synthesizes pin-to-pin connections, voltage rail distribution, level-shifting
+    requirements, and dynamically generates Mermaid.js circuit diagrams.
+
+* Live Parts Sourcing & Quote Verification:
+  - Integrates TinyFish web search and Gemini extraction to discover vendor stock and
+    real-time prices across Indian electronics retailers.
+  - Verifies quotes against verbatim page text to eliminate hallucinations.
+
+* Multi-Format Engineering Exports:
+  - One-click downloads for BOM CSV, Traceability Ledger CSV, Markdown engineering
+    reports, and self-contained HTML reports with embedded styling.
+
+* Test & Simulation Suite:
+  - Comprehensive offline test suite (`tests/`) testing regression cases, sourcing logic,
+    and mechanical/electrical compatibility without needing external APIs.
+
+================================================================================
+2. NEXT RECOMMENDED MAJOR CHANGES
+================================================================================
+
+[MAJOR 1] Database Persistence & Multi-Session Isolation
+-------------------------------------------------------
+- Current State: Active build state and API keys are stored in single-process memory
+  (`_active` dict in `app.py`). Concurrent users overwrite each other's sessions.
+- Recommendation: Introduce SQLite (for local dev) or PostgreSQL with SQLAlchemy /
+  SQLModel. Add user session tracking, saved builds/projects history, and versioning.
+
+[MAJOR 2] Asynchronous Task Worker for Sourcing & LLM Ingestion
+---------------------------------------------------------------
+- Current State: Live sourcing (`TinyFish` crawling + `Gemini` extraction) runs
+  synchronously within HTTP requests, risking 504 gateway timeouts on slow stores.
+- Recommendation: Offload scraping, multi-store pricing, and bulk LLM operations to a
+  background queue (Celery, ARQ, or FastAPI BackgroundTasks with Redis). Push live
+  progress updates to the frontend via WebSockets or Server-Sent Events (SSE).
+
+[MAJOR 3] Authentication, Team Workspaces & Secure Vault
+--------------------------------------------------------
+- Current State: API keys are submitted via unprotected HTTP endpoints or `.env`.
+- Recommendation: Add JWT/OAuth2 authentication (GitHub/Google login), per-user
+  encrypted key storage (Vault or AES-GCM encrypted database columns), and shareable
+  team robot project links.
+
+[MAJOR 4] Interactive Visual Wiring & Schematic Canvas
+------------------------------------------------------
+- Current State: Generates static text pinouts and Mermaid diagrams.
+- Recommendation: Implement an interactive node-based visual wiring canvas (e.g.,
+  React Flow or Canvas API) allowing engineers to drag-and-drop connections, inspect
+  virtual breadboards, and export KiCad netlists or Gerber-ready specifications.
+
+[MAJOR 5] Automated Datasheet Ingestion Engine
+---------------------------------------------
+- Current State: Parts must be manually added to `data/parts_catalog.json` or imported
+  one-by-one via product URLs.
+- Recommendation: Add a PDF datasheet upload pipeline using Docling/Gemini Multimodal
+  to automatically extract pinouts, max ratings, operating voltages, and dimensions
+  directly into catalog JSON schema.
+
+================================================================================
+3. NEXT RECOMMENDED MINOR CHANGES
+================================================================================
+
+[MINOR 1] Configuration via Pydantic Settings
+- Replace ad-hoc `os.getenv` and raw YAML loads with a unified `pydantic-settings`
+  class (`Settings`) for strict type validation, default values, and `.env` parsing.
+
+[MINOR 2] Structured Logging & Telemetry
+- Replace standard `print()` statements with structured JSON logging (`structlog` or
+  `loguru`), capturing request IDs, execution latency, and error tracebacks.
+
+[MINOR 3] Standardized API Exceptions & HTTP Middleware
+- Create standard error response schemas (`{"error": {"code": "...", "message": "..."}}`)
+  and CORS/Rate-limiting middleware (`slowapi`) to protect endpoints against abuse.
+
+[MINOR 4] Frontend UX Enhancements
+- Add UI skeleton loaders during BOM synthesis and live pricing fetch.
+- Introduce non-blocking toast notifications for system warnings and errors.
+- Add an interactive part comparison side-drawer for candidate swaps.
+
+[MINOR 5] Automated CI/CD & Linting Pipeline
+- Add GitHub Actions workflow (`.github/workflows/ci.yml`) to automatically run
+  `ruff check`, `mypy --strict`, and `pytest` on pull requests.
+
+[MINOR 6] Expanded Sourcing Retry & Caching Policies
+- Implement exponential backoff for vendor HTTP timeouts and configurable TTLs on
+  cached search results in `data/sourcing_cache.json`.
+
+================================================================================
+4. PIPELINE & FILE ORGANIZATION STRATEGY
+================================================================================
+
+Current Problem:
+The `core/` folder currently houses 16+ files mixing disparate domains: rule engines,
+scrapers, LLM prompts, power calculations, wiring schemas, and file exporters.
+Similarly, `app.py` directly defines models, route handlers, and state management.
+
+Target Pipeline Flow:
+  [User Prompt / Constraints]
+               │
+               ▼
+   1. INGESTION & PARSING       (NL Parser / Heuristics)
+               │
+               ▼
+   2. CANDIDATE SELECTION       (Catalog Filter & Cost Optimizer)
+               │
+               ▼
+   3. COMPATIBILITY & VALIDATION (Rule Engine, Physics, Specs)
+               │
+               ├──► POWER & THERMAL MODELING (Current, C-rate, Heat)
+               │
+               └──► WIRING & INTERCONNECTS   (Pinout synthesis, Logic levels)
+               │
+               ▼
+   4. ENRICHMENT & SOURCING     (TinyFish Scraper, Quote Verifier)
+               │
+               ▼
+   5. REPORTING & EXPORT        (HTML, Markdown, CSV, Mermaid)
+
+--------------------------------------------------------------------------------
+Recommended Directory Architecture:
+--------------------------------------------------------------------------------
+
+BuilderBot/
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # Automated test, lint & typecheck pipeline
+├── src/
+│   └── builderbot/
+│       ├── api/                 # Web API layer (HTTP / REST)
+│       │   ├── dependencies.py  # Auth, DB sessions, rate-limiters
+│       │   ├── middleware.py    # Request ID, CORS, error handling
+│       │   └── routes/          # Domain-split route handlers
+│       │       ├── builds.py    # /api/build, /api/parse
+│       │       ├── catalog.py   # /api/catalog, /api/parts
+│       │       ├── exports.py   # /api/export/*
+│       │       ├── sourcing.py  # /api/sources/*
+│       │       └── system.py    # /api/health, /api/settings
+│       │
+│       ├── pipeline/            # Core domain engineering pipeline
+│       │   ├── parser/          # Stage 1: NL parsing & constraints
+│       │   │   ├── heuristic.py
+│       │   │   └── llm_parser.py
+│       │   ├── selector/        # Stage 2: BOM search & optimization
+│       │   │   ├── optimizer.py
+│       │   │   └── cost_model.py
+│       │   ├── validator/       # Stage 3: Compatibility & electrical rules
+│       │   │   ├── engine.py
+│       │   │   ├── rules.py
+│       │   │   └── spec_checker.py
+│       │   ├── analysis/        # Stage 4: Physics & electrical simulations
+│       │   │   ├── power.py     # Discharge curves, thermal margins
+│       │   │   └── wiring.py    # Pin routing, voltage levels, Mermaid
+│       │   └── export/          # Stage 5: Artifact generators
+│       │       ├── csv_writer.py
+│       │       ├── html_report.py
+│       │       └── markdown.py
+│       │
+│       ├── services/            # External I/O & third-party integrations
+│       │   ├── gemini.py        # Google GenAI client wrapper
+│       │   ├── tinyfish.py      # TinyFish search & fetch client
+│       │   └── sourcing.py      # Vendor quote extraction & validation
+│       │
+│       ├── models/              # Unified data structures & Pydantic schemas
+│       │   ├── domain.py        # Part, Build, Requirements entities
+│       │   ├── requests.py      # HTTP request bodies
+│       │   └── responses.py     # HTTP response structures
+│       │
+│       ├── core/                # Infrastructure utilities
+│       │   ├── config.py        # Pydantic Settings configuration
+│       │   ├── exceptions.py    # Custom domain exceptions
+│       │   └── logging.py       # Structured loguru/logging setup
+│       │
+│       └── main.py              # Application entrypoint & FastAPI factory
+│
+├── static/                      # Frontend assets (or frontend/ SPA)
+│   ├── css/
+│   ├── js/
+│   └── index.html
+│
+├── data/                        # Seed data, rules, and hardware definitions
+│   ├── catalog/
+│   │   └── parts_catalog.json
+│   ├── rules/
+│   │   ├── rules.yaml
+│   │   └── spec_defs.yaml
+│   └── tests/
+│       └── test_builds.json
+│
+├── tests/                       # Automated test suites
+│   ├── unit/                    # Fast isolated tests for models & rules
+│   ├── integration/             # Pipeline integration tests
+│   └── fixtures/                # Mock HTML pages & API response fixtures
+│
+├── docs/                        # Architecture diagrams, API specs, hardware guides
+│   ├── architecture.md
+│   └── wiring_standards.md
+│
+├── scripts/                     # Operational & dev scripts
+│   ├── seed_catalog.py
+│   └── run_benchmarks.py
+│
+├── .env.example
+├── .gitignore
+├── pyproject.toml               # Modern Python package management (Poetry / Hatch)
+├── README.md
+└── requirements.txt
+================================================================================
