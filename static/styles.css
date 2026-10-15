@@ -26,3 +26,5 @@
 @media(max-width:620px){.src-row{grid-template-columns:24px minmax(0,1fr)}.src-price{grid-column:2;text-align:left}.src-quote{margin-left:0}.src-row .btn{grid-column:2;justify-self:start}}
 
 .src-price .tag{margin-right:4px}.src-quote{max-width:150px}
+
+.src-use{margin-top:6px;padding:4px 7px;font-size:9px}

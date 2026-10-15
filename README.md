@@ -1,8 +1,8 @@
-# BuilderBot — Robot BOM & Compatibility Agent
+# FORGE — Robot BOM & Compatibility Agent
 
 A classic, engineering-first web interface for planning robot builds, optimizing a budget-aware bill of materials, validating component compatibility, reviewing power and wiring, sourcing live parts, and exporting traceable engineering reports.
 
-**The frontend is plain HTML/CSS/JavaScript. The backend is FastAPI. Streamlit is not used.** The deterministic rule engine, catalog, Gemini/TinyFish integrations, power model, wiring guide, and report exporters are all modularized in `core/`.
+**The frontend is plain HTML/CSS/JavaScript. The backend is FastAPI. Streamlit is not used.** The existing deterministic rule engine, catalog, Gemini/TinyFish integrations, power model, wiring guide, and report exporters are reused.
 
 ## Features
 
@@ -21,7 +21,7 @@ A classic, engineering-first web interface for planning robot builds, optimizing
 ## Run on Ubuntu / Linux
 
 ```bash
-cd BuilderBot
+cd robot_bom_agent
 sudo apt update
 sudo apt install python3 python3-venv python3-pip -y
 python3 -m venv .venv
@@ -38,7 +38,7 @@ Open **http://127.0.0.1:8000** in your browser. API documentation is at **http:/
 ## Run on Windows PowerShell
 
 ```powershell
-cd BuilderBot
+cd robot_bom_agent
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -78,17 +78,16 @@ Tests run offline against the seed catalog; they do not require live API keys.
 ## Project structure
 
 ```text
-BuilderBot/
+robot_bom_agent/
 ├── app.py                 # FastAPI application and JSON API
 ├── static/
 │   ├── index.html         # UI structure
 │   ├── styles.css         # Responsive design system
 │   └── app.js             # Frontend interactions
-├── core/                  # Parser, catalog, rules, BOM, live data, power, wiring, sourcing, exports
+├── core/                  # Existing parser, catalog, rules, BOM, live data, power, wiring, exports
 ├── data/                  # Catalog, rules, specifications, config, live overlay
 ├── tests/                 # Offline regression tests
 ├── .env.example           # Safe placeholder template
-├── .gitignore             # Git ignore file
 └── requirements.txt
 ```
 
@@ -119,3 +118,9 @@ Results are cached in `data/sourcing_cache.json` (cleared by *Reset live overlay
 
 API: `GET /api/part/{id}/sources?refresh=false&min_links=5` and `POST /api/part/{id}/sources/prices {"urls": [...]}`.
 Tests: `tests/test_sourcing.py` (uses a fake TinyFish client, no network needed).
+
+### Use a verified price in the BOM
+Each `VERIFIED` row has **Use this price** (and the popup has **Use lowest verified price**). The server copies
+the price from its own verified cache into the catalog with source URL, timestamp and the page quote, so the BOM,
+budget and evidence ledger use it and the part's data source changes from CURATED to SCRAPED.
+Pages flagged as a different variant are refused. API: `POST /api/part/{id}/sources/apply {"url": "..."}`.

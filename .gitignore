@@ -1,35 +1,7 @@
-# Environments
 .venv/
-venv/
-ENV/
-env/
-
-# Environment variables & secrets
 .env
-.env*.local
-*.key
-*.pem
-
-# Python artifacts
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-dist/
-*.egg-info/
-
-# Testing & coverage
 .pytest_cache/
-.coverage
-htmlcov/
-
-# IDE & OS
+*.py[cod]
 .DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Application runtime cache
 data/sourcing_cache.json

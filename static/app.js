@@ -35,7 +35,7 @@ $('#runTests').addEventListener('click',async e=>{const btn=e.currentTarget;setB
 function renderPower(){const b=state.activeBuild;$('#powerPanel').classList.toggle('hidden',!!b);$('#powerContent').classList.toggle('hidden',!b);if(!b)return;const p=b.power;if(!p){$('#powerMetrics').innerHTML='<div class="panel">Power analysis unavailable for this build.</div>';return;}const metrics=[['IDLE CURRENT',num(p.system_idle_current_a*1000,0)+' mA','Estimated idle draw'],['TYPICAL CURRENT',num(p.system_typical_current_a*1000,0)+' mA','40% motor load assumption'],['PEAK STALL CURRENT',num(p.system_peak_stall_current_a,2)+' A','All motors stalled'],['DISCHARGE MARGIN',num(p.battery_safety_margin_pct,1)+'%','Battery current margin'],['USABLE CAPACITY',num(p.battery_usable_mah,0)+' mAh','80% of rated capacity'],['TYPICAL RUNTIME',num(p.runtime_typical_h,1)+' h','Modelled estimate'],['DRIVER THERMAL LOSS',num(p.driver_thermal_loss_w,2)+' W','Heat dissipation estimate'],['STALL RUNTIME',num(p.runtime_stall_min,1)+' min','Continuous worst-case stall']];$('#powerMetrics').innerHTML=metrics.map(m=>`<article class="metric-card"><div class="metric-top">${esc(m[0])}</div><div class="metric-value" style="font-size:23px">${esc(m[1])}</div><div class="metric-foot">${esc(m[2])}</div></article>`).join('');$('#wiringRows').innerHTML=b.wiring.connections.map(w=>`<tr><td><b>${esc(w.source_component)}</b></td><td>${esc(w.source_pin)}</td><td>${esc(w.target_component)}</td><td>${esc(w.target_pin)}</td><td><span class="tag">${esc(w.wire_type)}</span>${w.notes?`<small style="display:block;color:#929a9a;margin-top:4px">${esc(w.notes)}</small>`:''}</td></tr>`).join('');notice('#wiringWarnings',[...(b.wiring.warnings||[]),...(p.thermal_warning?[p.thermal_warning]:[])].map(esc).join('<br>'),(b.wiring.warnings?.length||p.thermal_warning)?'warn':'');$('#assemblySteps').innerHTML=b.wiring.assembly_steps.map(s=>`<li>${esc(s)}</li>`).join('');$('#mermaidDiagram').textContent=b.wiring.mermaid_diagram||'No diagram available.';}
 $('#copyDiagram').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('#mermaidDiagram').textContent);toast('Mermaid source copied.');}catch(e){toast('Clipboard permission was not available.','error');}});
 function renderReports(){const b=state.activeBuild;$('#reportEmpty').classList.toggle('hidden',!!b);$('#reportContent').classList.toggle('hidden',!b);if(!b)return;$('#ledgerCount').textContent=`${b.ledger.length} RECORDS`;$('#ledgerRows').innerHTML=b.ledger.map(r=>`<tr><td><b>${esc(r.Part||r.part||'—')}</b></td><td>${esc(r.Field||r.field||'—')}</td><td>${esc(r.Value??r.value??'—')} ${esc(r.Unit||r.unit||'')}</td><td><span class="tag ${(r.Method||r.method)==='scraped'?'pass':''}">${esc((r.Method||r.method||'unknown').toUpperCase())}</span></td><td>${(r.Source||r.source_url)?`<a class="source-link" href="${esc(r.Source||r.source_url)}" target="_blank" rel="noopener">Open source ↗</a>`:'—'}</td><td>${esc(r['Retrieved (UTC)']||r.retrieved_at||'—')}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state">No evidence records.</td></tr>';}
-async function downloadExport(kind){try{const params=new URLSearchParams();const includePower=$('#includePowerToggle')?.checked!==false;const includeWiring=$('#includeWiringToggle')?.checked!==false;params.set('include_power', String(includePower));params.set('include_wiring', String(includeWiring));const res=await fetch(`/api/export/${encodeURIComponent(kind)}?${params.toString()}`);if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.detail||'Export failed');}const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=kind==='bom.csv'?'robot_bom.csv':kind==='ledger.csv'?'evidence_ledger.csv':kind==='report.md'?'robot_report.md':'robot_report.html';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(a.href);toast('Report downloaded.');}catch(e){toast(e.message,'error');}}
+async function downloadExport(kind){try{const res=await fetch('/api/export/'+encodeURIComponent(kind));if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.detail||'Export failed');}const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=kind==='bom.csv'?'robot_bom.csv':kind==='ledger.csv'?'evidence_ledger.csv':kind==='report.md'?'robot_report.md':'robot_report.html';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(a.href);toast('Report downloaded.');}catch(e){toast(e.message,'error');}}
 $$('[data-export]').forEach(b=>b.addEventListener('click',()=>downloadExport(b.dataset.export)));
 $('#refreshPartsBtn').addEventListener('click',async e=>{const btn=e.currentTarget;const ids=[...$('#refreshParts').selectedOptions].map(o=>o.value);if(!ids.length){notice('#refreshOutput','Select at least one part first.','warn');return;}setBusy(btn,true,'Refreshing vendor pages…');try{const d=await api('/api/live/refresh',{method:'POST',body:JSON.stringify({category:$('#refreshCategory').value,part_ids:ids,pages_per_part:Number($('#refreshPages').value)})});notice('#refreshOutput',d.results.map(r=>`<b>${esc(r.part)}</b>: ${r.error?esc(r.error):esc(JSON.stringify(r.report?.changes||r.report?.problems||r.report||{}))}`).join('<br>'));await loadCatalog();toast('Refresh run completed.');}catch(err){notice('#refreshOutput',esc(err.message),'error');}finally{setBusy(btn,false);}});
 $('#discoverBtn').addEventListener('click',async e=>{const btn=e.currentTarget;setBusy(btn,true,'Searching vendor listings…');notice('#discoverOutput','');try{const d=await api('/api/live/discover',{method:'POST',body:JSON.stringify({category:$('#discoverCategory').value,query:$('#discoverQuery').value,kind:$('#discoverCategory').value==='sensor'?$('#discoverKind').value||null:null})});state.discoveries=d.items||[];notice('#discoverOutput',`${state.discoveries.length} candidate(s) found. ${esc((d.report?.problems||[]).join(' · '))}`);if(state.discoveries.length){$('#discoverOutput').insertAdjacentHTML('beforeend',`<div class="table-wrap" style="margin-top:8px"><table class="data-table"><thead><tr><th>PART</th><th>PRICE</th><th>SPECS</th><th>ADD</th></tr></thead><tbody>${state.discoveries.map((p,i)=>`<tr><td><b>${esc(p.name)}</b><small style="display:block">${esc(p.vendor)}</small></td><td>${money(p.price_value)}</td><td>${Object.keys(p.specs_flat||{}).length}</td><td><input type="checkbox" data-discover-add="${i}" checked></td></tr>`).join('')}</tbody></table></div><button class="btn btn-primary" id="addDiscovered" style="width:100%;margin-top:9px">Add selected candidates</button>`);$('#addDiscovered').addEventListener('click',addDiscovered);}}catch(err){notice('#discoverOutput',esc(err.message),'error');}finally{setBusy(btn,false);}});
@@ -47,7 +47,7 @@ $('#saveSettings').addEventListener('click',async e=>{const btn=e.currentTarget;
 async function healthCheck(){try{const d=await api('/api/health');$('#healthInfo').innerHTML=`<span class="mini-dot green"></span> ${esc(d.service)} · API ${esc(d.version)} · Operational`; }catch(e){$('#healthInfo').textContent='Health check failed: '+e.message;}}
 $('#checkHealth').addEventListener('click',healthCheck);$('#refreshAll').addEventListener('click',async()=>{await init();toast('Workspace refreshed.');});
 /* ---------- Where to buy: TinyFish seller links in the Inspect popup ---------- */
-state.sources = null;
+state.sources = null; state.applied = {};
 async function loadSources(partId, refresh=false){
   const box=$('#sourcesBox'); if(!box) return;
   state.sourcesFor=partId; state.sources=null;
@@ -57,30 +57,39 @@ async function loadSources(partId, refresh=false){
     if(state.sourcesFor!==partId) return;
     state.sources=d; renderSources(partId);
     if(d.prices && Object.keys(d.prices).length) renderSourcePrices(d.prices);
-    else if(d.tinyfish_count && state.settings?.gemini_configured!==false) checkSourcePrices(partId,$('#srcPrices'));
+    else if(d.tinyfish_count) checkSourcePrices(partId,$('#srcPrices'));
   }catch(e){
     if(state.sourcesFor!==partId) return;
     box.innerHTML=`<div class="src-head"><div><div class="eyebrow">WHERE TO BUY</div><h4>Could not fetch seller links</h4></div></div><div class="notice error">${esc(e.message)}</div><button class="btn btn-small btn-outline" id="srcRetry" style="margin-top:10px">Try again ↻</button>`;
     $('#srcRetry').addEventListener('click',()=>loadSources(partId,true));
   }
 }
-function snippetPrice(l){const m=`${l.title||''} ${l.snippet||''}`.match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d+)?)/i);if(!m)return null;const v=parseFloat(m[1].replace(/,/g,''));return v>=1&&v<=200000?v:null;}
-function snippetCell(l){if(l.source!=='tinyfish_search')return '<span class="tag">SEARCH PAGE</span>';const v=snippetPrice(l);return v!=null?`<b>${money(v)}</b><small>from search snippet · unverified</small>`:'<small>Price: not in snippet</small>';}
+async function applySourcePrice(url,btn){
+  const partId=state.sourcesFor; if(!partId) return;
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    const d=await api(`/api/part/${encodeURIComponent(partId)}/sources/apply`,{method:'POST',body:JSON.stringify({url})});
+    (state.applied=state.applied||{});
+    Object.keys(state.applied).forEach(k=>delete state.applied[k]); state.applied[url]=true;
+    toast(`Catalog price set to ${money(d.part.price_value)} (source saved to the evidence ledger).`);
+    await loadCatalog(); renderSourcePrices(state.sources.prices||{});
+  }catch(e){toast(e.message,'error'); if(btn){btn.disabled=false;btn.textContent='Use this price';}}
+}
+function snippetCell(l){return l.source==='tinyfish_search'?'<span class="loading-dot">···</span>':'<span class="tag unknown">NO PRICE</span>';}
 function renderSources(partId){
   const d=state.sources, box=$('#sourcesBox'); if(!d||!box) return;
   const rows=d.links.map((l,i)=>`<div class="src-row" data-url="${esc(l.url)}"><span class="src-rank">${String(l.rank).padStart(2,'0')}</span><div class="src-main"><b>${esc(l.vendor)}</b><span class="src-title">${esc(l.title||l.url)}</span>${l.snippet?`<small>${esc(l.snippet)}</small>`:''}<small class="src-url">${esc(l.url)}</small></div><div class="src-price" data-price-for="${i}">${snippetCell(l)}</div><a class="btn btn-small btn-outline" href="${esc(l.url)}" target="_blank" rel="noopener">Open ↗</a></div>`).join('');
   box.innerHTML=`<div class="src-head"><div><div class="eyebrow">WHERE TO BUY</div><h4>${d.links.length} selling links <span class="src-count">· ${d.tinyfish_count} found by TinyFish</span></h4></div><span class="pill">TINYFISH SEARCH</span></div>
   <div class="src-list">${rows}</div>
-  ${d.fallback_count?`<div class="notice warn" style="margin-top:9px">TinyFish returned ${d.tinyfish_count} store link(s) for this part, so ${d.fallback_count} vendor search page(s) were added to reach ${d.links.length}. They are labelled <b>SEARCH PAGE</b>.</div>`:''}
-  <div class="src-actions"><button class="btn btn-primary btn-small" id="srcPrices">Re-check live prices <span>↗</span></button><button class="btn btn-outline btn-small" id="srcRefresh">Search again ↻</button><span class="subtle">${d.cached?'Cached · ':''}${esc(d.fetched_at||'')} · ${d.queries.length} search quer${d.queries.length===1?'y':'ies'} run</span></div>
-  <small class="field-hint">Each price first appears from the search snippet (unverified), then TinyFish fetches the page and Gemini extracts the price. A price is shown only if its quote appears verbatim on the page.</small><div id="srcPriceNote" class="notice-stack"></div>`;
+  <div class="src-actions"><button class="btn btn-primary btn-small" id="srcPrices">Re-check live prices <span>↗</span></button><button class="btn btn-outline btn-small hidden" id="srcUseLowest">Use lowest verified price →</button><button class="btn btn-outline btn-small" id="srcRefresh">Search again ↻</button><span class="subtle">${d.cached?'Cached · ':''}${esc(d.fetched_at||'')} · ${d.queries.length} search quer${d.queries.length===1?'y':'ies'} run</span></div><div id="srcPriceNote" class="notice-stack"></div>`;
   $('#srcRefresh').addEventListener('click',()=>loadSources(partId,true));
   $('#srcPrices').addEventListener('click',e=>checkSourcePrices(partId,e.currentTarget));
+  $('#srcUseLowest').addEventListener('click',()=>{const pr=state.sources.prices||{};const ok=state.sources.links.filter(l=>pr[l.url]?.price!=null&&pr[l.url].matches!==false).sort((a,b)=>pr[a.url].price-pr[b.url].price)[0];if(!ok){toast('No verified price to use.','error');return;}applySourcePrice(ok.url,$(`[data-use-url="${CSS.escape(ok.url)}"]`));});
 }
 async function checkSourcePrices(partId,btn){
   const d=state.sources; if(!d) return;
   const urls=d.links.filter(l=>l.source==='tinyfish_search').map(l=>l.url);
-  if(!urls.length){notice('#srcPriceNote','No TinyFish store pages to check. Open the search pages manually.','warn');return;}
+  if(!urls.length){renderSourcePrices({});return;}
   setBusy(btn,true,'Fetching live pages…');
   $$('[data-price-for]').forEach((el,i)=>{if(d.links[i].source==='tinyfish_search')el.innerHTML='<span class="loading-dot">···</span>';});
   try{
@@ -88,9 +97,9 @@ async function checkSourcePrices(partId,btn){
     if(state.sourcesFor!==partId) return;
     d.prices={...(d.prices||{}),...r.prices}; renderSourcePrices(d.prices);
     const found=Object.values(r.prices).filter(x=>x.price!=null).length;
-    notice('#srcPriceNote',`${found} of ${urls.length} pages had a verifiable price.`,found?'':'warn');
+
   }catch(e){
-    renderSourcePrices(d.prices||{}); notice('#srcPriceNote',esc(e.message),'error');
+    renderSourcePrices(d.prices||{});
   }finally{setBusy(btn,false);}
 }
 function renderSourcePrices(prices){
@@ -99,13 +108,15 @@ function renderSourcePrices(prices){
   const low=priced.length?Math.min(...priced):null;
   $$('[data-price-for]').forEach(el=>{
     const l=d.links[Number(el.dataset.priceFor)], r=prices[l.url];
-    if(!r){return;}
+    if(!r){el.innerHTML='<span class="tag unknown">NO PRICE</span>';return;}
     if(r.price!=null){
-      el.innerHTML=`<b>${money(r.price)}</b>${r.price===low&&priced.length>1?' <span class="tag pass">LOWEST</span>':''}<small><span class="tag pass">VERIFIED</span> ${r.in_stock===true?'In stock':r.in_stock===false?'Out of stock':'Stock unknown'}${r.matches===false?' · may be a different variant':''}</small>${r.quote?`<small class="src-quote" title="${esc(r.quote)}">“${esc(r.quote.slice(0,70))}”</small>`:''}`;
+      el.innerHTML=`<b>${money(r.price)}</b>${r.matches===false?'':`<button class="btn btn-small btn-outline src-use" data-use-url="${esc(l.url)}">${state.applied?.[l.url]?'✓ In catalog':'Use this price'}</button>`}`;
     }else{
-      const sp=snippetPrice(l);el.innerHTML=(sp!=null?`<b>${money(sp)}</b><small>from snippet · page not verified</small>`:`<span class="tag unknown">NO PRICE</span>`)+`<small title="${esc(r.error||'')}">${esc((r.error||'Unverified').slice(0,46))}</small>`;
+      el.innerHTML='<span class="tag unknown">NO PRICE</span>';
     }
   });
+  $$('[data-use-url]').forEach(b=>b.onclick=()=>applySourcePrice(b.dataset.useUrl,b));
+  const lowBtn=$('#srcUseLowest'); if(lowBtn) lowBtn.classList.toggle('hidden',!priced.length);
 }
 
 init();
