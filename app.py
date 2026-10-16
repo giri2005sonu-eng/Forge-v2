@@ -3,7 +3,7 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
-from ui import bom, recommendation, research_tools
+from ui import bom, competition, recommendation, research_tools
 
 load_dotenv()
 st.set_page_config(page_title="FORGE", page_icon="🤖", layout="wide")
@@ -33,6 +33,8 @@ if S.stage == "pick":
     recommendation.render_picker(S, tf_key, gem_key)
 elif S.stage == "results":
     recommendation.render_results(S, tf_key)
+elif S.stage == "competition":
+    competition.render(S)
 else:
     build = bom.render(S, tf_key, gem_key)
     if build:

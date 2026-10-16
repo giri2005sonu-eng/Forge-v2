@@ -2,7 +2,14 @@ import json
 
 from core import picker, pipeline, resume
 from core.data import PROJECTS, PROJECT_FACTORS
-from core.recommendation_catalog import PROJECT_CATALOG, PROJECT_FACTOR_CATALOG
+from core.recommendation_catalog import (
+    COMPETITION_EVENT_COUNTS,
+    COMPETITION_EVENTS,
+    COMPETITION_PROJECT_KEYS,
+    PROJECT_CATALOG,
+    PROJECT_FACTOR_CATALOG,
+    competition_projects_for_event,
+)
 
 
 def test_nine_questions_and_factor_metadata_cover_supported_projects():
@@ -75,6 +82,16 @@ def test_imported_and_competition_catalogs_exclude_three_existing_recommendation
     assert sum(project["catalog_source"] == "competition list" for project in PROJECT_CATALOG.values()) == 18
     assert all(PROJECT_CATALOG[key]["bom_supported"] for key in PROJECTS)
     assert not set(PROJECTS) & {key for key, _ in picker.rank_factor_projects({})}
+
+
+def test_competition_events_are_ordered_by_project_mentions():
+    assert len(COMPETITION_PROJECT_KEYS) == 18
+    assert COMPETITION_EVENT_COUNTS["Robo Soccer"] == 4
+    assert COMPETITION_EVENTS[0] == "Robo Soccer"
+    assert COMPETITION_EVENTS[1] == "Search and Rescue"
+    assert len(competition_projects_for_event("Robo Soccer")) == 4
+    assert all(PROJECT_FACTOR_CATALOG[key]["competition_event"] == "Robo Soccer"
+               for key in competition_projects_for_event("Robo Soccer"))
 
 
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():

@@ -1,5 +1,6 @@
 """Candidate catalog for recommendation-only projects, separate from BOM-supported builds."""
 import csv
+from collections import Counter
 from pathlib import Path
 
 from .data import PROJECTS, PROJECT_FACTORS as BUILT_FACTORS
@@ -95,3 +96,22 @@ for _filename, _competition in (("projects.csv", False), ("competition_projects.
 RECOMMENDATION_PROJECT_KEYS = frozenset(
     key for key, project in PROJECT_CATALOG.items() if not project["bom_supported"]
 )
+COMPETITION_PROJECT_KEYS = tuple(
+    key for key in PROJECT_CATALOG
+    if PROJECT_CATALOG[key]["catalog_source"] == "competition list"
+    and PROJECT_FACTOR_CATALOG[key].get("competition_event")
+)
+COMPETITION_EVENT_COUNTS = Counter(
+    PROJECT_FACTOR_CATALOG[key]["competition_event"] for key in COMPETITION_PROJECT_KEYS
+)
+COMPETITION_EVENTS = tuple(sorted(
+    COMPETITION_EVENT_COUNTS,
+    key=lambda event: (-COMPETITION_EVENT_COUNTS[event], event.casefold()),
+))
+
+
+def competition_projects_for_event(event):
+    return sorted(
+        (key for key in COMPETITION_PROJECT_KEYS if PROJECT_FACTOR_CATALOG[key]["competition_event"] == event),
+        key=lambda key: PROJECT_CATALOG[key]["label"].casefold(),
+    )
