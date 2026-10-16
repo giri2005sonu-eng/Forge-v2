@@ -21,7 +21,7 @@ html,body,[class*="css"]{font-family:'DM Sans',sans-serif} h1,h2,h3{font-family:
 
 S = st.session_state
 for k, v in dict(live={}, res=None, log=[], stage="pick", A={}, pick=None, project="line_follower", budget=3500,
-                 idea=None, examples=None, research={}, specs={}, agent={}, choice={}).items():
+                 idea=None, examples=None, research={}, specs={}, agent={}, choice={}, resume=None, resume_n=0).items():
     S.setdefault(k, v)
 tf_key, gem_key = bool(os.getenv("TINYFISH_API_KEY")), bool(os.getenv("GEMINI_API_KEY"))
 

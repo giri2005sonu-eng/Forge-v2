@@ -1,5 +1,6 @@
-"""Recommendation helper: plain scoring (no AI). Same answers always give the same result."""
+"""Recommendation helper: plain scoring (no AI). Same answers (and same resume) always give the same result."""
 import math
+from . import resume as resume_mod
 from .data import PROJECTS
 
 QUESTIONS = [
@@ -18,7 +19,16 @@ def _mx(A, k, d):
 
 def _c(x): return max(0, min(100, x))
 
-def fits(key, A):
+def effective(A, R=None):
+    """Survey answers win. A resume only fills the questions the user left blank (skill level, interests)."""
+    E = {k: list(v) for k, v in A.items()}
+    if R:
+        if not E.get("skill") and R.get("level"): E["skill"] = [R["level"]]
+        if not E.get("int") and R.get("interests"): E["int"] = list(R["interests"])
+    return E
+
+def fits(key, A, R=None):
+    A = effective(A, R)
     p, cap = PROJECTS[key], {1: 4, 2: 7, 3: 10}[_mx(A, "skill", 2)]
     T, B = _mx(A, "time", 14), _mx(A, "budget", 5000)
     want = 8 if "ai" in A.get("int", []) or "ai" in A.get("course", []) else 4
@@ -28,15 +38,18 @@ def fits(key, A):
              ai=100 - abs(p["ai"] - want) * 12, parts=p["parts"] * 10, demo=p["demo"] * 10, hack=p["hack"] * 10)
     return {k: round(_c(v)) for k, v in f.items()}
 
-def score(key, A):
+def score(key, A, R=None):
+    A = effective(A, R)
     f, win = fits(key, A), "win" in A.get("goal", [])
     w = dict(diff=1.5, time=1.5, cost=1.5, ai=1, parts=1, demo=1.6 if win else 1, hack=1.6 if win else 1)
     base = sum(f[k] * w[k] for k in f) / sum(w.values())
     it = set(A.get("int", [])) | {{"mech": "mechanics", "ai": "ai"}.get(c) for c in A.get("course", [])}
-    return round(_c(base + min(8, len(set(PROJECTS[key]["tags"]) & it) * 4)))
+    x = _c(base + min(8, len(set(PROJECTS[key]["tags"]) & it) * 4))
+    # The resume closes up to half of the remaining gap to 100, so strong matches stay ordered instead of all hitting the ceiling.
+    return round(x + (100 - x) * 0.5 * resume_mod.affinity(key, R))
 
-def rank(A):
-    return sorted(((k, score(k, A)) for k in PROJECTS), key=lambda x: -x[1])
+def rank(A, R=None):
+    return sorted(((k, score(k, A, R)) for k in PROJECTS), key=lambda x: -x[1])
 
 def chart_html(f):
     """Radial chart: one triangle per attribute pointing at its label; size and colour show how well it fits."""

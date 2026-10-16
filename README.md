@@ -8,7 +8,7 @@
 Picking parts for a hobby robot is slow and error-prone. Specs are scattered across shop pages and datasheets, the same product name can mean very different things (a search for "Arduino Nano" returned verified listings from ₹229 to ₹2,755: a clone, a starter kit and the original), and one wrong voltage or current mismatch can burn a board.
 
 ## What FORGE does
-1. **Recommendation helper (skippable):** six multi-select questions rank projects for the user, then a radial chart shows how each attribute fits them. Users can also describe their own idea; Gemini maps it to a supported project or says honestly that it is not supported yet.
+1. **Recommendation helper (skippable):** a landing page with two optional inputs: a survey (six multi-select questions that open when you click the box) and a resume/CV upload (PDF, DOCX or TXT). Projects are ranked from the survey, the resume, or both, and a radial chart shows how each attribute fits the user. The resume is a scored factor, and the page quotes the resume lines that justify a match. Users can also describe their own idea; Gemini maps it to a supported project or says honestly that it is not supported yet.
 2. **BOM generation:** the app tries every combination of controller, driver, motors, battery and sensor, rejects any that fail a compatibility rule, and picks the cheapest valid build within budget.
 3. **Compatibility checks:** deterministic formulas give PASS / FAIL / UNKNOWN. A missing spec is UNKNOWN, never guessed.
 4. **Live prices with proof:** TinyFish finds and reads real vendor pages; a price is accepted **only if its exact quote appears on the page**, shown next to the verified product name and link.
@@ -37,10 +37,11 @@ Gemini reads fetched text; a value is kept **only if its quote is found on the p
 ## Architecture
 ```
 app.py              Streamlit setup, shared session state, and page routing
-ui/recommendation.py  recommendation questionnaire, results, and project handoff
+ui/recommendation.py  landing page (survey + resume upload), results, and project handoff
 ui/bom.py           BOM selection, compatibility display, sourcing, vendor comparison, and bill
 ui/research_tools.py build-guide research, spec comparison, and optional cart check
-core/picker.py      recommendation scoring + radial chart
+core/picker.py      recommendation scoring (survey + resume factor) + radial chart
+core/resume.py      resume text extraction + deterministic skill detection
 assets/fonts/       DejaVu Sans (Bitstream Vera licence), used so the PDF can print the rupee sign
 core/pipeline.py    selector, TinyFish sourcing, Gemini extraction with quote check
 core/research.py    project research from build guides (Search + Fetch + Gemini)
@@ -53,7 +54,7 @@ tests/              automated tests (run offline)
 ```
 
 ### Parallel work areas
-- **Recommendation page:** `ui/recommendation.py` and `core/picker.py`.
+- **Recommendation page:** `ui/recommendation.py`, `core/picker.py` and `core/resume.py`.
 - **BOM page:** `ui/bom.py`, `core/pipeline.py`, `core/bill.py`, and `core/rules.py`.
 - **Research and extras:** `ui/research_tools.py`, `core/research.py`, `core/specs.py`, and `core/tf.py`.
 
@@ -80,6 +81,7 @@ Line follower, obstacle avoider, Bluetooth car.
 - The catalog is small (11 parts plus 3 extras). **Specs are typical datasheet values we entered by hand;** only prices and product names are read live today.
 - Each project is described only by its sensor type and a Bluetooth flag; the other parts roles are shared. Sumo bot and maze solver are **planned but not built**: they need their own parts lists, catalog parts and rules.
 - The recommendation helper's difficulty, time and cost scores are our estimates, not measured data.
+- The resume reader is keyword matching, not understanding: it finds skills it has a pattern for, misses phrasing it does not know, and cannot read scanned or image-only resumes. A skill on a resume is not proof of ability. Survey answers override the resume where both exist. The resume text is read in memory and never stored or sent to an AI service; only detected skills and short snippets stay in the session.
 - Extras (chassis, wires, switch) carry rough estimate prices until live sourcing verifies them, and chassis-to-motor fit is not rule-checked.
 - Live sourcing depends on TinyFish and Gemini availability; results are cached, but some pages will show "price not verified".
 
