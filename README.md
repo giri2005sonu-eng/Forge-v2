@@ -36,7 +36,10 @@ Gemini reads fetched text; a value is kept **only if its quote is found on the p
 
 ## Architecture
 ```
-app.py              Streamlit UI (picker -> results -> BOM agent)
+app.py              Streamlit setup, shared session state, and page routing
+ui/recommendation.py  recommendation questionnaire, results, and project handoff
+ui/bom.py           BOM selection, compatibility display, sourcing, vendor comparison, and bill
+ui/research_tools.py build-guide research, spec comparison, and optional cart check
 core/picker.py      recommendation scoring + radial chart
 assets/fonts/       DejaVu Sans (Bitstream Vera licence), used so the PDF can print the rupee sign
 core/pipeline.py    selector, TinyFish sourcing, Gemini extraction with quote check
@@ -48,6 +51,13 @@ core/data.py        parts catalog, extras, rules, projects
 core/tf.py          TinyFish wrapper (Search + Fetch, disk cache)
 tests/              automated tests (run offline)
 ```
+
+### Parallel work areas
+- **Recommendation page:** `ui/recommendation.py` and `core/picker.py`.
+- **BOM page:** `ui/bom.py`, `core/pipeline.py`, `core/bill.py`, and `core/rules.py`.
+- **Research and extras:** `ui/research_tools.py`, `core/research.py`, `core/specs.py`, and `core/tf.py`.
+
+`app.py` is the shared integration point: it initializes session-state keys and routes to each UI module. Keep feature-specific UI changes in their module; coordinate before changing shared state keys or the core data contract.
 
 ## Setup
 Python 3.12 is recommended (that is what we tested on).
