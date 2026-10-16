@@ -211,31 +211,35 @@ def render_picker(state, tinyfish_enabled, gemini_enabled):
 
 
 def render_results(state, tinyfish_enabled):
-    heading_col, back_col = st.columns([4, 1])
+    heading_col, limit_col, back_col = st.columns([3, 2, 1])
     heading_col.subheader("Projects that fit you")
+    show_top_20 = limit_col.checkbox("Show top 20 projects", key="show_top_20")
     if back_col.button("Back to questions", key="results_back"):
         state.stage = "pick"
         st.rerun()
     count = state.survey_answer_count
     resume_data = state.A.get("resume", {})
     st.caption(f"Based on {count} survey answer{'s' if count != 1 else ''}" + (f" and verified factors from {resume_data['name']}." if resume_data.get("name") else "."))
-    recommendations = picker.rank_factor_projects(state.A, limit=5)
+    result_limit = 20 if show_top_20 else 5
+    recommendations = picker.rank_factor_projects(state.A, limit=result_limit)
     st.caption(f"Ranked from {len(RECOMMENDATION_PROJECT_KEYS)} additional projects. The three existing BOM projects are excluded from this list; new recommendations are not yet BOM-supported.")
-    for column, (project_key, score) in zip(st.columns(len(recommendations)) if recommendations else [], recommendations):
-        project = PROJECT_CATALOG[project_key]
-        meta = PROJECT_FACTOR_CATALOG[project_key]
-        with column, st.container(border=True):
-            st.markdown(f"### {score}%")
-            st.markdown(f"**{_label(project_key)}**")
-            st.caption(project["desc"])
-            st.caption(f"{meta['domain'].title()} · {meta['build_hours']} hours · ₹{meta['cost_inr']:,}")
-            if meta.get("competition_event"):
-                st.caption(f"Event: {meta['competition_event']}")
-            if meta.get("constraints"):
-                st.caption(f"Competition constraints: {meta['constraints']}")
-            if st.button("Choose", key=f"c_{project_key}"):
-                state.pick = project_key
-                state.examples = None
+    for offset in range(0, len(recommendations), 4):
+        row = recommendations[offset:offset + 4]
+        for column, (project_key, score) in zip(st.columns(len(row)), row):
+            project = PROJECT_CATALOG[project_key]
+            meta = PROJECT_FACTOR_CATALOG[project_key]
+            with column, st.container(border=True):
+                st.markdown(f"### {score}%")
+                st.markdown(f"**{_label(project_key)}**")
+                st.caption(project["desc"])
+                st.caption(f"{meta['domain'].title()} · {meta['build_hours']} hours · ₹{meta['cost_inr']:,}")
+                if meta.get("competition_event"):
+                    st.caption(f"Event: {meta['competition_event']}")
+                if meta.get("constraints"):
+                    st.caption(f"Competition constraints: {meta['constraints']}")
+                if st.button("Choose", key=f"c_{project_key}"):
+                    state.pick = project_key
+                    state.examples = None
 
     if not recommendations:
         st.warning("No supported project meets all the limits you provided. Review the excluded-project reasons below.")
