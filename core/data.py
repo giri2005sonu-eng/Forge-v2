@@ -32,6 +32,29 @@ PROJECTS = {
  "obstacle_avoider": J("Obstacle avoider", "Detects obstacles with ultrasonic and steers around them.", "distance", False, 3, 4, 3000, 3, 10, 7, 5, ["sensors"]),
  "bluetooth_car": J("Bluetooth car", "A small car you drive from your phone over Bluetooth.", None, True, 2, 3, 2800, 1, 10, 6, 3, ["wireless"]),
 }
+
+# Explicit recommendation factors: eight 1-5 ratings plus measured units and tool requirements.
+# Estimates describe the currently supported builds; BOM selection still uses its own compatibility rules.
+PROJECT_FACTORS = {
+ "line_follower": dict(domain="sensing", difficulty=2, electronics=3, programming=2, fabrication=2,
+                       control_math=3, ai_vision=1, wireless_iot=1, portfolio_impact=3,
+                       build_hours=18, cost_inr=2500, parts_availability_india=5,
+                       tools_required={"laptop", "soldering_iron"},
+                       required_skills={"sensor_read", "motor_driver"},
+                       prerequisites={"basic_programming", "basic_circuits"}),
+ "obstacle_avoider": dict(domain="robotics", difficulty=3, electronics=3, programming=3, fabrication=2,
+                          control_math=3, ai_vision=1, wireless_iot=1, portfolio_impact=3,
+                          build_hours=24, cost_inr=3000, parts_availability_india=5,
+                          tools_required={"laptop", "soldering_iron", "multimeter"},
+                          required_skills={"sensor_read", "motor_driver", "breadboard"},
+                          prerequisites={"basic_programming", "basic_circuits"}),
+ "bluetooth_car": dict(domain="iot", difficulty=2, electronics=2, programming=3, fabrication=2,
+                       control_math=1, ai_vision=1, wireless_iot=4, portfolio_impact=3,
+                       build_hours=16, cost_inr=2800, parts_availability_india=4,
+                       tools_required={"laptop"},
+                       required_skills={"motor_driver", "c_cpp"},
+                       prerequisites={"basic_programming"}),
+}
 ROBOTS = PROJECTS
 # Planned, NOT built: they would need their own parts lists (e.g. edge sensors, several distance sensors), catalog parts and rules.
 # Until then they are hidden, because with today's catalog they would just duplicate the obstacle avoider's BOM.

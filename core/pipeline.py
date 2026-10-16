@@ -1,5 +1,5 @@
 import itertools, json, os, re, time
-from . import tf
+from . import resume as resume_mod, tf
 from .data import CATALOG, EXTRAS, NONE_SENSOR, PROJECTS, QTY, RULES
 from .rules import evaluate
 
@@ -33,6 +33,67 @@ def _generate(prompt, cfg, key):
                     break
                 raise
     raise last
+
+
+def extract_resume_factors(text):
+    """Use Gemini only to structure resume evidence; unsupported claims are removed locally."""
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        raise ValueError("Add GEMINI_API_KEY to analyze a resume. You can still get recommendations from the survey alone.")
+    from google.genai import types
+    prompt = (
+        "Extract only explicit facts from this student's resume. Do not infer proficiency. Return JSON with these arrays: "
+        '"skills":[{"id":"allowed_id","name":"short label","quote":"exact verbatim evidence"}], '
+        '"languages":[{"id":"c_cpp|python","name":"language","quote":"exact verbatim evidence"}], '
+        '"tools":[{"id":"soldering_iron|multimeter|3d_printer|college_lab|laptop","name":"tool","quote":"exact verbatim evidence"}], '
+        '"projects":[{"name":"project name","domain":"embedded|robotics|vision|iot|mechanics|other",'
+        '"skills":["skill"],"quote":"exact verbatim evidence"}]. '
+        "Allowed skill IDs: sensor_read, soldering, motor_driver, breadboard, raspberry_pi, trained_model. "
+        "Every item MUST include a short exact quote copied character-for-character from the resume. Omit items without evidence. "
+        "Return empty arrays when there are no supported facts.\n\nRESUME TEXT:\n" + text[:resume_mod.MAX_CHARS]
+    )
+    try:
+        response = _generate(prompt, types.GenerateContentConfig(response_mime_type="application/json"), key)
+        extracted = json.loads(response.text or "{}")
+    except Exception as error:
+        raise ValueError(f"Gemini could not structure this resume ({type(error).__name__}).") from error
+    return resume_mod.validate_factors(text, extracted)
+
+
+def research_career_target(target):
+    """Search and fetch public job/career pages; return source excerpts and deterministic domain signals."""
+    target = str(target or "").strip()[:160]
+    if not target:
+        return dict(query="", signals=[], sources=[])
+    query = f'"{target}" job skills requirements robotics embedded India'
+    hits = tf.search(query, location="IN")[:5]
+    urls, seen = [], set()
+    for hit in hits:
+        url = hit.get("url", "")
+        if url.startswith(("https://", "http://")) and url not in seen:
+            urls.append(url)
+            seen.add(url)
+        if len(urls) == 3:
+            break
+    pages = tf.fetch(urls) if urls else {}
+    sources, searchable = [], [target.lower()]
+    for hit in hits:
+        url = hit.get("url", "")
+        content = " ".join(str(pages.get(url, "") or hit.get("snippet", "")).split())[:1400]
+        if not url or not content:
+            continue
+        sources.append(dict(title=str(hit.get("title", "Career source"))[:160], url=url, excerpt=content))
+        searchable.append((str(hit.get("title", "")) + " " + content).lower())
+    combined = " ".join(searchable)
+    terms = {
+        "embedded": ("embedded", "firmware", "microcontroller", "rtos", "stm32"),
+        "robotics": ("robotics", "robot", "autonomous", "control systems"),
+        "vision": ("computer vision", "opencv", "image processing", "machine learning", "deep learning"),
+        "iot": ("iot", "wireless", "mqtt", "bluetooth", "connectivity"),
+        "mechanics": ("mechanical", "cad", "fabrication", "solidworks", "3d printing"),
+    }
+    signals = [tag for tag, phrases in terms.items() if any(phrase in combined for phrase in phrases)]
+    return dict(query=query, signals=signals, sources=sources)
 
 def extract_offer(page_text, part_name):
     """Gemini reads the page; a price is accepted ONLY if its quote appears verbatim in the page and contains the number."""
@@ -102,15 +163,12 @@ def select(robot, budget, needs_bt=False, live=None):
 
 
 def map_idea(text):
-    """Gemini maps a free-text idea onto a supported project type, or says honestly that it can't."""
-    key = os.getenv("GEMINI_API_KEY")
-    if not key: return dict(project=None, reason="Add a Gemini key to match your own idea.")
-    from google.genai import types
-    opts = "\n".join(f"- {k}: {v['label']} ({v['desc']})" for k, v in PROJECTS.items())
-    prompt = ("A student describes a robot project idea. Pick the supported type whose parts and compatibility rules would fit it "
-              "(wheeled robot with DC motors, controller, driver, battery, optional line or distance sensor). If none fits, e.g. a drone, "
-              "walking robot or robot arm, answer null.\nSupported:\n" + opts +
-              '\nReply JSON: {"project": key or null, "reason": "one short sentence"}\nIDEA: ' + text[:500])
-    try: d = json.loads(_generate(prompt, types.GenerateContentConfig(response_mime_type="application/json"), key).text)
-    except Exception as e: return dict(project=None, reason=f"Could not match: {str(e)[:100]}")
-    return dict(project=d.get("project") if d.get("project") in PROJECTS else None, reason=str(d.get("reason", ""))[:200])
+    """Conservatively map a short idea by keywords; recommendation choices never call Gemini."""
+    idea = str(text or "").lower()
+    rules = (("line_follower", ("line follower", "follows a line", "follow the line", "black path", "black line")),
+             ("obstacle_avoider", ("obstacle", "avoid objects", "avoid collision")),
+             ("bluetooth_car", ("bluetooth", "phone controlled", "phone control")))
+    for project, phrases in rules:
+        if any(phrase in idea for phrase in phrases):
+            return dict(project=project, reason="Matched by a deterministic keyword rule to a supported build.")
+    return dict(project=None, reason="No supported BOM project clearly matches this idea yet.")

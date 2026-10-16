@@ -21,7 +21,8 @@ html,body,[class*="css"]{font-family:'DM Sans',sans-serif} h1,h2,h3{font-family:
 
 S = st.session_state
 for k, v in dict(live={}, res=None, log=[], stage="pick", A={}, pick=None, project="line_follower", budget=3500,
-                 idea=None, examples=None, research={}, specs={}, agent={}, choice={}, resume=None, resume_n=0).items():
+                 idea=None, examples=None, research={}, specs={}, agent={}, choice={}, resume=None, resume_n=0,
+                 survey_step=0, survey_answers={}, career_research=None, survey_answer_count=0).items():
     S.setdefault(k, v)
 tf_key, gem_key = bool(os.getenv("TINYFISH_API_KEY")), bool(os.getenv("GEMINI_API_KEY"))
 
@@ -29,7 +30,7 @@ st.title("FORGE")
 st.caption("Robot BOM agent. TinyFish finds and reads live vendor pages, rules decide compatibility, every price carries its quote.")
 
 if S.stage == "pick":
-    recommendation.render_picker(S)
+    recommendation.render_picker(S, tf_key, gem_key)
 elif S.stage == "results":
     recommendation.render_results(S, tf_key)
 else:

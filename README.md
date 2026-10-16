@@ -30,8 +30,8 @@ Gemini reads fetched text; a value is kept **only if its quote is found on the p
 **Web Agent safety and cost:** it runs only when you click, is capped at 12 steps (about 12 credits at TinyFish's published 1 credit per step) and 180 seconds, and is told never to check out, log in or enter personal details. That last part is an instruction to the agent, not a technical block, so run it only on public shop pages and never with saved logins or payment details. Repeat runs of the same listing are served from the cache.
 
 ## The role of AI
-- **AI reads (pretrained Gemini + TinyFish):** finds pages, extracts price and product name with a quote, maps a free-text idea to a supported project.
-- **Rules decide:** compatibility is plain formulas written by us, so a wrong "compatible" can't be invented by a model. The recommendation scoring is also plain code (same answers, same result).
+- **AI reads (pretrained Gemini + TinyFish):** Gemini converts an uploaded resume into structured factors with verbatim evidence quotes. TinyFish searches and reads public career pages for the student's target role. Neither service chooses or scores projects.
+- **Rules decide:** compatibility is plain formulas written by us, so a wrong "compatible" can't be invented by a model. Recommendation scoring and hard-limit filtering are also deterministic code.
 - We did **not** train our own model. Learning the recommender from data is listed under future scope.
 
 ## Architecture
@@ -41,7 +41,9 @@ ui/recommendation.py  landing page (survey + resume upload), results, and projec
 ui/bom.py           BOM selection, compatibility display, sourcing, vendor comparison, and bill
 ui/research_tools.py build-guide research, spec comparison, and optional cart check
 core/picker.py      recommendation scoring (survey + resume factor) + radial chart
-core/resume.py      resume text extraction + deterministic skill detection
+core/resume.py      resume text extraction + quote-verified Gemini factor validation
+core/recommendation_catalog.py  project CSV loader and recommendation-only project metadata
+core/project_data/  supplied project catalog and competition project variants
 assets/fonts/       DejaVu Sans (Bitstream Vera licence), used so the PDF can print the rupee sign
 core/pipeline.py    selector, TinyFish sourcing, Gemini extraction with quote check
 core/research.py    project research from build guides (Search + Fetch + Gemini)
@@ -74,14 +76,14 @@ Keys: `TINYFISH_API_KEY` (agent.tinyfish.ai) and `GEMINI_API_KEY` (aistudio.goog
 Check the TinyFish connection: `python -m core.tf`
 
 ## Supported projects
-Line follower, obstacle avoider, Bluetooth car.
+The BOM builder supports line follower, obstacle avoider, and Bluetooth car. Recommendations consider the 147 unique projects in `core/project_data/projects.csv` and 18 competition variants in `core/project_data/competition_projects.csv`; the three existing BOM projects are excluded from recommendation results, and recommendation-only projects cannot yet generate a project-specific BOM. Catalog factor ratings, budgets, and timelines are estimates.
 
 ## Honest limitations
 - The research, spec-check and cart-check features show results for review; they do not change the BOM automatically. Guide quality varies, and many components in guides will not be in our catalog (shown as not covered).
 - The catalog is small (11 parts plus 3 extras). **Specs are typical datasheet values we entered by hand;** only prices and product names are read live today.
 - Each project is described only by its sensor type and a Bluetooth flag; the other parts roles are shared. Sumo bot and maze solver are **planned but not built**: they need their own parts lists, catalog parts and rules.
 - The recommendation helper's difficulty, time and cost scores are our estimates, not measured data.
-- The resume reader is keyword matching, not understanding: it finds skills it has a pattern for, misses phrasing it does not know, and cannot read scanned or image-only resumes. A skill on a resume is not proof of ability. Survey answers override the resume where both exist. The resume text is read in memory and never stored or sent to an AI service; only detected skills and short snippets stay in the session.
+- Resume factors are extracted by Gemini, but every retained item must have an exact quote from the source resume. Students confirm factors that are not already reported in the survey. Resume text is sent to Gemini for extraction, processed in memory, and not stored; only quote-verified factors remain in session.
 - Extras (chassis, wires, switch) carry rough estimate prices until live sourcing verifies them, and chassis-to-motor fit is not rule-checked.
 - Live sourcing depends on TinyFish and Gemini availability; results are cached, but some pages will show "price not verified".
 

@@ -9,6 +9,9 @@ from .data import PROJECTS
 
 MAX_BYTES = 5_000_000
 MAX_CHARS = 60_000
+EXPERIENCE_IDS = {"sensor_read", "soldering", "motor_driver", "breadboard", "raspberry_pi", "trained_model"}
+LANGUAGE_IDS = {"c_cpp", "python"}
+TOOL_IDS = {"soldering_iron", "multimeter", "3d_printer", "college_lab", "laptop"}
 # skill -> (label, regex, interest tag or None, counts toward electronics experience)
 SKILLS = {
     "arduino": ("Arduino", r"\barduino\b|\batmega\d*\b", None, True),
@@ -66,6 +69,48 @@ def extract_text(name, data):
     if not text:
         raise ValueError("No readable text found. Scanned or image-only resumes are not supported.")
     return text
+
+
+def _verified_items(text, items, allowed_ids=None):
+    verified, seen = [], set()
+    if not isinstance(items, list):
+        return verified
+    for item in items[:40]:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id", "")).strip().lower()[:40]
+        name = str(item.get("name", "")).strip()[:100]
+        quote = str(item.get("quote", "")).strip()[:240]
+        if not name or not quote or quote not in text or (allowed_ids is not None and item_id not in allowed_ids):
+            continue
+        identity = item_id or name.casefold()
+        if identity in seen:
+            continue
+        seen.add(identity)
+        verified.append(dict(id=item_id, name=name, quote=quote, confirmed=False))
+    return verified
+
+
+def validate_factors(text, result):
+    """Keep only structured resume facts whose supporting quote occurs verbatim in the source text."""
+    if not isinstance(result, dict):
+        return dict(skills=[], languages=[], tools=[], projects=[])
+    projects = []
+    for item in result.get("projects", [])[:20] if isinstance(result.get("projects"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name", "")).strip()[:120]
+        quote = str(item.get("quote", "")).strip()[:300]
+        if not name or not quote or quote not in text:
+            continue
+        skills = [str(skill).strip()[:60] for skill in item.get("skills", [])[:12] if str(skill).strip()] if isinstance(item.get("skills"), list) else []
+        projects.append(dict(name=name, domain=str(item.get("domain", "other"))[:40], skills=skills, quote=quote))
+    return dict(
+        skills=_verified_items(text, result.get("skills"), EXPERIENCE_IDS),
+        languages=_verified_items(text, result.get("languages"), LANGUAGE_IDS),
+        tools=_verified_items(text, result.get("tools"), TOOL_IDS),
+        projects=projects,
+    )
 
 
 def _snippet(text, match, pad=32):

@@ -17,7 +17,7 @@ def test_multiple_answers_are_flexible():
     assert flexible > tight
 
 def test_chart_has_every_axis_label():
-    h = picker.chart_html(picker.fits("line_follower", {}))
+    h = picker.chart_html(picker.factor_breakdown("line_follower", {}))
     assert all(name in h for name, _ in picker.AXES) and h.count("<polygon") == len(picker.AXES)
 
 def test_every_project_builds_a_valid_bom():
