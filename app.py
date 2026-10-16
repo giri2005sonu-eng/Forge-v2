@@ -1,326 +1,219 @@
-"""Production-style FastAPI application for Robot BOM & Compatibility Agent."""
-from __future__ import annotations
-import csv, io, os, json
-from dataclasses import asdict, is_dataclass
-from pathlib import Path
-from typing import Any, Literal
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, HttpUrl
+import os
+import streamlit as st
+import streamlit.components.v1 as components
+from dotenv import load_dotenv
+from core import bill, picker, pipeline, research, specs, tf
+from core.data import PROJECTS, QTY
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+load_dotenv()
+st.set_page_config(page_title="FORGE", page_icon="🤖", layout="wide")
+st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;700&family=DM+Sans:wght@400;500&display=swap');
+html,body,[class*="css"]{font-family:'DM Sans',sans-serif} h1,h2,h3{font-family:Sora,sans-serif!important}
+.stButton>button{border-radius:14px;padding:.6rem 1.3rem;border:0;background:linear-gradient(135deg,#0F8F9A,#3CC4CF);color:#fff;font-weight:500;
+ box-shadow:0 4px 14px rgba(60,196,207,.3);transition:transform .15s,box-shadow .15s}
+.stButton>button:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(60,196,207,.4)}
+[data-testid="stVerticalBlockBorderWrapper"]{border-radius:18px}
+.block-container{padding-top:2rem;max-width:1100px} #MainMenu,footer{visibility:hidden}
+.b{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;color:#fff}
+.PASS{background:#2FA36B}.FAIL{background:#D8505B}.UNKNOWN{background:#B08A1E}
+</style>""", unsafe_allow_html=True)
 
-from core.bom import bom_table, checks_table, ledger_table
-from core.catalog import load_catalog, load_seed, normalize_part, reset_overlay, save_overlay
-from core.config import DATA_DIR, load_config, load_spec_defs
-from core.export import generate_html_report, generate_markdown_report
-from core.live import discover_parts, import_part_from_url, refresh_part
-from core.llm import DEFAULT_MODEL, GeminiClient, LLMError
-from core.parser import heuristic_parse, parse_requirements
-from core.power import analyze_power
-from core.project_report import generate_project_report
-from core.rules import load_rules
-from core.schemas import Part, Requirements
-from core.sourcing import ApplyError, apply_price, check_prices, clear_cache, find_sources
-from core.selector import _make_build, qty_for, select_build
-from core.testrunner import load_cases, run_case
-from core.tinyfish import TinyFishClient, TinyFishError
-from core.wiring import generate_wiring_plan
+S = st.session_state
+for k, v in dict(live={}, res=None, log=[], stage="pick", A={}, pick=None, project="line_follower", budget=3500, idea=None, examples=None, research={}, specs={}, agent={}, choice={}).items():
+    S.setdefault(k, v)
+tf_key, gem_key = bool(os.getenv("TINYFISH_API_KEY")), bool(os.getenv("GEMINI_API_KEY"))
 
-BASE_DIR = Path(__file__).resolve().parent
-CONFIG = load_config(); SPEC_DEFS = load_spec_defs()
-RULES = load_rules(DATA_DIR / 'rules.yaml', SPEC_DEFS)
-app = FastAPI(title='Robot BOM Agent API', version='2.0.0', description='Robot component selection, compatibility validation and engineering reports.')
-app.mount('/static', StaticFiles(directory=BASE_DIR / 'static'), name='static')
+def show_html(html, height):
+    """st.iframe on new Streamlit; falls back to the older components API. HTML here is built only from our own constants."""
+    st.iframe(html, height=height) if hasattr(st, "iframe") else components.html(html, height=height)
 
-# API keys are read from environment/.env by default. Optional UI settings are process-memory only.
-_runtime_keys = {'gemini': os.getenv('GEMINI_API_KEY', ''), 'tinyfish': os.getenv('TINYFISH_API_KEY', ''), 'model': os.getenv('GEMINI_MODEL', DEFAULT_MODEL)}
-_active: dict[str, Any] = {'requirements': None, 'selection': None, 'build': None, 'ctx': None}
+def go(stage): S.stage = stage
+def label(k): return PROJECTS[k]["label"]
 
-class BuildRequest(BaseModel):
-    robot_type: str = 'line_follower'
-    budget_inr: float = Field(3000, ge=500, le=200000)
-    motor_count: int = Field(2, ge=1, le=2)
-    min_runtime_h: float = Field(1, ge=0.1, le=48)
-    needs_bluetooth: bool = False
-    sensor_channels: int | None = Field(None, ge=1, le=16)
+st.title("FORGE")
+st.caption("Robot BOM agent. TinyFish finds and reads live vendor pages, rules decide compatibility, every price carries its quote.")
 
-class ParseRequest(BaseModel):
-    prompt: str = Field(min_length=3, max_length=3000)
+# ---------------- 1. recommendation helper (skippable) ----------------
+if S.stage == "pick":
+    st.subheader("Not sure what to build?")
+    st.caption("Pick as many answers as you like on each question. Every question is optional.")
+    with st.container(border=True):
+        ans = {k: st.pills(q, list(o), selection_mode="multi", key=f"q_{k}") or [] for k, q, o in picker.QUESTIONS}
+        c1, c2, _ = st.columns([1, 1, 3])
+        if c1.button("Recommend projects"):
+            S.A = {k: [o[x] for x in ans[k]] for k, q, o in picker.QUESTIONS}
+            S.pick, S.idea, S.examples = None, None, None; go("results"); st.rerun()
+        if c2.button("Skip"): go("bom"); st.rerun()
 
-class SettingsRequest(BaseModel):
-    gemini_api_key: str | None = None
-    tinyfish_api_key: str | None = None
-    gemini_model: str | None = None
+elif S.stage == "results":
+    st.subheader("Projects that fit you")
+    rec = picker.rank(S.A)[:4]
+    for col, (k, sc) in zip(st.columns(len(rec)), rec):
+        with col, st.container(border=True):
+            st.markdown(f"### {sc}%"); st.markdown(f"**{label(k)}**"); st.caption(PROJECTS[k]["desc"])
+            if st.button("Choose", key=f"c_{k}"): S.pick = k; S.examples = None
+    with st.container(border=True):
+        st.markdown("**Or describe your own idea**")
+        txt = st.text_input("e.g. a car that follows my hand", label_visibility="collapsed")
+        if st.button("Match my idea") and txt.strip():
+            S.idea = pipeline.map_idea(txt)
+            if S.idea["project"]: S.pick = S.idea["project"]
+        if S.idea:
+            (st.success if S.idea["project"] else st.warning)((f"Closest supported project: {label(S.idea['project'])}. " if S.idea["project"] else "Not supported yet. ") + S.idea["reason"])
+    if S.pick:
+        p, fit = PROJECTS[S.pick], picker.fits(S.pick, S.A)
+        L, R = st.columns([2, 3])
+        with L, st.container(border=True):
+            st.markdown(f"### {p['label']} · {picker.score(S.pick, S.A)}% match"); st.write(p["desc"])
+            st.caption("Scores are my estimates, not measured data. Triangle size and colour show fit for your answers.")
+            if st.button("Real examples from the web (TinyFish Search)", disabled=not tf_key):
+                try: S.examples = tf.search(f"{p['label']} robot project hackathon")[:5]
+                except Exception as e: S.examples = [dict(title=f"Search failed: {str(e)[:100]}", url="")]
+            for e in S.examples or []: st.markdown(f"- [{e['title'][:70]}]({e['url']})" if e["url"] else f"- {e['title']}")
+            if st.button("Build the BOM for this project"):
+                S.project, S.budget, S.res = S.pick, int(max(S.A.get("budget", [3500]) or [3500])), None; go("bom"); st.rerun()
+        with R, st.container(border=True): show_html(picker.chart_html(fit), 440)
+    c1, c2 = st.columns(2)
+    if c1.button("Change answers"): go("pick"); st.rerun()
+    if c2.button("Skip to BOM agent"): go("bom"); st.rerun()
 
-class LiveRefreshRequest(BaseModel):
-    category: str
-    part_ids: list[str] = Field(min_length=1, max_length=20)
-    pages_per_part: int = Field(3, ge=1, le=5)
+# ---------------- 2. BOM agent ----------------
+else:
+    if not (tf_key and gem_key):
+        st.warning("Add TINYFISH_API_KEY and GEMINI_API_KEY to .env for live prices. Without them the app uses seed prices (labelled).")
+    with st.container(border=True):
+        a, b, c = st.columns([2, 1, 1])
+        keys = list(PROJECTS)
+        robot = a.selectbox("Project", keys, index=keys.index(S.project), format_func=label)
+        budget = b.number_input("Budget (₹)", 1000, 100000, S.budget, 500)
+        bt = c.toggle("Needs Bluetooth", value=PROJECTS[robot]["bt"])
+        g1, g2, _ = st.columns([1, 1, 3])
+        if g1.button("Generate BOM"):
+            S.project = robot; S.res = pipeline.select(robot, budget, bt or PROJECTS[robot]["bt"], S.live)
+        if g2.button("Help me choose"): go("pick"); st.rerun()
 
-class DiscoverRequest(BaseModel):
-    category: str
-    query: str = Field(min_length=3, max_length=500)
-    kind: str | None = None
+    res = S.res
+    if res and not res["best"]:
+        st.error(f"No fully compatible build fits ₹{budget:,.0f}. {res['rejected']} of {res['evaluated']} combinations failed a rule. Raise the budget or relax a requirement.")
+    elif res:
+        best = res["best"]
+        st.subheader(f"{label(S.project)} · ₹{best['cost']:,.0f}")
+        st.caption(f"Checked {res['evaluated']} combinations; {res['rejected']} rejected for failing a rule.")
+        left, right = st.columns([3, 2])
+        with left, st.container(border=True):
+            for role, p in best["parts"].items():
+                if p.get("none"): continue
+                price, src = pipeline.price_of(p, S.live); q = QTY.get(role, 1)
+                st.markdown(f"**{p['name']}** · {role} × {q} · ₹{price * q:,.0f} · `{src} price`")
+                w = pipeline.spread_warning(S.live.get(p["id"], []))
+                if w: st.warning(w)
+                for o in S.live.get(p["id"], []):
+                    if o.get("price"): st.caption(f"✓ ₹{o['price']:,.0f} · {o.get('name') or 'product name not verified'} · {o['url']} — “{o['quote'][:90]}”")
+                    else: st.caption(f"Link found, price not verified: {o['url']}")
+        with right, st.container(border=True):
+            st.markdown("**Compatibility checks**")
+            for ck in best["checks"]:
+                st.markdown(f"<span class='b {ck['status']}'>{ck['status']}</span> {ck['title']}", unsafe_allow_html=True)
+                if ck["status"] != "PASS": st.caption(ck["msg"])
+        if res["alternatives"]:
+            with st.expander("Other valid builds"):
+                for r in res["alternatives"]: st.write(f"₹{r['cost']:,.0f} · " + ", ".join(p["name"] for p in r["parts"].values() if not p.get("none")))
+        st.divider()
+        st.markdown("#### Live data from TinyFish")
+        if st.button("Find live prices (TinyFish Search + Fetch)", disabled=not (tf_key and gem_key)):
+            S.log = []
+            def lg(m): S.log.append(str(m)); st.write(m)
+            with st.status("Searching vendors and reading pages...", expanded=True) as stt:
+                for p in best["parts"].values():
+                    if p.get("none"): continue
+                    try: S.live[p["id"]] = pipeline.source_part(p, log=lg)
+                    except Exception as e: lg(f"{p['name']}: {e}")
+                stt.update(label="Done. Prices with a verified quote are now used in the BOM.", state="complete")
+            S.res = pipeline.select(S.project, budget, bt or PROJECTS[S.project]["bt"], S.live); st.rerun()
+        if S.log:
+            with st.expander("Last TinyFish research log", expanded=True):
+                for m in S.log: st.write(m)
 
-class ImportUrlRequest(BaseModel):
-    url: str
-    category: str
-    kind: str | None = None
+        # ---------------- vendor comparison + bill ----------------
+        st.divider()
+        st.markdown("#### Compare shops and build your bill")
+        st.caption("Each row is a part of the build. The cheapest verified listing is ticked; tick another one to buy that instead. The bill below updates straight away.")
+        if st.button("Reset to cheapest"): S.choice = {}; st.rerun()
+        COLS = [1.7] + [1.35] * bill.MAX_OFFERS + [0.95]
+        hd = st.columns(COLS)
+        for c, t in zip(hd, ["Part", "Cheapest", "Option 2", "Option 3", "Option 4", "Line total"]): c.caption(t)
+        def pick_offer(pid, url): S.choice[pid] = url
+        for role, p in best["parts"].items():
+            if p.get("none"): continue
+            offers, q = bill.offers_for(p["id"], S.live), QTY.get(role, 1)
+            sel = bill.chosen_url(p["id"], S.live, S.choice)
+            with st.container(border=True):
+                cols = st.columns(COLS)
+                cols[0].markdown(f"**{bill.md_escape(p['name'])}**")
+                cols[0].caption(f"{role.capitalize()} × {q}")
+                if not offers:
+                    cols[1].markdown(f"**{bill.inr(p['seed_price'])}**")
+                    cols[1].caption("Estimate, no verified shop price yet")
+                    tot_line = p["seed_price"] * q
+                for j, o in enumerate(offers):
+                    S[f"pk_{p['id']}_{j}"] = o["url"] == sel  # keep the ticks in step with the stored choice
+                    cols[1 + j].checkbox(f"**{bill.inr(o['price'])}**" + (" · cheapest" if j == 0 else ""), key=f"pk_{p['id']}_{j}", on_change=pick_offer, args=(p["id"], o["url"]))
+                    u = bill.safe_url(o["url"]); shop = bill.md_escape(bill.vendor(o["url"]))
+                    cols[1 + j].caption((f"[{shop}]({u})" if u else shop) + f"  \n{bill.md_escape((o.get('name') or 'product name not verified')[:60])}" + ("  \n:red[Out of stock]" if o.get("in_stock") is False else ""))
+                if offers: tot_line = next(o["price"] for o in offers if o["url"] == sel) * q
+                cols[-1].markdown(f"**{bill.inr(tot_line)}**")
+                nv = len(bill.unverified_for(p["id"], S.live))
+                if nv: st.caption(f"{nv} more link{'s' if nv > 1 else ''} found without a verifiable price, so not offered here.")
+                w = pipeline.spread_warning(S.live.get(p["id"], []))
+                if w: st.warning(w)
+        B = bill.make(best["parts"], S.live, S.choice, budget, label(S.project))
+        st.markdown("#### Your bill")
+        st.markdown(B["html"], unsafe_allow_html=True)
+        st.download_button("Download bill as PDF", B["pdf"], file_name=f"forge_bill_{S.project}_{B['ref'][3:11]}.pdf", mime="application/pdf", type="primary")
 
-class PriceCheckRequest(BaseModel):
-    urls: list[str] = Field(min_length=1, max_length=10)
-
-class ApplyPriceRequest(BaseModel):
-    url: str
-
-class SwapRequest(BaseModel):
-    part_ids: dict[str, str]
-
-class ProjectReportRequest(BaseModel):
-    project_id: Literal['mobile-robot', 'iot-system', 'vision-robot', 'assistive-device', 'uav-platform', 'ev-power']
-    project_answers: dict[str, str | None] = Field(default_factory=dict)
-    survey_answers: dict[str, str | None] = Field(default_factory=dict)
-
-
-def _llm():
-    return GeminiClient(_runtime_keys['gemini'], _runtime_keys['model'] or None) if _runtime_keys['gemini'] else None
-
-def _tf():
-    return TinyFishClient(_runtime_keys['tinyfish']) if _runtime_keys['tinyfish'] else None
-
-def _part(p: Part):
-    d = p.model_dump(mode='json')
-    d['price_value'] = p.price.value if p.price else None
-    d['price_method'] = p.price.evidence.method if p.price else 'none'
-    d['stock_value'] = p.in_stock.value if p.in_stock else None
-    d['specs_flat'] = {k: v.value for k, v in p.specs.items()}
-    return d
-
-def _build(b):
-    if b is None: return None
-    power = analyze_power(b, CONFIG)
-    wiring = generate_wiring_plan(b)
-    bom = bom_table(b).to_dict(orient='records')
-    ledger = ledger_table(b, SPEC_DEFS).to_dict(orient='records')
-    checks = checks_table(b).to_dict(orient='records')
-    return {
-      'status': b.status, 'counts': b.counts, 'parts_cost': b.parts_cost, 'shipping_total': b.shipping_total,
-      'total': b.total, 'budget_inr': (_active['ctx'] or {}).get('budget_inr'),
-      'budget_remaining': ((_active['ctx'] or {}).get('budget_inr', 0) - b.total),
-      'parts': {cat: {**_part(p), 'qty': b.qty.get(cat, 1), 'line_total': b.qty.get(cat,1) * (p.price.value if p.price else 0)} for cat,p in b.parts.items()},
-      'shipping_rows': b.shipping_rows, 'checks': [{'rule_id':c.rule_id,'title':c.title,'category':c.category,'status':c.status,'message':c.message,'missing':c.missing,'evidence':[e.model_dump(mode='json') for e in c.evidence]} for c in b.checks],
-      'bom': bom, 'ledger': ledger, 'power': asdict(power) if power else None,
-      'wiring': {'connections':[asdict(x) for x in wiring.connections], 'warnings':wiring.warnings,'assembly_steps':wiring.assembly_steps,'mermaid_diagram':wiring.mermaid_diagram},
-    }
-
-@app.get('/', response_class=HTMLResponse)
-def home():
-    return FileResponse(BASE_DIR / 'static' / 'index.html')
-
-@app.get('/api/health')
-def health(): return {'status':'ok','service':'Robot BOM & Compatibility Agent','version':'2.0.0'}
-
-@app.get('/api/meta')
-def meta():
-    catalog=load_catalog(SPEC_DEFS)
-    return {'robot_types': CONFIG['robot_types'], 'categories': {k:{'label':k.title(),'specs':v} for k,v in SPEC_DEFS.items()},
-      'catalog_count':len(catalog), 'live_price_count':sum(1 for p in catalog.values() if p.price and p.price.evidence.method=='scraped'),
-      'gemini_configured':bool(_runtime_keys['gemini']), 'tinyfish_configured':bool(_runtime_keys['tinyfish']), 'model':_runtime_keys['model']}
-
-@app.get('/api/settings/status')
-def settings_status():
-    return {'gemini_configured':bool(_runtime_keys['gemini']), 'tinyfish_configured':bool(_runtime_keys['tinyfish']), 'model':_runtime_keys['model']}
-
-@app.post('/api/settings')
-def settings(body: SettingsRequest):
-    if body.gemini_api_key is not None: _runtime_keys['gemini']=body.gemini_api_key.strip()
-    if body.tinyfish_api_key is not None: _runtime_keys['tinyfish']=body.tinyfish_api_key.strip()
-    if body.gemini_model is not None: _runtime_keys['model']=body.gemini_model.strip() or DEFAULT_MODEL
-    return settings_status()
-
-@app.post('/api/parse')
-def parse(body: ParseRequest):
-    try:
-        llm=_llm()
-        if llm: req, notes=parse_requirements(llm.json, body.prompt, CONFIG)
-        else:
-            req, notes=heuristic_parse(body.prompt, CONFIG)
-            notes.insert(0,'Gemini is not configured; used the local keyword parser.')
-        if req is None: raise HTTPException(422, 'The robot type could not be mapped to a supported type.')
-        return {'requirements':req.model_dump(mode='json'),'notes':notes,'parser':'gemini' if llm else 'keyword'}
-    except LLMError as e: raise HTTPException(502, str(e))
-
-@app.post('/api/build')
-def build(body: BuildRequest):
-    try:
-        req=Requirements(**body.model_dump()); ctx=req.to_ctx(CONFIG)
-        selection=select_build(load_catalog(SPEC_DEFS), ctx, CONFIG, RULES)
-        chosen=selection.chosen
-        _active.update({'requirements':req,'selection':selection,'build':chosen,'ctx':ctx})
-        return {'message':selection.message,'within_budget':selection.within_budget,'evaluated':selection.evaluated,'truncated':selection.truncated,
-          'excluded':selection.excluded,'alternatives':[_build(x) for x in selection.alternatives[:5]], 'rejected_count':len(selection.rejected),
-          'chosen':_build(chosen), 'naive':_build(selection.naive) if selection.naive else None,
-          'fail_stats':dict(selection.fail_stats)}
-    except Exception as e: raise HTTPException(400, f'Build failed: {e}')
-
-@app.get('/api/catalog')
-def catalog(category: str | None = None, q: str | None = None):
-    parts=list(load_catalog(SPEC_DEFS).values())
-    if category: parts=[p for p in parts if p.category==category]
-    if q: parts=[p for p in parts if q.lower() in (p.name+' '+p.vendor+' '+p.id).lower()]
-    return {'items':[_part(p) for p in parts], 'total':len(parts)}
-
-@app.get('/api/part/{part_id}')
-def part_detail(part_id: str):
-    p=load_catalog(SPEC_DEFS).get(part_id)
-    if not p: raise HTTPException(404,'Part not found')
-    return _part(p)
-
-@app.get('/api/part/{part_id}/sources')
-def part_sources(part_id: str, refresh: bool = False, min_links: int = 5):
-    """TinyFish Search -> at least `min_links` selling links for this part."""
-    p=load_catalog(SPEC_DEFS).get(part_id)
-    if not p: raise HTTPException(404,'Part not found')
-    tf=_tf()
-    if not tf: raise HTTPException(400,'TinyFish API key is not configured. Add it in Settings & API keys.')
-    try:
-        return find_sources(p, tf, CONFIG['allowed_vendor_domains'], target=max(1,min(min_links,8)), refresh=refresh)
-    except (TinyFishError, RuntimeError) as e:
-        if '401' in str(e) or 'rejected the API key' in str(e):
-            raise HTTPException(502,'TinyFish rejected your API key (401). Put a valid TINYFISH_API_KEY in the .env file (or Settings & API keys), then restart the server.')
-        raise HTTPException(502,f'TinyFish search failed: {e}')
-
-@app.post('/api/part/{part_id}/sources/prices')
-def part_source_prices(part_id: str, body: PriceCheckRequest):
-    """TinyFish Fetch (live page) -> Gemini extraction -> quote-verified price per link."""
-    p=load_catalog(SPEC_DEFS).get(part_id)
-    if not p: raise HTTPException(404,'Part not found')
-    tf=_tf()
-    if not tf: raise HTTPException(400,'TinyFish API key is not configured. Add it in Settings & API keys.')
-    try: llm=_llm()
-    except Exception: llm=None   # Gemini is only a backup; prices are read from the page by rules first
-    try: return check_prices(p, body.urls, tf, llm.json if llm else None, SPEC_DEFS)
-    except TinyFishError as e: raise HTTPException(502,str(e))
-
-@app.post('/api/part/{part_id}/sources/apply')
-def part_source_apply(part_id: str, body: ApplyPriceRequest):
-    """Write a verified seller price into the catalog (with URL, timestamp and quote as evidence)."""
-    p=load_catalog(SPEC_DEFS).get(part_id)
-    if not p: raise HTTPException(404,'Part not found')
-    try: updated=apply_price(p, body.url)
-    except ApplyError as e: raise HTTPException(422,str(e))
-    save_overlay([normalize_part(updated,SPEC_DEFS)])
-    return {'part':_part(updated)}
-
-@app.post('/api/live/refresh')
-def live_refresh(body: LiveRefreshRequest):
-    if not (_runtime_keys['gemini'] and _runtime_keys['tinyfish']): raise HTTPException(400,'Configure both Gemini and TinyFish API keys in Settings first.')
-    if body.category not in SPEC_DEFS: raise HTTPException(422,'Unknown category')
-    catalog=load_catalog(SPEC_DEFS); chosen=[catalog[i] for i in body.part_ids if i in catalog and catalog[i].category==body.category]
-    if not chosen: raise HTTPException(422,'No valid parts selected for this category')
-    reports=[]; tf=_tf(); llm=_llm()
-    for p in chosen:
-        try:
-            refreshed, report=refresh_part(p, tf, llm.json, SPEC_DEFS, CONFIG['allowed_vendor_domains'], max_pages=body.pages_per_part)
-            if refreshed: save_overlay([normalize_part(refreshed,SPEC_DEFS)])
-            reports.append({'part':p.name,'report':report})
-        except Exception as e: reports.append({'part':p.name,'error':str(e)})
-    return {'results':reports}
-
-@app.post('/api/live/discover')
-def live_discover(body: DiscoverRequest):
-    if not (_runtime_keys['gemini'] and _runtime_keys['tinyfish']): raise HTTPException(400,'Configure both Gemini and TinyFish API keys in Settings first.')
-    if body.category not in SPEC_DEFS: raise HTTPException(422,'Unknown category')
-    try:
-        known={p.url for p in load_catalog(SPEC_DEFS).values() if p.url}
-        found, report=discover_parts(body.category,body.query,_tf(),_llm().json,SPEC_DEFS,CONFIG['allowed_vendor_domains'],kind=body.kind,known_urls=known)
-        return {'items':[_part(p) for p in found], 'report':report}
-    except (TinyFishError,LLMError) as e: raise HTTPException(502,str(e))
-
-@app.post('/api/project/report')
-def project_report(body: ProjectReportRequest):
-    llm = _llm()
-    try:
-        return generate_project_report(body.project_id, body.project_answers, body.survey_answers,
-                                       _tf(), llm.json if llm else None, SPEC_DEFS, CONFIG['allowed_vendor_domains'])
-    except Exception as e:
-        raise HTTPException(500, f'Project report generation failed: {e}')
-
-@app.post('/api/live/import-url')
-def live_import(body: ImportUrlRequest):
-    if not (_runtime_keys['gemini'] and _runtime_keys['tinyfish']): raise HTTPException(400,'Configure both Gemini and TinyFish API keys in Settings first.')
-    if body.category not in SPEC_DEFS: raise HTTPException(422,'Unknown category')
-    try:
-        p, report=import_part_from_url(body.url,body.category,_tf(),_llm().json,SPEC_DEFS,kind=body.kind)
-        return {'part':_part(p) if p else None,'report':report}
-    except (TinyFishError,LLMError) as e: raise HTTPException(502,str(e))
-
-@app.post('/api/catalog/add')
-def catalog_add(body: dict):
-    try:
-        parts=[normalize_part(Part.model_validate(x),SPEC_DEFS) for x in body.get('items',[])]
-        if not parts: raise HTTPException(422,'No parts supplied')
-        save_overlay(parts); return {'added':len(parts)}
-    except HTTPException: raise
-    except Exception as e: raise HTTPException(422,str(e))
-
-@app.post('/api/catalog/reset')
-def catalog_reset():
-    reset_overlay(); clear_cache(); _active.update({'requirements':None,'selection':None,'build':None,'ctx':None})
-    return {'status':'reset'}
-
-@app.post('/api/swap')
-def swap(body: SwapRequest):
-    if not _active.get('build') or not _active.get('ctx'): raise HTTPException(409,'Build a BOM before testing component swaps.')
-    catalog=load_catalog(SPEC_DEFS); parts=dict(_active['build'].parts)
-    for cat,pid in body.part_ids.items():
-        p=catalog.get(pid)
-        if p is None or p.category!=cat: raise HTTPException(422,f'Invalid replacement for {cat}')
-        parts[cat]=p
-    qty={c:qty_for(c,p,_active['ctx']) for c,p in parts.items()}
-    b=_make_build(parts,qty,_active['ctx'],CONFIG,RULES)
-    return {'build':_build(b),'cost_delta':b.total-_active['build'].total}
-
-@app.get('/api/rules')
-def rules():
-    return {'items':[{'id':r.id,'category':r.category,'title':r.title,'needs':r.needs,'check':r.check,'when':r.when or ''} for r in RULES]}
-
-@app.post('/api/tests')
-def tests():
-    seed=load_seed(SPEC_DEFS); results=[run_case(c,seed,RULES,CONFIG) for c in load_cases()]
-    return {'passed':sum(1 for r in results if r['ok']),'total':len(results),'items':results}
-
-@app.get('/api/export/{kind}')
-def export(kind: str, include_power: bool = True, include_wiring: bool = True):
-    b=_active.get('build'); req=_active.get('requirements'); ctx=_active.get('ctx')
-    if not b or not req: raise HTTPException(409,'Build a BOM before exporting reports.')
-    if kind=='bom.csv':
-        content=bom_table(b).to_csv(index=False); media='text/csv'; filename='robot_bom.csv'
-    elif kind=='ledger.csv':
-        content=ledger_table(b,SPEC_DEFS).to_csv(index=False); media='text/csv'; filename='evidence_ledger.csv'
-    elif kind=='report.md':
-        power=analyze_power(b,CONFIG) if include_power else None
-        wiring=generate_wiring_plan(b) if include_wiring else None
-        content=generate_markdown_report(b,req,CONFIG,SPEC_DEFS,power,wiring,
-                                        include_power=include_power, include_wiring=include_wiring)
-        media='text/markdown'; filename='robot_report.md'
-    elif kind=='report.html':
-        content=generate_html_report(b,req,CONFIG,SPEC_DEFS,
-                                    include_power=include_power, include_wiring=include_wiring)
-        media='text/html'; filename='robot_report.html'
-    else: raise HTTPException(404,'Unknown export format')
-    return Response(content=content,media_type=media,headers={'Content-Disposition':f'attachment; filename="{filename}"'})
-
-@app.exception_handler(Exception)
-async def unhandled_error(request, exc):
-    # Keep implementation details out of production responses; log to server console.
-    import logging
-    logging.getLogger('robot_bom_agent').exception('Unhandled application error', exc_info=exc)
-    from fastapi.responses import JSONResponse
-    return JSONResponse(status_code=500,content={'detail':'Unexpected server error. Check the application logs.'})
+        st.divider()
+        st.markdown("#### More TinyFish tools")
+        # --- research what the project needs (Search + Fetch, free) ---
+        with st.container(border=True):
+            st.markdown("**Research what this project needs** · Search + Fetch (free)")
+            if st.button("Research build guides", disabled=not (tf_key and gem_key)):
+                with st.status("Reading build guides...", expanded=True):
+                    S.research[S.project] = research.research(label(S.project), log=st.write)
+            rr = S.research.get(S.project)
+            if rr:
+                mapped = [i for i in rr["items"] if i["role"] != "other"]
+                st.caption(f"{len(rr['items'])} components stated in {len(rr['guides'])} guides; {len(mapped)} map to parts we can rule-check, {len(rr['items']) - len(mapped)} do not (shown as not covered).")
+                for i in rr["items"]:
+                    st.markdown(f"{'✅' if i['role'] != 'other' else '⚠️'} **{i['name']}** · {i['role'] if i['role'] != 'other' else 'not covered by our catalog'}")
+                    st.caption(f"“{i['quote'][:140]}” — {i['url']}")
+        # --- spec check (Fetch pages already read, free) ---
+        with st.container(border=True):
+            st.markdown("**Check our specs against the shop pages** · uses the pages already fetched")
+            cand = {p["name"]: p for p in best["parts"].values() if not p.get("none") and S.live.get(p["id"])}
+            if cand:
+                pick = st.selectbox("Part", list(cand), key="spec_part")
+                if st.button("Check specs", disabled=not gem_key):
+                    p = cand[pick]; urls = [o["url"] for o in S.live[p["id"]]]
+                    S.specs[p["id"]] = specs.check_part(p, tf.fetch(urls), log=st.write)
+                for r in S.specs.get(cand[pick]["id"], []):
+                    icon = {"match": "✅", "differs": "❌", "not stated": "➖"}[r["status"]]
+                    st.markdown(f"{icon} `{r['spec']}` ours **{r['seed']}** · page **{r['live'] if r['live'] is not None else 'not stated'}** · {r['status']}")
+                    if r["quote"]: st.caption(f"“{r['quote']}” — {r['url']}")
+            else: st.caption("Run Find live prices first so there are pages to check.")
+        # --- Web Agent cart check (USES CREDITS, opt-in) ---
+        with st.container(border=True):
+            st.markdown("**Cart check with the Web Agent** · uses TinyFish credits")
+            offers = {f"{p['name']} · {o['url'].split('/')[2]}": o["url"] for p in best["parts"].values() if not p.get("none") for o in S.live.get(p["id"], []) if o.get("price")}
+            st.caption("Opens the shop page, adds ONE unit to the cart and reads the cart. It is told never to check out or enter any details. Capped at 12 steps (about 12 credits per TinyFish pricing).")
+            if offers:
+                ch = st.selectbox("Verified listing", list(offers), key="agent_pick")
+                if st.button("Run cart check", disabled=not tf_key):
+                    with st.spinner("Web Agent running..."):
+                        try: S.agent[offers[ch]] = tf.agent(offers[ch])
+                        except Exception as e: S.agent[offers[ch]] = dict(status="ERROR", error=str(e)[:200])
+                r = S.agent.get(offers[ch])
+                if r:
+                    st.json(r.get("result") or r.get("error") or r)
+                    st.caption(f"Status {r.get('status')} · steps used {r.get('num_of_steps', 'n/a')}" + (" · cached, no credits used" if r.get("cached") else ""))
+            else: st.caption("Run Find live prices first so there are verified listings to check.")

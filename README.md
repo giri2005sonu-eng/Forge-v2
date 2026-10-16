@@ -1,126 +1,81 @@
-# FORGE — Robot BOM & Compatibility Agent
+# FORGE — Robot BOM Agent
 
-A classic, engineering-first web interface for planning robot builds, optimizing a budget-aware bill of materials, validating component compatibility, reviewing power and wiring, sourcing live parts, and exporting traceable engineering reports.
+**Azinhack 2026 · AI Engineering track · Team: [Team name] — [Member 1], [Member 2], [Member 3], [Member 4]**
 
-**The frontend is plain HTML/CSS/JavaScript. The backend is FastAPI. Streamlit is not used.** The existing deterministic rule engine, catalog, Gemini/TinyFish integrations, power model, wiring guide, and report exporters are reused.
+> AI reads. Rules decide. Every number has a source.
 
-## Features
+## Problem
+Picking parts for a hobby robot is slow and error-prone. Specs are scattered across shop pages and datasheets, the same product name can mean very different things (a search for "Arduino Nano" returned verified listings from ₹229 to ₹2,755: a clone, a starter kit and the original), and one wrong voltage or current mismatch can burn a board.
 
-- Clean responsive desktop/mobile UI with overview dashboard and workflow navigation.
-- Natural-language requirement parsing (Gemini when configured, local heuristic parser otherwise).
-- Structured constraints for supported robot types, budget, motor count, runtime, Bluetooth, and sensor channels.
-- Cost-ordered BOM selection with vendor shipping estimates and budget delta.
-- Compatibility results separated into **PASS**, **FAIL**, and **UNKNOWN**; unknown specifications are never silently assumed.
-- Component catalog search, detail/evidence inspector, source URLs, and stock/source indicators.
-- TinyFish + Gemini live refresh, component discovery, and direct product URL import with quote verification.
-- Interactive component swap simulator and offline regression test runner.
-- Power budget, battery discharge margin, estimated runtimes, driver thermal warnings, pinout/interconnect guide, assembly steps, and Mermaid diagram source.
-- BOM CSV, evidence ledger CSV, Markdown engineering report, and standalone HTML report exports.
-- API keys can be loaded from `.env` or entered into Settings for the current server process only.
+## What FORGE does
+1. **Recommendation helper (skippable):** six multi-select questions rank projects for the user, then a radial chart shows how each attribute fits them. Users can also describe their own idea; Gemini maps it to a supported project or says honestly that it is not supported yet.
+2. **BOM generation:** the app tries every combination of controller, driver, motors, battery and sensor, rejects any that fail a compatibility rule, and picks the cheapest valid build within budget.
+3. **Compatibility checks:** deterministic formulas give PASS / FAIL / UNKNOWN. A missing spec is UNKNOWN, never guessed.
+4. **Live prices with proof:** TinyFish finds and reads real vendor pages; a price is accepted **only if its exact quote appears on the page**, shown next to the verified product name and link.
 
-## Run on Ubuntu / Linux
+5. **Shop comparison and bill:** one row per part, one column per verified shop listing. The cheapest is ticked by default; tick another to buy that one. A structured bill updates live and can be downloaded as a PDF. Nothing is added that the pages did not state (no tax or shipping guesses).
 
-```bash
-cd robot_bom_agent
-sudo apt update
-sudo apt install python3 python3-venv python3-pip -y
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-cp .env.example .env
-# Optional: edit .env and add your own Gemini/TinyFish API keys
-uvicorn app:app --reload
+## How TinyFish is used
+| Feature | TinyFish API | Cost |
+|---|---|---|
+| Find shop pages for each part (videos, social posts, category pages filtered out) | **Search** | free |
+| Read the pages for price, product name and specs | **Fetch** | free |
+| Research what a project needs: find build guides, list the components they state, with quotes | **Search + Fetch** | free |
+| Check our typed specs against what the shop pages state | **Fetch** (pages already read) | free |
+| Cart check: open a verified listing, add one unit to the cart, read the cart | **Web Agent** | credits, opt-in |
+| Real project examples in the recommendation helper | **Search** | free |
+
+Gemini reads fetched text; a value is kept **only if its quote is found on the page** (prices also need the number inside the quote). If prices for one part differ by more than 3x, the app warns they are probably different products or variants. Search and Fetch results are cached on disk.
+
+**Web Agent safety and cost:** it runs only when you click, is capped at 12 steps (about 12 credits at TinyFish's published 1 credit per step) and 180 seconds, and is told never to check out, log in or enter personal details. That last part is an instruction to the agent, not a technical block, so run it only on public shop pages and never with saved logins or payment details. Repeat runs of the same listing are served from the cache.
+
+## The role of AI
+- **AI reads (pretrained Gemini + TinyFish):** finds pages, extracts price and product name with a quote, maps a free-text idea to a supported project.
+- **Rules decide:** compatibility is plain formulas written by us, so a wrong "compatible" can't be invented by a model. The recommendation scoring is also plain code (same answers, same result).
+- We did **not** train our own model. Learning the recommender from data is listed under future scope.
+
+## Architecture
+```
+app.py              Streamlit UI (picker -> results -> BOM agent)
+core/picker.py      recommendation scoring + radial chart
+assets/fonts/       DejaVu Sans (Bitstream Vera licence), used so the PDF can print the rupee sign
+core/pipeline.py    selector, TinyFish sourcing, Gemini extraction with quote check
+core/research.py    project research from build guides (Search + Fetch + Gemini)
+core/specs.py       typed specs vs specs stated on shop pages
+core/bill.py        shop choice per part, bill totals, on-screen invoice and PDF
+core/rules.py       PASS / FAIL / UNKNOWN engine
+core/data.py        parts catalog, extras, rules, projects
+core/tf.py          TinyFish wrapper (Search + Fetch, disk cache)
+tests/              automated tests (run offline)
 ```
 
-Open **http://127.0.0.1:8000** in your browser. API documentation is at **http://127.0.0.1:8000/docs**.
-
-## Run on Windows PowerShell
-
-```powershell
-cd robot_bom_agent
-py -m venv .venv
+## Setup
+Python 3.12 is recommended (that is what we tested on).
+```
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
 pip install -r requirements.txt
-Copy-Item .env.example .env
-# Optional: edit .env and add your own API keys
-uvicorn app:app --reload
-```
-
-Open http://127.0.0.1:8000.
-
-## API key setup
-
-The `.env` file is loaded when the server starts. Example:
-
-```env
-GEMINI_API_KEY=your_actual_gemini_key
-TINYFISH_API_KEY=your_actual_tinyfish_key
-GEMINI_MODEL=gemini-2.5-flash
-```
-
-Restart the server after changing `.env`. Alternatively, open **Settings & API keys** in the UI and enter keys; those settings remain in the running Python process only. The settings endpoint does not return secret values.
-
-- Gemini key: https://aistudio.google.com/apikey
-- TinyFish key: https://agent.tinyfish.ai/api-keys
-
-The app works without API keys using the seed catalog and heuristic parser. Live sourcing requires both Gemini and TinyFish keys.
-
-## Run tests
-
-```bash
+copy .env.example .env      # add your own keys, never commit .env
 python -m pytest tests -q
+streamlit run app.py
 ```
+Keys: `TINYFISH_API_KEY` (agent.tinyfish.ai) and `GEMINI_API_KEY` (aistudio.google.com/apikey). Default model `gemini-3.8-flash`; if a model is busy or unavailable the app retries and falls back to `gemini-3.5-flash-lite`. Without keys the app still runs on seed prices, clearly labelled.
+Check the TinyFish connection: `python -m core.tf`
 
-Tests run offline against the seed catalog; they do not require live API keys.
+## Supported projects
+Line follower, obstacle avoider, Bluetooth car.
 
-## Project structure
+## Honest limitations
+- The research, spec-check and cart-check features show results for review; they do not change the BOM automatically. Guide quality varies, and many components in guides will not be in our catalog (shown as not covered).
+- The catalog is small (11 parts plus 3 extras). **Specs are typical datasheet values we entered by hand;** only prices and product names are read live today.
+- Each project is described only by its sensor type and a Bluetooth flag; the other parts roles are shared. Sumo bot and maze solver are **planned but not built**: they need their own parts lists, catalog parts and rules.
+- The recommendation helper's difficulty, time and cost scores are our estimates, not measured data.
+- Extras (chassis, wires, switch) carry rough estimate prices until live sourcing verifies them, and chassis-to-motor fit is not rule-checked.
+- Live sourcing depends on TinyFish and Gemini availability; results are cached, but some pages will show "price not verified".
 
-```text
-robot_bom_agent/
-├── app.py                 # FastAPI application and JSON API
-├── static/
-│   ├── index.html         # UI structure
-│   ├── styles.css         # Responsive design system
-│   └── app.js             # Frontend interactions
-├── core/                  # Existing parser, catalog, rules, BOM, live data, power, wiring, exports
-├── data/                  # Catalog, rules, specifications, config, live overlay
-├── tests/                 # Offline regression tests
-├── .env.example           # Safe placeholder template
-└── requirements.txt
-```
-
-## Production deployment notes
-
-This is a production-oriented application scaffold, not a claim that it is already hardened for public internet deployment. Before exposing it publicly, add authentication and authorization, HTTPS/TLS termination, per-user/session isolation for build state and settings, rate limits, request-size limits, structured access logs, and a persistent database for users/projects. Run behind a production ASGI server/process manager and configure allowed origins/hosts for your environment. Keep `.env` out of source control. Do not expose the API-key settings route to untrusted users.
-
-## Engineering caveat
-
-Seed prices and specs are approximate. Power/runtime and shipping values are estimates based on configuration assumptions. Verify vendor listings, component datasheets, battery discharge capability, and wiring before purchasing or powering hardware.
-
-## Where to buy (TinyFish seller links)
-
-Click **Inspect** on any part in *Parts & sourcing* to open the component popup. At the top is a
-**Where to buy** panel:
-
-1. **Search (TinyFish Search)** - runs up to 4 query variants for the part, drops non-shops
-   (YouTube, Wikipedia, forums...), keeps one link per store first, ranks known Indian vendors
-   (`allowed_vendor_domains` in `data/config.yaml`) first, and returns at least 5 selling links.
-   If TinyFish finds fewer than 5 stores, the list is padded with vendor search pages that are
-   labelled `SEARCH PAGE` so they are never mistaken for TinyFish results.
-2. **Check live prices (TinyFish Fetch + Gemini)** - fetches each page live and extracts price and
-   stock. A price is shown only when its quote appears verbatim on the page (same rule as the rest of
-   the app); otherwise the row shows `NO PRICE` with the reason.
-
-Results are cached in `data/sourcing_cache.json` (cleared by *Reset live overlay*); use
-**Search again** to bypass the cache.
-
-API: `GET /api/part/{id}/sources?refresh=false&min_links=5` and `POST /api/part/{id}/sources/prices {"urls": [...]}`.
-Tests: `tests/test_sourcing.py` (uses a fake TinyFish client, no network needed).
-
-### Use a verified price in the BOM
-Each `VERIFIED` row has **Use this price** (and the popup has **Use lowest verified price**). The server copies
-the price from its own verified cache into the catalog with source URL, timestamp and the page quote, so the BOM,
-budget and evidence ledger use it and the part's data source changes from CURATED to SCRAPED.
-Pages flagged as a different variant are refused. API: `POST /api/part/{id}/sources/apply {"url": "..."}`.
+## Future scope
+1. Turn the research step's findings into each project's parts list (today they are shown as evidence, with a person deciding).
+2. Apply verified live specs to the rule engine, with a confidence label, instead of showing them only as a diff.
+3. Detect bundles and multi-packs so they are never used as a single-part price.
+4. Project-specific rules and parts for sumo bot and maze solver, then drones.
+5. Learn the recommender from real project outcomes.

@@ -1,7 +1,5 @@
-.venv/
 .env
+.venv/
 __pycache__/
-.pytest_cache/
-*.py[cod]
-.DS_Store
-data/sourcing_cache.json
+.cache/
+*.pyc
