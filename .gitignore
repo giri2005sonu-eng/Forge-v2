@@ -3,3 +3,7 @@
 __pycache__/
 .cache/
 *.pyc
+.pytest_cache/
+.DS_Store
+core/project_data/learned_projects.json
+data/swap_store.json

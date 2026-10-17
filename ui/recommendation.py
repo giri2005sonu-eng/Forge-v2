@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from core import picker, pipeline, resume, tf
+from core import project_store
 from core.recommendation_catalog import PROJECT_CATALOG, PROJECT_FACTOR_CATALOG, RECOMMENDATION_PROJECT_KEYS
 
 
@@ -316,10 +317,19 @@ def render_results(state, tinyfish_enabled):
                     state.project = state.pick
                     state.budget = int(state.A.get("budget_inr") or 3500)
                     state.res = None
+                    state.custom = None
                     state.stage = "bom"
                     st.rerun()
             else:
-                st.info("This is a recommendation candidate only. Its project-specific BOM is not in the builder yet.")
+                dataset_key = project_store.key_for_id(state.pick)
+                if dataset_key and st.button("Open the parts list for this project"):
+                    state["bom_catalog_pick"] = dataset_key
+                    state.auto_open_catalog = True
+                    state.budget = int(state.A.get("budget_inr") or 3500)
+                    state.res, state.custom, state.stage = None, None, "bom"
+                    st.rerun()
+                elif not dataset_key:
+                    st.info("This is a recommendation candidate only. Its project-specific BOM is not in the builder yet.")
         with right, st.container(border=True):
             _show_chart(picker.chart_html(fit), 440)
 

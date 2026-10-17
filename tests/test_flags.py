@@ -13,7 +13,7 @@ class C:
 def run(monkeypatch, name):
     monkeypatch.setenv("GEMINI_API_KEY", "x")
     pipeline._G = C(dict(product_name=name, price_inr=229, in_stock=True, quote="Price: Rs. 229.00"))
-    return pipeline.extract_offer(PAGE, "Arduino Nano")
+    return pipeline.extract_offer(PAGE, "Arduino Nano", use_rules=False)  # these tests are about the Gemini quote check
 
 def test_name_kept_when_verbatim_on_page(monkeypatch):
     assert run(monkeypatch, "Arduino Nano V3 ATmega328P CH340 Mini USB")["name"].startswith("Arduino Nano V3")

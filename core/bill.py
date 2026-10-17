@@ -7,6 +7,7 @@ no tax, shipping or discount is added, because shop pages decide those at checko
 import hashlib, html, pathlib, re, datetime as dt
 from io import BytesIO
 from urllib.parse import urlparse
+from . import pagerules
 from .data import QTY
 
 MAX_OFFERS = 4  # source_part() reads at most 4 pages per part
@@ -21,6 +22,14 @@ def inr(x, sym="₹"):
     whole, dec = f"{abs(x):.2f}".split(".")
     if len(whole) > 3: whole = re.sub(r"(\d)(?=(\d\d)+$)", r"\1,", whole[:-3]) + "," + whole[-3:]
     return f"{'-' if x < 0 else ''}{sym}{whole}.{dec}"
+
+def money(x, sym="₹"):
+    """inr() that shows a dash for a missing price instead of crashing."""
+    return "—" if x is None else inr(x, sym)
+
+def prices_text(tot):
+    """'3 verified, 2 estimated' (+ ', 1 not found' when a part has no price at all)."""
+    return f"{tot['n_live']} verified, {tot['n_seed']} estimated" + (f", {tot['n_manual']} entered by you" if tot.get("n_manual") else "") + (f", {tot['n_missing']} not found" if tot.get("n_missing") else "")
 
 def vendor(url):
     return (urlparse(url or "").netloc or "").removeprefix("www.") or "unknown shop"
@@ -37,11 +46,17 @@ def md_escape(t):
 # ---------- offers and choice ----------
 def offers_for(part_id, live):
     """Verified offers (price found with a quote), cheapest first. Ties keep search order, same as pipeline.price_of."""
-    vs = [o for o in live.get(part_id, []) if o.get("price")]
-    return sorted(vs, key=lambda o: o["price"])[:MAX_OFFERS]
+    vs = [o for o in live.get(part_id, []) if pagerules.trusted_price(o)]
+    return sorted(vs, key=lambda o: (bool(o.get("suspect")), o["price"]))[:MAX_OFFERS]   # suspicious-low listings last, so they are never the default
 
 def unverified_for(part_id, live):
-    return [o for o in live.get(part_id, []) if not o.get("price")]
+    """Listings without a usable price. A price whose quote shows an EMI/instalment figure counts as unverified, with the reason."""
+    out = []
+    for o in live.get(part_id, []):
+        if not o.get("price"): out.append(o)
+        elif not pagerules.trusted_price(o):
+            out.append(dict(o, price=None, note=o.get("note") or f"Price not used: ₹{o['price']:,.0f} looks like an EMI or instalment figure, not the product price"))
+    return out
 
 def chosen_url(part_id, live, choice):
     """The user's pick if it is still a verified offer, otherwise the cheapest one. None when there is no verified offer."""
@@ -51,19 +66,37 @@ def chosen_url(part_id, live, choice):
     return choice.get(part_id) if choice.get(part_id) in urls else urls[0]
 
 
+def manual_pick(part_id, manual):
+    """The user's own pick of an UNVERIFIED listing with a price they typed, or None. Never chosen by default, never called 'lowest'.
+    Kept apart from `live` so no verified-price logic (cheapest, spread warning, selector) can ever see it."""
+    m = (manual or {}).get(part_id)
+    try: price = float(m.get("price") or 0) if m else 0
+    except (TypeError, ValueError): price = 0
+    return dict(m, price=price) if m and safe_url(m.get("url")) and 0 < price < 1e8 else None
+
+
 # ---------- bill ----------
-def build_lines(parts, live, choice):
+def build_lines(parts, live, choice, manual=None):
     """One bill line per part (skips 'no sensor needed'). Each line knows if it is the cheapest option and what a swap costs."""
     lines = []
-    for role, p in parts.items():
+    for key, p in parts.items():
         if p.get("none"): continue
-        qty, offers = QTY.get(role, 1), offers_for(p["id"], live)
+        role = p.get("role", key)  # custom parts are keyed by id and carry their own role and quantity
+        qty, offers = p.get("qty") or QTY.get(role, 1), offers_for(p["id"], live)
         base = dict(part_id=p["id"], role=role, name=p["name"], qty=qty)
-        if offers:
+        man = manual_pick(p["id"], manual)
+        if man:  # the user chose an unverified listing and typed the price they saw
+            lines.append(dict(base, unit=man["price"], total=man["price"] * qty, cheapest_total=offers[0]["price"] * qty if offers else man["price"] * qty,
+                              source="manual", url=man["url"], vendor=vendor(man["url"]), listing=man.get("name"), quote=None,
+                              in_stock=None, is_cheapest=False, n_options=len(offers)))
+        elif offers:
             pick = next(o for o in offers if o["url"] == chosen_url(p["id"], live, choice))
             lines.append(dict(base, unit=pick["price"], total=pick["price"] * qty, cheapest_total=offers[0]["price"] * qty,
                               source="live", url=pick["url"], vendor=vendor(pick["url"]), listing=pick.get("name"), quote=pick.get("quote"),
                               in_stock=pick.get("in_stock"), is_cheapest=pick["price"] == offers[0]["price"], n_options=len(offers)))
+        elif p.get("seed_price") is None:  # nothing verified and no estimate: shown as missing, left out of the total
+            lines.append(dict(base, unit=None, total=0, cheapest_total=0, source="missing", url="", vendor="", listing=None, quote=None,
+                              in_stock=None, is_cheapest=True, n_options=0))
         else:
             lines.append(dict(base, unit=p["seed_price"], total=p["seed_price"] * qty, cheapest_total=p["seed_price"] * qty,
                               source="seed", url="", vendor="", listing=None, quote=None, in_stock=None, is_cheapest=True, n_options=0))
@@ -72,7 +105,7 @@ def build_lines(parts, live, choice):
 def totals(lines, budget):
     sub = sum(l["total"] for l in lines); cheapest = sum(l["cheapest_total"] for l in lines)
     return dict(subtotal=sub, cheapest=cheapest, premium=sub - cheapest, budget=budget, left=budget - sub,
-                n_live=sum(l["source"] == "live" for l in lines), n_seed=sum(l["source"] == "seed" for l in lines), n_items=sum(l["qty"] for l in lines))
+                n_live=sum(l["source"] == "live" for l in lines), n_seed=sum(l["source"] == "seed" for l in lines), n_missing=sum(l["source"] == "missing" for l in lines), n_manual=sum(l["source"] == "manual" for l in lines), n_items=sum(l["qty"] for l in lines))
 
 def bill_ref(project_label, lines, day):
     h = hashlib.sha1((project_label + "|".join(f"{l['part_id']}:{l['url']}:{l['unit']}" for l in lines)).encode()).hexdigest()[:5].upper()
@@ -80,6 +113,8 @@ def bill_ref(project_label, lines, day):
 
 def status_of(l):
     """(kind, text) shown on a bill line."""
+    if l["source"] == "missing": return "est", "No verified price yet, not in total"
+    if l["source"] == "manual": return "pick", "Your pick, price entered by you (not verified)"
     if l["source"] == "seed": return "est", "Estimate, not verified"
     if l["is_cheapest"]: return "best", "Cheapest verified"
     return "pick", f"Your pick, +{inr(l['total'] - l['cheapest_total'])}"
@@ -117,21 +152,22 @@ def invoice_html(lines, tot, project_label, ref, day):
     e, rows = html.escape, []
     for l in lines:
         kind, text = status_of(l)
-        if l["source"] == "live":
+        if l["source"] in ("live", "manual"):
             u = safe_url(l["url"]); shop = f'<a href="{e(u, quote=True)}" target="_blank" rel="noopener noreferrer">{e(l["vendor"])}</a>' if u else e(l["vendor"])
             listing = f'<div class="rl">{e(l["listing"][:70])}</div>' if l.get("listing") else ""
-            oos = '<span class="fg-c oos">Out of stock</span>' if l["in_stock"] is False else ""
-        else: shop, listing, oos = '<span class="rl">No shop page verified</span>', "", ""
+        else: shop, listing = '<span class="rl">No shop page verified</span>', ""
         rows.append(f'<tr><td><div class="nm">{e(l["name"])}</div><div class="rl">{e(l["role"].capitalize())}</div></td>'
-                    f'<td>{shop}{listing}<div><span class="fg-c {kind}">{e(text)}</span>{oos}</div></td>'
-                    f'<td class="n">{l["qty"]}</td><td class="n">{inr(l["unit"])}</td><td class="n amt">{inr(l["total"])}</td></tr>')
+                    f'<td>{shop}{listing}<div><span class="fg-c {kind}">{e(text)}</span></div></td>'
+                    f'<td class="n">{l["qty"]}</td><td class="n">{money(l["unit"])}</td><td class="n amt">{money(l["unit"] and l["total"])}</td></tr>')
     extra = ""
     if tot["premium"] > 0.005:
         extra = (f'<div class="fg-row"><span>Cheapest possible total</span><b>{inr(tot["cheapest"])}</b></div>'
                  f'<div class="fg-row"><span>Extra for your picks</span><b>+{inr(tot["premium"])}</b></div>')
+    if tot.get("n_missing"):
+        extra += f'<div class="fg-row"><span>Parts without a verified price</span><b>{tot["n_missing"]} not in total</b></div>'
     over = tot["left"] < -0.005
     meta = [("Project", project_label), ("Prepared on", f"{day:%d %b %Y}"), ("Budget", inr(tot["budget"])),
-            ("Prices", f"{tot['n_live']} verified, {tot['n_seed']} estimated")]
+            ("Prices", prices_text(tot))]
     return (CSS + '<div class="fg-sheet">'
             '<div class="fg-head"><div><div class="fg-brand">FORGE</div><div class="fg-sub">Estimated bill of materials</div></div>'
             f'<div class="fg-ref">Reference <b>{e(ref)}</b><br>{tot["n_items"]} items across {len(lines)} parts</div></div>'
@@ -191,7 +227,7 @@ def pdf_bytes(lines, tot, project_label, ref, day):
     story = []
     # meta strip
     meta = [("Project", project_label), ("Budget", m(tot["budget"])), ("Items", f"{tot['n_items']} across {len(lines)} parts"),
-            ("Prices", f"{tot['n_live']} verified, {tot['n_seed']} estimated")]
+            ("Prices", prices_text(tot))]
     mt = Table([[Paragraph(k, small) for k, _ in meta], [Paragraph(f"<b>{esc(v)}</b>", body) for _, v in meta]], colWidths=[W * .30, W * .20, W * .25, W * .25])
     mt.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, 0), 1),
                             ("LINEBELOW", (0, 1), (-1, 1), .6, RULE), ("BOTTOMPADDING", (0, 1), (-1, 1), 10)]))
@@ -202,12 +238,12 @@ def pdf_bytes(lines, tot, project_label, ref, day):
         kind, text = status_of(l)
         colr = {"best": GREEN, "pick": AMBER, "est": "#4B5A73"}[kind]
         part = f"<b>{esc(l['name'])}</b><br/><font size=7.5 color='#6A7890'>{esc(l['role'].capitalize())}</font>"
-        if l["source"] == "live":
+        if l["source"] in ("live", "manual"):
             u = safe_url(l["url"]); name = f"<link href=\"{esc(u)}\" color='#0B7A84'><u>{esc(l['vendor'])}</u></link>" if u else esc(l["vendor"])
             shop = f"{name}" + (f"<br/><font size=7.5 color='#6A7890'>{esc((l['listing'] or '')[:60])}</font>" if l.get("listing") else "")
         else: shop = "<font color='#6A7890'>No shop page verified</font>"
-        shop += f"<br/><font size=7.5 color='{colr}'>{esc(text)}</font>" + ("<font size=7.5 color='%s'>  Out of stock</font>" % RED if l["in_stock"] is False else "")
-        data.append([Paragraph(part, body), Paragraph(shop, body), Paragraph(str(l["qty"]), num), Paragraph(m(l["unit"]), num), Paragraph(m(l["total"]), numb)])
+        shop += f"<br/><font size=7.5 color='{colr}'>{esc(text)}</font>"
+        data.append([Paragraph(part, body), Paragraph(shop, body), Paragraph(str(l["qty"]), num), Paragraph(money(l["unit"], sym), num), Paragraph(money(l["unit"] and l["total"], sym), numb)])
     it = Table(data, colWidths=[W * .31, W * .31, W * .07, W * .15, W * .16], repeatRows=1)
     it.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                             ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7), ("BACKGROUND", (0, 0), (-1, 0), PAPER),
@@ -217,6 +253,8 @@ def pdf_bytes(lines, tot, project_label, ref, day):
     rows = []
     if tot["premium"] > 0.005:
         rows += [[Paragraph("Cheapest possible total", body), Paragraph(m(tot["cheapest"]), num)], [Paragraph("Extra for your picks", body), Paragraph("+" + m(tot["premium"]), num)]]
+    if tot.get("n_missing"):
+        rows.append([Paragraph("Parts without a verified price", body), Paragraph(f"{tot['n_missing']} not in total", num)])
     over = tot["left"] < -0.005
     rows.append([Paragraph("Over budget by" if over else "Under budget by", body), Paragraph(f"<font color='{RED if over else GREEN}'><b>{m(abs(tot['left']))}</b></font>", num)])
     rows.append([Paragraph("<font color='#B8C6DA'>Estimated total</font>", body), Paragraph(f"<font color='white' size=14><b>{m(tot['subtotal'])}</b></font>", S("g", alignment=2, leading=18))])
@@ -229,8 +267,8 @@ def pdf_bytes(lines, tot, project_label, ref, day):
     return buf.getvalue()
 
 
-def make(parts, live, choice, budget, project_label, day=None):
+def make(parts, live, choice, budget, project_label, day=None, manual=None):
     """Everything the UI needs in one call: lines, totals, reference, html, pdf."""
     day = day or dt.date.today()
-    lines = build_lines(parts, live, choice); tot = totals(lines, budget); ref = bill_ref(project_label, lines, day)
+    lines = build_lines(parts, live, choice, manual); tot = totals(lines, budget); ref = bill_ref(project_label, lines, day)
     return dict(lines=lines, tot=tot, ref=ref, html=invoice_html(lines, tot, project_label, ref, day), pdf=pdf_bytes(lines, tot, project_label, ref, day))

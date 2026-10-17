@@ -1,0 +1,268 @@
+{
+ "combinations": {
+  "combo_4ae6a6e3a2c1": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T11:45:10+00:00"
+  },
+  "combo_d257763e7e04": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T11:45:11+00:00"
+  },
+  "combo_46c71ad48968": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The components are generally compatible for a basic robotic arm build, but powering the servos directly through the Arduino or breadboard is a significant risk.",
+   "notes": [
+    "Do not power the MG996R and SG90 servos directly from the Arduino 5V pin, as current draw under load will reset the board; use the external 5V 5A power supply directly to the servo",
+    "The 5V output from the power supply is slightly below the 4.8V-7.2V operating range if accounting for voltage drop under heavy load, though generally functional for standard operat",
+    "Breadboard power rails may not handle the high surge currents of the MG996R servo under stall conditions; direct wiring to a distribution bus is recommended."
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T11:51:17+00:00"
+  },
+  "combo_aecc6c32053b": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The system components are generally well-matched for a 12V architecture, but require careful power routing and mechanical reinforcement.",
+   "notes": [
+    "Ensure the power switch rating (0.5A) is not exceeded by total motor stall current, as the TB6612FNG can peak at 3.2A.",
+    "Using a breadboard for high-current motor connections can cause voltage drops and unstable operation; solder connections are recommended.",
+    "Acrylic frames are brittle under impact; ensure proper mounting torque and consider PLA or thicker acrylic for the LQR balancing robot chassis."
+   ],
+   "source": "gemini_learned",
+   "fails": 1,
+   "warns": 0,
+   "updated": "2026-10-17T11:54:16+00:00"
+  },
+  "combo_ce0c668ff364": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T11:56:49+00:00"
+  },
+  "combo_44961d41cf6a": {
+   "status": "caution",
+   "state": "PASS",
+   "summary": "Rule check: 0 pass, 0 warnings, 0 failures.",
+   "notes": [],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T11:58:07+00:00"
+  },
+  "combo_ad86f96cb5b5": {
+   "source": "gemini",
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "ESP32 works with SSD1306 over I2C; 5V sensor requires level shifting.",
+   "notes": [
+    "Connect OLED to GPIO21 (SDA) and GPIO22 (SCL)",
+    "Use voltage divider for HC-SR04 echo pin"
+   ],
+   "fails": 0,
+   "warns": 1,
+   "updated": "2026-10-17T11:58:07+00:00"
+  },
+  "combo_398826970278": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The core components are conceptually well-matched for BLDC FOC control, but careful attention is needed regarding logic voltage conversion and MCU power provisioning.",
+   "notes": [
+    "A 5V or 3.3V step-down regulator (BEC) is required to safely power the STM32 and sensors from the 11.1V (3S) Li-ion pack.",
+    "Verify that the 3-phase BLDC driver accepts 3.3V PWM logic levels and matches the peak current draw of the outrunner motor.",
+    "The AS5600 encoder over I2C has bandwidth and latency limitations that can restrict maximum motor speed during FOC closed-loop operation."
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T14:48:12+00:00"
+  },
+  "combo_364911735edb": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The system is mostly compatible, but using a 1S LiPo battery (max 4.2V) directly on the ESP32 VIN pin may cause instability since the ESP32 DevKit typically requires at least 4.5V to 5V for its onboard linear regulator.",
+   "notes": [
+    "Battery voltage (3.7V nominal, 4.2V max) is below the ESP32 DevKit recommended 5V minimum input for the onboard regulator; connecting the battery to 3V3 pin or using a boost conver",
+    "Buzzer voltage range (3.3V-5V) is fully compatible with both ESP32 logic levels and the LiPo battery voltage.",
+    "TP4056 charger module safely supports charging the 1S LiPo battery from a 5V USB source."
+   ],
+   "source": "gemini_learned",
+   "fails": 1,
+   "warns": 0,
+   "updated": "2026-10-17T15:59:30+00:00"
+  },
+  "combo_de48b47c4a9a": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T16:27:23+00:00"
+  },
+  "combo_5250eb644233": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T16:28:21+00:00"
+  },
+  "combo_4039483f5397": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T16:29:49+00:00"
+  },
+  "combo_a3d1893a6f5f": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T16:33:33+00:00"
+  },
+  "combo_054b4aea8031": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T16:54:28+00:00"
+  },
+  "combo_0becb96e2aac": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T16:58:48+00:00"
+  },
+  "combo_eab767d4965f": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T17:47:20+00:00"
+  },
+  "combo_ca1b91d962d9": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [
+    "OK",
+    "OK",
+    "OK",
+    "OK",
+    "PASS: Battery voltage stepped down to safe 5.0V input via LM2596 Buck Converter.",
+    "OK"
+   ],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T17:50:46+00:00"
+  },
+  "combo_7ae97aedd209": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The hardware components are largely compatible for a basic underwater drone build, but require careful power management and waterproofing.",
+   "notes": [
+    "The LiPo battery voltage (9V-12.6V) falls within the Arduino Uno VIN range (7V-12V) and ESC range (7.4V-14.8V), but ensure the motor (up to 14.8V) does not draw excessive current b",
+    "Radio transmitter/receiver requires a 4.8V-6V power supply, meaning a dedicated step-down voltage regulator or BEC will be needed since the main battery outputs up to 12.6V.",
+    "Radio uses PPM interface while the Arduino typically requires pulse-in handling; ensure proper signal translation and absolute waterproof sealing of PVC joints and wiring using the"
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-17T17:58:15+00:00"
+  }
+ }
+}

@@ -16,7 +16,7 @@ class C:
 def test_falls_back_when_model_unavailable(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "x"); monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")
     pipeline._G = C({"gemini-2.5-flash", "gemini-3.8-flash"})
-    assert pipeline.extract_offer(PAGE, "Nano")["price"] == 450.0
+    assert pipeline.extract_offer(PAGE, "Nano", use_rules=False)["price"] == 450.0
     assert pipeline._G.models.tried == ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite"]
 
 def test_other_errors_are_not_swallowed(monkeypatch):
@@ -25,7 +25,7 @@ def test_other_errors_are_not_swallowed(monkeypatch):
     class Boom(C):
         def __init__(self): self.models = type("M", (), {"generate_content": lambda s, **k: (_ for _ in ()).throw(RuntimeError("invalid api key"))})()
     pipeline._G = Boom()
-    with pytest.raises(RuntimeError): pipeline.extract_offer(PAGE, "Nano")
+    with pytest.raises(RuntimeError): pipeline.extract_offer(PAGE, "Nano", use_rules=False)
 
 
 def test_busy_model_is_retried_then_falls_back(monkeypatch):
@@ -37,7 +37,7 @@ def test_busy_model_is_retried_then_falls_back(monkeypatch):
             if model == "gemini-3.8-flash": raise RuntimeError("503 UNAVAILABLE high demand")
             return R()
     c = C(set()); c.models = Busy(set()); pipeline._G = c
-    assert pipeline.extract_offer(PAGE, "Nano")["price"] == 450.0
+    assert pipeline.extract_offer(PAGE, "Nano", use_rules=False)["price"] == 450.0
     assert c.models.tried == ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite"]
 
 def test_busy_then_recovers_on_retry(monkeypatch):
@@ -49,4 +49,4 @@ def test_busy_then_recovers_on_retry(monkeypatch):
             if len(self.tried) == 1: raise RuntimeError("503 UNAVAILABLE")
             return R()
     c = C(set()); c.models = Flaky(set()); pipeline._G = c
-    assert pipeline.extract_offer(PAGE, "Nano")["price"] == 450.0 and len(c.models.tried) == 2
+    assert pipeline.extract_offer(PAGE, "Nano", use_rules=False)["price"] == 450.0 and len(c.models.tried) == 2

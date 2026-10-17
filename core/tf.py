@@ -1,8 +1,29 @@
-"""TinyFish wrapper: Search + Fetch only (both free; no Agent/Browser, which use credits). Every call is cached on disk."""
-import hashlib, json, pathlib
-CACHE = pathlib.Path(".cache"); CACHE.mkdir(exist_ok=True)
+"""TinyFish wrapper: Search and Fetch (free) plus the opt-in Web Agent (uses credits). Every call is cached on disk and the cache expires
+(FORGE_CACHE_HOURS, default 72; 0 = never) so prices do not go stale."""
+import hashlib, json, os, pathlib, threading, time
+CACHE = pathlib.Path(__file__).resolve().parent.parent / ".cache"   # next to the project, not the folder you happen to run from
+CACHE.mkdir(exist_ok=True)
 
 _C = None
+
+def _seconds(name, default):
+    try: return max(1.0, float(os.getenv(name, default)))
+    except ValueError: return float(default)
+
+TIMEOUT_S = _seconds("FORGE_TINYFISH_TIMEOUT", 40)         # one Search call gives up after this many seconds
+FETCH_TIMEOUT_S = _seconds("FORGE_TINYFISH_FETCH_TIMEOUT", 70)   # a Fetch reads several pages, so it gets longer
+
+def with_timeout(fn, seconds, what="TinyFish"):
+    """Run fn() and give up after `seconds` instead of hanging the app forever. The stuck call keeps running in a daemon thread
+    (it cannot be killed) but nothing waits for it. Exceptions from fn are re-raised here."""
+    box = {}
+    def run():
+        try: box["v"] = fn()
+        except BaseException as e: box["e"] = e
+    t = threading.Thread(target=run, daemon=True); t.start(); t.join(seconds)
+    if t.is_alive(): raise TimeoutError(f"{what} did not answer within {seconds:.0f}s")
+    if "e" in box: raise box["e"]
+    return box.get("v")
 
 def _client():
     """One shared client for the whole process (reads TINYFISH_API_KEY from the environment)."""
@@ -26,15 +47,32 @@ def _plain(o):
     if hasattr(o, "model_dump"): return o.model_dump()
     return o if isinstance(o, (dict, list, str, int, float, type(None))) else getattr(o, "__dict__", str(o))
 
-def _cached(key, fn):
-    f = CACHE / (hashlib.sha1(key.encode()).hexdigest() + ".json")
-    if f.exists(): return json.loads(f.read_text())
-    val = _plain(_call(fn)); f.write_text(json.dumps(val, default=str)); return val
-
 def _file(key): return CACHE / (hashlib.sha1(key.encode()).hexdigest() + ".json")
+
+def _ttl_seconds():
+    try: return max(0.0, float(os.getenv("FORGE_CACHE_HOURS", "72"))) * 3600
+    except ValueError: return 72 * 3600
+
+def _fresh(f):
+    """A cache file counts only while it is younger than FORGE_CACHE_HOURS (0 = never expires)."""
+    if not f.exists(): return False
+    ttl = _ttl_seconds()
+    return ttl == 0 or time.time() - f.stat().st_mtime <= ttl
+
 def cache_get(key):
-    f = _file(key); return json.loads(f.read_text()) if f.exists() else None
-def cache_set(key, val): _file(key).write_text(json.dumps(val, default=str))
+    f = _file(key)
+    if not _fresh(f): return None
+    try: return json.loads(f.read_text())
+    except (ValueError, OSError): return None   # half-written by another thread: treat as a miss
+
+def cache_set(key, val):
+    f = _file(key); tmp = f.with_suffix(f".{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(val, default=str)); tmp.replace(f)   # atomic, so parallel lookups never read a partial file
+
+def _cached(key, fn, timeout=None):
+    hit = cache_get(key)
+    if hit is not None: return hit
+    val = _plain(with_timeout(lambda: _call(fn), timeout or TIMEOUT_S)); cache_set(key, val); return val
 
 def search(query, location="IN", language="en"):
     """Returns [{title,url,snippet}]. Search is free."""
@@ -44,7 +82,7 @@ def search(query, location="IN", language="en"):
 
 def fetch(urls):
     """Returns {url: page_text}. Fetch is free. Tries common text fields since field names vary by format."""
-    raw = _cached("f:" + "|".join(urls), lambda: _client().fetch.get_contents(urls=urls))
+    raw = _cached("f:" + "|".join(urls), lambda: _client().fetch.get_contents(urls=urls), timeout=FETCH_TIMEOUT_S)
     rows = raw.get("results", []) if isinstance(raw, dict) else raw
     out = {}
     for r in rows:

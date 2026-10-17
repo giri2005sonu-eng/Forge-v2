@@ -1,8 +1,9 @@
-streamlit>=1.40
-tinyfish
-google-genai>=1.0
-python-dotenv>=1.0
-pytest>=8.0
-reportlab>=4.0
-pypdf>=4.0
-python-docx>=1.1
+# Compatible-release pins: the minor versions this project was tested with. Patch updates are allowed, breaking changes are not.
+streamlit~=1.66
+tinyfish~=0.9
+google-genai~=2.31
+python-dotenv~=1.2
+pytest~=9.1
+reportlab~=4.4
+pypdf~=5.9
+python-docx~=1.2

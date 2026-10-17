@@ -1,0 +1,299 @@
+{
+  "specs": {
+    "5v submersible water pump": {
+      "name": "5V Submersible Water Pump",
+      "specs": {
+        "supply_min_v": 2.5,
+        "supply_max_v": 6,
+        "nominal_v": 5,
+        "current_ma": 150,
+        "power_w": 1.2
+      },
+      "source": "seed",
+      "updated_at": "2026-10-17T10:40:08+00:00"
+    },
+    "4wd robot chassis plate": {
+      "name": "4WD Robot Chassis Plate",
+      "specs": {
+        "motor_mounts": 4,
+        "length_mm": 255,
+        "width_mm": 150,
+        "thickness_mm": 3,
+        "material": "acrylic"
+      },
+      "source": "seed",
+      "updated_at": "2026-10-17T10:40:08+00:00"
+    },
+    "bo gear motor": {
+      "name": "BO Gear Motor",
+      "specs": {
+        "min_v": 3,
+        "max_v": 6,
+        "nominal_v": 6,
+        "rpm": 100,
+        "stall_a": 1.5
+      },
+      "source": "seed",
+      "updated_at": "2026-10-17T10:40:08+00:00"
+    },
+    "rubber wheels for bo motor": {
+      "name": "Rubber Wheels for BO Motor",
+      "specs": {
+        "diameter_mm": 65,
+        "width_mm": 27,
+        "material": "rubber"
+      },
+      "source": "seed",
+      "updated_at": "2026-10-17T10:40:08+00:00"
+    },
+    "silicone water tubing": {
+      "name": "Silicone Water Tubing",
+      "specs": {
+        "diameter_mm": 6,
+        "material": "silicone"
+      },
+      "source": "seed",
+      "updated_at": "2026-10-17T10:40:08+00:00"
+    },
+    "2 slot 18650 battery holder": {
+      "name": "2-Slot 18650 Battery Holder",
+      "specs": {
+        "cells": 2,
+        "nominal_v": 7.4
+      },
+      "source": "seed",
+      "updated_at": "2026-10-17T10:40:08+00:00"
+    },
+    "8520 coreless dc motors 2 cw 2 ccw": {
+      "name": "8520 Coreless DC Motors (2 CW, 2 CCW)",
+      "specs": {
+        "supply_min_v": 3,
+        "supply_max_v": 4.2,
+        "rpm": 45000,
+        "diameter_mm": 8.5,
+        "length_mm": 20
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "55mm micro propeller pairs": {
+      "name": "55mm Micro Propeller Pairs",
+      "specs": {
+        "diameter_mm": 55,
+        "material": "plastic"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "logic level n channel mosfet modules": {
+      "name": "Logic-Level N-Channel MOSFET Modules",
+      "specs": {
+        "logic_v": 3.3,
+        "max_a": 5,
+        "supply_max_v": 20
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "90mm micro quadcopter frame": {
+      "name": "90mm Micro Quadcopter Frame",
+      "specs": {
+        "diameter_mm": 90,
+        "material": "carbon fiber"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "mini 5v dc dc step up boost module": {
+      "name": "Mini 5V DC-DC Step-Up Boost Module",
+      "specs": {
+        "supply_min_v": 2.5,
+        "supply_max_v": 5,
+        "max_a": 1.2
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "3 7v 1s 600mah 25c lipo battery": {
+      "name": "3.7V 1S 600mAh 25C LiPo Battery",
+      "specs": {
+        "supply_min_v": 3.7,
+        "supply_max_v": 4.2,
+        "max_a": 15
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "1s lipo usb charger cable": {
+      "name": "1S LiPo USB Charger Cable",
+      "specs": {
+        "supply_min_v": 5,
+        "supply_max_v": 5,
+        "current_ma": 500
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "jst 2 0mm battery connector lead": {
+      "name": "JST 2.0mm Battery Connector Lead",
+      "specs": {
+        "max_a": 2,
+        "length_mm": 100
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:46:20+00:00"
+    },
+    "nodemcu esp8266": {
+      "name": "NodeMCU ESP8266",
+      "specs": {
+        "supply_min_v": 3.3,
+        "supply_max_v": 5,
+        "logic_v": 3.3,
+        "current_ma": 80,
+        "interface": "WiFi"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:49:35+00:00"
+    },
+    "solenoid door lock": {
+      "name": "Solenoid Door Lock",
+      "specs": {
+        "supply_min_v": 9,
+        "supply_max_v": 12,
+        "max_a": 1,
+        "power_w": 12,
+        "force_kg": 0.5
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:49:35+00:00"
+    },
+    "dc power supply adapter": {
+      "name": "DC Power Supply Adapter",
+      "specs": {
+        "supply_min_v": 12,
+        "supply_max_v": 12,
+        "max_a": 2,
+        "power_w": 24
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:49:35+00:00"
+    },
+    "step down buck converter": {
+      "name": "Step Down Buck Converter",
+      "specs": {
+        "supply_min_v": 4.5,
+        "supply_max_v": 40,
+        "logic_v": 5,
+        "max_a": 3
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:49:35+00:00"
+    },
+    "jumper wires": {
+      "name": "Jumper Wires",
+      "specs": {
+        "length_mm": 200,
+        "material": "copper"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:49:35+00:00"
+    },
+    "small plastic enclosure": {
+      "name": "Small Plastic Enclosure",
+      "specs": {
+        "length_mm": 150,
+        "width_mm": 100,
+        "material": "plastic"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T10:49:35+00:00"
+    },
+    "chassis plate wheels caster": {
+      "name": "Chassis plate + wheels + caster",
+      "specs": {
+        "width_mm": 150,
+        "length_mm": 200,
+        "height_mm": 65,
+        "weight_g": 350,
+        "material": "Acrylic"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T15:23:00+00:00"
+    },
+    "jumper wires breadboard": {
+      "name": "Jumper wires + breadboard",
+      "specs": {
+        "length_mm": 200,
+        "width_mm": 55,
+        "height_mm": 10,
+        "weight_g": 100,
+        "material": "Plastic and copper"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T15:23:00+00:00"
+    },
+    "brushless dc motor": {
+      "name": "Brushless DC Motor",
+      "specs": {
+        "supply_min_v": 11.1,
+        "supply_max_v": 14.8,
+        "power_w": 350,
+        "thrust_kg": 1.2
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T17:57:26+00:00"
+    },
+    "electronic speed controller": {
+      "name": "Electronic Speed Controller",
+      "specs": {
+        "supply_min_v": 7.4,
+        "supply_max_v": 14.8,
+        "max_a": 30,
+        "interface": "PWM"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T17:57:26+00:00"
+    },
+    "radio transmitter and receiver": {
+      "name": "Radio Transmitter and Receiver",
+      "specs": {
+        "supply_min_v": 4.8,
+        "supply_max_v": 6,
+        "range_m": 500,
+        "interface": "PPM"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T17:57:26+00:00"
+    },
+    "lipo battery": {
+      "name": "LiPo Battery",
+      "specs": {
+        "supply_min_v": 9,
+        "supply_max_v": 12.6,
+        "capacity_mah": 2200,
+        "discharge_c": 25
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T17:57:26+00:00"
+    },
+    "pvc pipe and fittings": {
+      "name": "PVC Pipe and Fittings",
+      "specs": {
+        "diameter_mm": 50,
+        "length_mm": 1000,
+        "material": "PVC"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T17:57:26+00:00"
+    },
+    "silicone sealant": {
+      "name": "Silicone Sealant",
+      "specs": {
+        "drying_time_hrs": 24,
+        "material": "Silicone"
+      },
+      "source": "gemini",
+      "updated_at": "2026-10-17T17:57:26+00:00"
+    }
+  }
+}
