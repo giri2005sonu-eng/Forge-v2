@@ -1,3 +1,5 @@
+import html
+
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -47,20 +49,49 @@ def _move_survey(step, delta):
     st.session_state["survey_step"] = step + delta
 
 
+def _survey_css(n):
+    """Full-screen question card. Each step has its own container key, and even/odd steps use differently named keyframes, so the browser
+    restarts the entrance animation on every Next/Back (a same-named animation would not replay)."""
+    rules = "".join(
+        f".st-key-survey_card_{i}{{animation-name:qin{'AB'[i % 2]}}}.st-key-survey_card_{i} .sv-bar i{{animation-name:svbar{'AB'[i % 2]}}}"
+        for i in range(n))
+    st.markdown(f"""<style>
+[class*="st-key-survey_card_"]{{min-height:72vh;display:flex;flex-direction:column;justify-content:center;gap:1.1rem;padding:2.4rem clamp(1.1rem,5vw,4.5rem);
+ border-radius:28px;border:1px solid rgba(6,182,212,.22);animation:.65s cubic-bezier(.2,.8,.2,1) both;
+ background:radial-gradient(900px 420px at 15% 0%,rgba(124,58,237,.18),transparent 60%),radial-gradient(800px 420px at 100% 100%,rgba(6,182,212,.14),transparent 60%),rgba(13,21,40,.78);
+ box-shadow:0 0 0 1px rgba(124,58,237,.08),0 30px 80px rgba(0,0,0,.45)}}
+{rules}
+@keyframes qinA{{from{{opacity:0;transform:translateY(30px) scale(.985);filter:blur(6px)}}to{{opacity:1;transform:none;filter:none}}}}
+@keyframes qinB{{from{{opacity:0;transform:translateY(30px) scale(.985);filter:blur(6px)}}to{{opacity:1;transform:none;filter:none}}}}
+.sv-top{{display:flex;justify-content:space-between;font:500 .72rem 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.2em;color:#67E8F9}}
+.sv-bar{{height:3px;background:rgba(148,163,184,.18);border-radius:3px;overflow:hidden}}
+.sv-bar i{{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,#7C3AED,#06B6D4);box-shadow:0 0 12px #06B6D4;animation:.9s cubic-bezier(.2,.8,.2,1) both}}
+@keyframes svbarA{{from{{width:0}}to{{width:var(--w)}}}}
+@keyframes svbarB{{from{{width:0}}to{{width:var(--w)}}}}
+.sv-q{{font:700 clamp(1.7rem,3.4vw,2.7rem)/1.2 Inter,sans-serif;letter-spacing:-.02em;margin:.4rem 0 .3rem;background:linear-gradient(90deg,#E2E8F0,#A5F3FC);-webkit-background-clip:text;background-clip:text;color:transparent}}
+[class*="st-key-survey_card_"] button{{font-size:1.02rem;border-radius:999px}}
+[class*="st-key-survey_card_"] [data-testid="stPills"] button,[class*="st-key-survey_card_"] [data-testid="stButtonGroup"] button{{padding:.65rem 1.3rem}}
+@media (prefers-reduced-motion:reduce){{[class*="st-key-survey_card_"],.sv-bar i{{animation:none!important}}}}
+</style>""", unsafe_allow_html=True)
+
+
 def _survey_box(state):
     """Collect the nine ranking inputs in a one-question-at-a-time flow."""
     saved = dict(state.get("survey_answers", {}))
     step = max(0, min(state.get("survey_step", 0), len(picker.QUESTIONS) - 1))
     finish_requested = False
-    with st.container(border=True):
-        st.markdown("#### 📝 Tell us about yourself")
-        key, question, options = picker.QUESTIONS[step]
-        st.caption(f"Question {step + 1} of {len(picker.QUESTIONS)} · Optional")
+    total = len(picker.QUESTIONS)
+    key, question, options = picker.QUESTIONS[step]
+    _survey_css(total)
+    with st.container(key=f"survey_card_{step}"):
+        st.markdown(f'<div class="sv-top"><span>QUESTION {step + 1:02d} / {total:02d}</span><span>OPTIONAL · SKIP ANY</span></div>'
+                    f'<div class="sv-bar"><i style="--w:{(step + 1) / total * 100:.0f}%"></i></div>'
+                    f'<div class="sv-q">{html.escape(question)}</div>', unsafe_allow_html=True)
         if options:
             widget_key = f"q_{key}"
             if widget_key not in st.session_state:
                 st.session_state[widget_key] = saved.get(key, [])
-            selected = st.pills(question, list(options), selection_mode="multi", key=widget_key,
+            selected = st.pills(question, list(options), selection_mode="multi", key=widget_key, label_visibility="collapsed",
                                 on_change=_save_survey_field, args=(key, widget_key)) or []
             saved[key] = selected[:3] if key == "interests" else selected
             if key == "interests" and len(selected) > 3:
@@ -172,10 +203,8 @@ def render_picker(state, tinyfish_enabled, gemini_enabled):
         state.stage = "competition"
         st.rerun()
     st.caption("Tell us what you have done, what you can access, and where you want to go. Deterministic scoring ranks supported builds; Gemini only structures resume evidence.")
-    survey_col, resume_col = st.columns(2)
-    with survey_col:
-        answers, finish_requested = _survey_box(state)
-    with resume_col:
+    answers, finish_requested = _survey_box(state)
+    with st.expander("Optional: add a resume for sharper matches"):
         _resume_box(state, gemini_enabled)
 
     profile = picker.normalize_survey_answers(answers)
@@ -331,7 +360,7 @@ def render_results(state, tinyfish_enabled):
                 elif not dataset_key:
                     st.info("This is a recommendation candidate only. Its project-specific BOM is not in the builder yet.")
         with right, st.container(border=True):
-            _show_chart(picker.chart_html(fit), 440)
+            _show_chart(picker.chart_html(fit, overall=picker.factor_score(state.pick, state.A), title="FIT PROFILE"), 470)
 
     if st.button("Skip to BOM agent"):
         state.stage = "bom"

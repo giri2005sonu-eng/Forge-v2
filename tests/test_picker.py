@@ -18,7 +18,7 @@ def test_multiple_answers_are_flexible():
 
 def test_chart_has_every_axis_label():
     h = picker.chart_html(picker.factor_breakdown("line_follower", {}))
-    assert all(name in h for name, _ in picker.AXES) and h.count("<polygon") == len(picker.AXES)
+    assert all(name in h for name, _ in picker.AXES) and h.count('class="ax"') == len(picker.AXES)
 
 def test_every_project_builds_a_valid_bom():
     for k in PROJECTS:
@@ -41,3 +41,9 @@ def test_idea_maps_to_supported_project(monkeypatch):
 def test_unsupported_or_invented_project_is_rejected(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "x"); pipeline._G = C(dict(project="quadcopter", reason="flies"))
     assert pipeline.map_idea("a drone")["project"] is None
+
+
+def test_chart_lights_segments_in_proportion_to_fit():
+    low = picker.chart_html({k: 20 for _, k in picker.AXES}); high = picker.chart_html({k: 100 for _, k in picker.AXES})
+    assert high.count('class="seg"') == 10 * len(picker.AXES) and low.count('class="seg"') == 2 * len(picker.AXES)
+    assert "MATCH" in high and "<script" not in high and "100%" in high

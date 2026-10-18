@@ -25,10 +25,13 @@ Picking parts for a hobby robot is slow and error-prone. Specs are scattered acr
 | Find shop pages for each part (videos, social posts, category pages filtered out) | **Search** | free |
 | Read the pages for price, product name and specs | **Fetch** | free |
 | Research what a project needs: find build guides, list the components they state, with quotes | **Search + Fetch** | free |
-| Cart check: open a verified listing, add one unit to the cart, read the cart | **Web Agent** | credits, opt-in |
+| Cart check on **robu.in and robocraze.com**: open the listing chosen in the bill, add one unit to the cart, compare the shop cart price with our predicted bill | **Browser** (cloud browser + Playwright, fixed script) | opt-in, no agent steps |
+| Cart check on any **other shop**, or when the browser run fails | **Web Agent** | credits, opt-in |
 | Real project examples in the recommendation helper | **Search** | free |
 
 Prices are read from each page's text by **rules first (no LLM, no quota)**; Gemini is only a **capped backup** for pages the rules cannot read. Either way a value is kept **only if its quote is found on the page** (prices also need the number inside the quote). If prices for one part differ by more than 3x, the app warns they are probably different products or variants. Search and Fetch results are cached on disk.
+
+**Browser or Agent?** `core/browser_cart.py` decides per listing. robu.in and robocraze.com (and their subdomains, never look-alike domains) run in a TinyFish **cloud browser** that Playwright drives with a fixed script: open the product page, click Add to cart, open the cart, read the row and total. No AI is involved, so it is repeatable, and by construction it never types anything or reaches checkout. Every other shop goes to the **Web Agent**, and so does a failed browser run (page changed, timeout, item could not be added) unless the failure was a key or quota error. A genuinely sold-out item is reported, not retried. The result lists every step with its actor (🌐 Browser or 🤖 Web Agent) and says why a fallback happened. Browser sessions are closed explicitly (REST `DELETE`) and the whole run gives up after 150 s. `playwright` is only used to talk to TinyFish's remote browser, so no local browser download is needed.
 
 **Web Agent safety and cost:** it runs only when you click, is capped at 12 steps (about 12 credits at TinyFish's published 1 credit per step) and 180 seconds, and is told never to check out, log in or enter personal details. That last part is an instruction to the agent, not a technical block, so run it only on public shop pages and never with saved logins or payment details. Repeat runs of the same listing are served from the cache.
 
@@ -48,7 +51,9 @@ app.py              Streamlit router (picker -> results / competition -> BOM age
 ui/recommendation.py  survey, resume box, ranked results
 ui/competition.py   Build-to-compete event shortlist
 ui/bom.py           BOM screen: live prices, shop comparison, bill, evidence ledger
-ui/research_tools.py  build-guide research, spec check, cart check
+ui/research_tools.py  build-guide research, spec check
+ui/cart_check.py     cart check panel: shop cart price vs our bill, labels who did each step (opt-in)
+core/browser_cart.py routes robu.in / robocraze.com to the TinyFish Browser (Playwright script), other shops and failures to the Web Agent
 core/picker.py      survey normalisation, hard-limit filter, 12-factor ranking + radial chart
 core/recommendation_catalog.py  loads the project CSVs into factor and label catalogs
 core/resume.py      resume text reader (PDF/DOCX/TXT) + quote validation
@@ -150,3 +155,9 @@ Picking a rule-checked project in step 1 now opens the same "TinyFish is searchi
 - **Suspiciously low prices:** a verified price far below the team's estimate for that part, or far below the other listings while not clearly named like the part, is flagged "UNUSUALLY LOW · CHECK". It stays selectable, but it is never the default and never sets the BOM price. A genuine cheap clone named like the part is not flagged by the comparison rule.
 - **Cache expiry:** cached TinyFish and price results expire after `FORGE_CACHE_HOURS` (default 72; 0 = never). The cache lives in the project folder, not the folder you run from.
 - **Pinned dependencies:** `requirements.txt` uses compatible-release pins to the versions we tested.
+
+## Cart check on TinyFish accounts without the agent betas
+The Web Agent is asked for strict mode, a 12-step cap and a 180 s cap. Accounts outside those TinyFish betas get "not enabled for strict agent mode" or "not enabled for custom max steps". FORGE drops only the option that was refused (strict -> default mode, no custom step cap, no custom time cap), remembers it for the session and retries. Other errors (bad key, no credits) are shown as they are and never retried. The result records what was really applied (`mode`, `step_cap`, `time_cap`) and the cart-check panel prints it, for example "default mode ... NO step cap, because this TinyFish account cannot set one; it used 6 steps". Without a step cap the only limits are the goal's instructions ("stop as soon as you have them", never check out) and, if allowed, the 180 s cap, so watch your credit balance on the first runs. robu.in and robocraze.com use the fixed-script TinyFish Browser, which needs none of these options.
+
+## Browser cart check: only the main product's button, and honest stock
+The fixed browser script (robu.in, robocraze.com) used to look for any "Add to cart" button on the page. On a product that was out of stock it could therefore click the button of a *related product*, find that the product it came for was not in the cart, and report a confusing result (then the Web Agent was started, spending credits, only to learn the item was out of stock). Now the script only clicks the main product's own button and ignores anything inside related / upsell / product-grid blocks. "Out of stock" is read only from the main product (the shop's own out-of-stock marker, a disabled "Sold out" button, or the main product's text block; other products' labels are ignored), and a missing main button with no stock message is reported as unknown, not as a fact. A product the shop shows as out of stock is settled by the browser alone (no agent credits), and the panel says so. A cart that stayed empty no longer shows a "cart total" or delivery text. Tests drive a real local Chromium against fake shop pages, including the related-products case.

@@ -96,14 +96,47 @@ CART_SCHEMA = {"type": "object", "properties": {"product_name": {"type": "string
 CART_GOAL = ("Add exactly one unit of this product to the cart. Do NOT click checkout, log in, sign up, or enter any payment or personal details. "
              "Then open the cart and report the product name, unit price in INR, whether it is in stock, the cart total and any delivery estimate. Stop as soon as you have them.")
 
+_UNAVAILABLE = set()  # account-gated agent options TinyFish refused on this account: "strict", "max_steps", "max_duration"
+_GATED = (("strict", ("strict",)), ("max_steps", ("max steps", "max_steps")), ("max_duration", ("max duration", "max_duration", "duration")))
+
+def _refused_option(text):
+    """TinyFish answers e.g. 'Your account is not enabled for custom max steps yet. Join the beta program at /beta, then retry.'
+    Returns which option was refused ("strict" / "max_steps" / "max_duration"), or None for any other message."""
+    t = str(text).lower()
+    if "not enabled" not in t and "beta" not in t: return None
+    return next((opt for opt, words in _GATED if any(w in t for w in words)), None)
+
 def agent(url, goal=CART_GOAL, max_steps=12):
-    """Web Agent run. USES CREDITS (about 1 per step per TinyFish pricing), so it is capped at max_steps and only runs on a button click."""
+    """Web Agent run. USES CREDITS (about 1 per step per TinyFish pricing), so it only runs on a button click.
+    It asks for strict mode, a step cap and a time cap. Accounts without those beta features get a refusal; each refused option is
+    dropped (strict -> default mode, no custom step cap, no custom time cap), remembered for the session, and the run is retried.
+    The result says what was really applied (mode, step_cap, time_cap) so the UI can be honest. The goal forbids checkout and
+    entering any details in every case. Any other error (bad key, no credits) is raised as it is and never retried."""
     from tinyfish import AgentConfig
     key = f"a:{url}|{goal}|{max_steps}"
     hit = cache_get(key)
     if hit: return dict(hit, cached=True)
-    res = _plain(_call(lambda: _client().agent.run(url=url, goal=goal, output_schema=CART_SCHEMA,
-        agent_config=AgentConfig(mode="strict", max_steps=max_steps, max_duration_seconds=180))))
+
+    def config():
+        kw = dict(mode="default" if "strict" in _UNAVAILABLE else "strict")
+        if "max_steps" not in _UNAVAILABLE: kw["max_steps"] = max_steps
+        if "max_duration" not in _UNAVAILABLE: kw["max_duration_seconds"] = 180
+        return kw
+
+    for _ in range(len(_GATED) + 1):
+        kw = config()
+        try:
+            res = _plain(_call(lambda: _client().agent.run(url=url, goal=goal, output_schema=CART_SCHEMA, agent_config=AgentConfig(**kw))))
+        except Exception as e:
+            opt = _refused_option(e)
+            if opt is None or opt in _UNAVAILABLE: raise      # a bad key, no credits, or a refusal we already worked around: show it as it is
+            _UNAVAILABLE.add(opt); continue
+        opt = None if "COMPLETED" in str(res.get("status", "")).upper() else _refused_option(res.get("error"))
+        if opt is None or opt in _UNAVAILABLE: break          # success, or a failure that is not an account restriction
+        _UNAVAILABLE.add(opt)
+    else:
+        raise RuntimeError("TinyFish kept refusing the agent options for this account: " + ", ".join(sorted(_UNAVAILABLE)))
+    res = dict(res, mode=kw["mode"], step_cap=kw.get("max_steps"), time_cap=kw.get("max_duration_seconds"))
     if "COMPLETED" in str(res.get("status", "")).upper(): cache_set(key, res)
     return res
 

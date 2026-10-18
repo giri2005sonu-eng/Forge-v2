@@ -251,23 +251,65 @@ def rank_factor_projects(profile, limit=5):
             break
     return selected
 
-def chart_html(f):
-    """Radial chart: one triangle per attribute pointing at its label; size and colour show how well it fits."""
-    C, R0, K, n = 210, 34, 104, len(AXES)
-    s = '<svg viewBox="0 0 420 420" width="100%">'
-    for r in (.33, .66, 1): s += f'<circle cx="{C}" cy="{C}" r="{R0 + K * r}" fill="none" stroke="#27385A" stroke-dasharray="{"3 5" if r < 1 else "0"}"/>'
+def _sector(cx, cy, r0, r1, a0, a1):
+    """SVG path for one ring segment between radii r0..r1 and angles a0..a1 (radians, clockwise)."""
+    P = lambda r, a: f"{cx + r * math.cos(a):.1f} {cy + r * math.sin(a):.1f}"
+    return f"M{P(r1, a0)} A{r1:.1f} {r1:.1f} 0 0 1 {P(r1, a1)} L{P(r0, a1)} A{r0:.1f} {r0:.1f} 0 0 0 {P(r0, a0)}Z"
+
+
+def _tone(v):
+    return ("#34D399", "#059669") if v >= 70 else ("#FBBF24", "#B45309") if v >= 45 else ("#FB7185", "#BE123C")
+
+
+def chart_html(f, overall=None, title="FIT PROFILE"):
+    """Radial 'scanner' chart. One wedge per attribute built from 10 glowing segments (each lit segment = 10% fit), a dashed radar outline across
+    the wedges, a rotating scan line and HUD text. f = {axis key: 0-100}. Pure SVG + CSS (no external files); animations respect reduced-motion."""
+    C, R0, R1, SEG, n = 230, 50, 170, 10, len(AXES)
+    span, gap, th = 2 * math.pi / n, math.radians(3.5), (R1 - R0) / SEG
+    s = (f'<svg viewBox="-110 0 680 460" width="100%" role="img" aria-label="{title}"><defs>'
+         '<filter id="gl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+         '<radialGradient id="core"><stop offset="0" stop-color="#4C1D95"/><stop offset="1" stop-color="#0A0F1E"/></radialGradient>'
+         '<linearGradient id="sw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#06B6D4" stop-opacity="0"/><stop offset="1" stop-color="#06B6D4" stop-opacity=".35"/></linearGradient></defs>')
+    for r in (R0, R0 + (R1 - R0) * .5, R1, R1 + 10):   # reference rings and the tick ring
+        dash = ' stroke-dasharray="2 5"' if r < R1 else ""
+        s += f'<circle cx="{C}" cy="{C}" r="{r:.1f}" fill="none" stroke="#1E2A4A" stroke-width="1"{dash}/>'
+    for d in range(0, 360, 6):                           # degree ticks
+        a, ln = math.radians(d), 7 if d % 30 == 0 else 3
+        s += (f'<line x1="{C + (R1 + 10) * math.cos(a):.1f}" y1="{C + (R1 + 10) * math.sin(a):.1f}" x2="{C + (R1 + 10 + ln) * math.cos(a):.1f}" '
+              f'y2="{C + (R1 + 10 + ln) * math.sin(a):.1f}" stroke="{"#06B6D4" if d % 30 == 0 else "#1E2A4A"}" stroke-width="1"/>')
+    pts, lab = [], ""
     for i, (name, k) in enumerate(AXES):
-        v, ang = f[k], -math.pi / 2 + i * 2 * math.pi / n
-        ux, uy = math.cos(ang), math.sin(ang); px, py = -uy, ux
-        ln, hw = 14 + v / 100 * (K - 14), 9 + v / 100 * 9
-        col = "#2FA36B" if v >= 70 else "#E0A030" if v >= 45 else "#D8505B"
-        s += f'<line x1="{C}" y1="{C}" x2="{C + ux * (R0 + K + 6):.1f}" y2="{C + uy * (R0 + K + 6):.1f}" stroke="#27385A"/>'
-        s += (f'<g transform="translate({C + ux * R0:.1f},{C + uy * R0:.1f})"><polygon class="t" style="animation-delay:{i * 70}ms" '
-              f'points="{px * hw:.1f},{py * hw:.1f} {-px * hw:.1f},{-py * hw:.1f} {ux * ln:.1f},{uy * ln:.1f}" fill="{col}" fill-opacity=".88"/></g>')
-        lx, ly = C + ux * (R0 + K + 22), C + uy * (R0 + K + 22)
-        an = "start" if ux > .3 else "end" if ux < -.3 else "middle"
-        s += (f'<text x="{lx:.1f}" y="{ly + (10 if uy > .3 else -2 if uy < -.3 else 4):.1f}" text-anchor="{an}" fill="#E6ECF5" font-size="12.5">{name}</text>'
-              f'<text x="{lx:.1f}" y="{ly + (24 if uy > .3 else 12 if uy < -.3 else 18):.1f}" text-anchor="{an}" fill="#93A1BA" font-size="11.5">{v}% fit</text>')
-    s += f'<circle cx="{C}" cy="{C}" r="26" fill="#12374A"/><text x="{C}" y="{C + 4}" text-anchor="middle" fill="#E6ECF5" font-weight="700" font-size="13">You</text></svg>'
-    return ('<style>body{margin:0;font-family:sans-serif}.t{transform-origin:0 0;animation:g .7s cubic-bezier(.2,.8,.2,1) both}'
-            '@keyframes g{from{transform:scale(0)}to{transform:scale(1)}}</style>' + s)
+        v = f[k]; a0 = -math.pi / 2 + i * span - span / 2 + gap / 2; a1 = a0 + span - gap; am = (a0 + a1) / 2
+        lit, (c1, c2) = round(v / 100 * SEG), _tone(v)
+        s += '<g class="ax">'
+        for j in range(SEG):
+            on, r0, r1 = j < lit, R0 + j * th + 1, R0 + (j + 1) * th - 1
+            fill = (c1 if j >= lit * .5 else c2) if on else "#111A30"
+            s += (f'<path d="{_sector(C, C, r0, r1, a0, a1)}" fill="{fill}" fill-opacity="{1 if on else .6}" class="{"seg" if on else "off"}"'
+                  f'{" filter=\"url(#gl)\"" if on else ""} style="animation-delay:{i * 90 + j * 45}ms"/>')
+        s += "</g>"
+        rr = R0 + v / 100 * (R1 - R0); pts.append((C + rr * math.cos(am), C + rr * math.sin(am)))
+        ux, uy = math.cos(am), math.sin(am); lx, ly = C + ux * (R1 + 34), C + uy * (R1 + 34)
+        an = "start" if ux > .3 else "end" if ux < -.3 else "middle"; dy = 8 if uy > .3 else -4 if uy < -.3 else 3
+        lab += (f'<text x="{lx:.1f}" y="{ly + dy:.1f}" text-anchor="{an}" class="lb">{name}</text>'
+                f'<text x="{lx:.1f}" y="{ly + dy + 13:.1f}" text-anchor="{an}" class="vl" fill="{c1}">{v}%</text>')
+    poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    s += (f'<polygon class="radar" points="{poly}" fill="#06B6D4" fill-opacity=".07" stroke="#67E8F9" stroke-width="1.4" stroke-dasharray="4 3" filter="url(#gl)"/>'
+          + "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.6" fill="#fff"/>' for x, y in pts))
+    sx, sy = C + (R1 + 10) * math.sin(math.radians(28)), C - (R1 + 10) * math.cos(math.radians(28))
+    s += (f'<g class="sweep"><path d="M{C} {C} L{C} {C - R1 - 10} A{R1 + 10} {R1 + 10} 0 0 1 {sx:.1f} {sy:.1f}Z" fill="url(#sw)"/>'
+          f'<line x1="{C}" y1="{C}" x2="{C}" y2="{C - R1 - 10}" stroke="#67E8F9" stroke-width="1.2" opacity=".7"/></g>')
+    mid = overall if overall is not None else round(sum(f[k] for _, k in AXES) / n)
+    s += (f'<circle cx="{C}" cy="{C}" r="{R0 - 8}" fill="url(#core)" stroke="#06B6D4" stroke-width="1.2" filter="url(#gl)"/>'
+          f'<text x="{C}" y="{C + 4}" text-anchor="middle" class="big">{mid}</text><text x="{C}" y="{C + 17}" text-anchor="middle" class="sm">MATCH</text>'
+          f'{lab}<text x="-100" y="18" class="hud">// {title}</text><text x="-100" y="31" class="hud dim">SCAN {n} AXES · OK</text>'
+          f'<text x="560" y="452" text-anchor="end" class="hud dim">FORGE</text></svg>')
+    css = ('<style>body{margin:0;background:transparent}svg{display:block;max-width:680px;margin:auto}'
+           'text{font-family:ui-monospace,"JetBrains Mono",Menlo,monospace}.lb{fill:#E2E8F0;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}.vl{font-size:13px;font-weight:700}'
+           '.big{fill:#fff;font-size:22px;font-weight:700;font-family:Inter,sans-serif}.sm{fill:#67E8F9;font-size:8px;letter-spacing:.2em}'
+           '.hud{fill:#06B6D4;font-size:10px;letter-spacing:.12em}.dim{fill:#64748B}'
+           '.seg{opacity:0;animation:on .35s ease-out forwards}@keyframes on{from{opacity:0}to{opacity:1}}'
+           '.radar{opacity:0;animation:on .8s ease-out 1.2s forwards}'
+           '.sweep{transform-origin:230px 230px;animation:spin 7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}'
+           '@media(prefers-reduced-motion:reduce){.seg,.radar{animation:none;opacity:1}.sweep{animation:none}}</style>')
+    return css + s

@@ -3,6 +3,7 @@ import copy
 import datetime as dt
 import streamlit as st
 from core import auto_fix, bill, component_catalog as cat, optimizer as opt, pipeline
+from core import kept as kept_mod
 from core.data import PROJECTS, QTY
 
 CSS = """<style>
@@ -58,12 +59,7 @@ def render(S, project, budget, bt, live):
         parts_map = res["best"]["parts"]
         label = PROJECTS.get(project, {}).get("label", str(project).replace("_", " ").title())
     else:
-        parts_list = custom.get("parts", [])
-        parts_map = {}
-        for idx, p in enumerate(parts_list):
-            r = p.get("role", "part")
-            key = r if r not in parts_map else f"{r}_{p.get('id', idx)}"
-            parts_map[key] = copy.deepcopy(p)
+        parts_map = kept_mod.keyed_parts(custom.get("parts", []))
         label = custom.get("label") or str(project).replace("_", " ").title()
 
     records = cat.load()
@@ -82,7 +78,7 @@ def render(S, project, budget, bt, live):
             cleaned_kept[k] = p
         S.opt_kept = cleaned_kept
 
-    ident = (project, tuple(p.get("id", "") for p in parts_map.values()))
+    ident = kept_mod.identity(project, parts_map)
     if S.opt_base is None or S.get("opt_base_for") != ident:
         S.opt_base, S.opt_base_for, S.opt_kept = opt.snapshot(parts_map), ident, {}
         S.opt_standby_fixes = {}
@@ -100,12 +96,7 @@ def render(S, project, budget, bt, live):
             if isinstance(p, dict) and (p.get("specs", {}).get("bluetooth") or "bluetooth" in p.get("name", "").lower()):
                 needs_bt = True; break
 
-    current = dict(base)
-    for r_k, p in S.opt_kept.items():
-        if r_k in current:
-            current = opt.replace(current, r_k, p)
-        else:
-            current[r_k] = copy.deepcopy(p)
+    current = kept_mod.apply(base, S.opt_kept)          # same function the page bill uses, so the PDF and the page always agree
 
     # Hybrid combination assessment (dataset -> Gemini fallback -> dynamic persistence)
     from core import combination_store

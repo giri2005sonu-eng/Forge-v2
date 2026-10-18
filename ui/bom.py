@@ -6,6 +6,7 @@ import streamlit as st
 
 from ui import delivery_panel, optimizer as optimizer_panel, wiring_panel
 from core import auto_fix, bill, compatibility_engine as ce, custom_bom, hybrid_bom, ledger, pipeline, project_store
+from core import kept as kept_mod
 from core.data import PROJECTS, QTY
 from core.recommendation_catalog import PROJECT_CATALOG
 
@@ -294,12 +295,19 @@ def _render_custom(state, tinyfish_enabled, budget):
         st.subheader(custom["label"])
         st.info("Software only: this project needs no hardware to buy. " + " ".join(custom.get("notes") or []))
         return None
-    parts = custom_bom.parts_map(custom)
-    invoice = bill.make(parts, state.live, state.choice, budget, custom["label"], manual=state.manual)
+    base_build = kept_mod.keyed_parts(custom["parts"])
+    active = kept_mod.active_build(state, state.project, base_build)      # original parts + replacements kept in the Project Optimizer
+    active_list = [p for p in active.values() if not p.get("none")]
+    n_swaps = kept_mod.count(state, state.project, base_build)
+    parts = kept_mod.by_id(active)
+    shown_label = f"{custom['label']} (optimized)" if n_swaps else custom["label"]
+    invoice = bill.make(parts, state.live, state.choice, budget, shown_label, manual=state.manual)
     totals, lines = invoice["tot"], invoice["lines"]
     line_for = {line["part_id"]: line for line in lines}
 
-    st.subheader(f"{custom['label']} · {bill.inr(totals['subtotal'])}")
+    st.subheader(f"{shown_label} · {bill.inr(totals['subtotal'])}")
+    if n_swaps:
+        st.success(f"This bill includes {n_swaps} replacement(s) you kept in the Project Optimizer. Open it and press 'Undo all replacements' to go back to the original parts.")
     origin = custom.get("origin", "gemini")
     meta = custom.get("meta") or {}
     st.caption({"dataset": "Component list from the FORGE catalog dataset (written by the team, no AI used), priced from shop pages read by TinyFish.",
@@ -337,7 +345,7 @@ def _render_custom(state, tinyfish_enabled, budget):
             st.write(message)
 
         with st.status("Searching vendors and reading pages...", expanded=True) as status:
-            custom_bom.source_all(custom["parts"], state.live, log=log, gemini_max=None if origin == "gemini" else int(os.getenv("FORGE_DATASET_GEMINI_FALLBACK", "0")))
+            custom_bom.source_all(active_list, state.live, log=log, gemini_max=None if origin == "gemini" else int(os.getenv("FORGE_DATASET_GEMINI_FALLBACK", "0")))
             status.update(label="Done.", state="complete")
         st.rerun()
     if state.log:
@@ -350,12 +358,13 @@ def _render_custom(state, tinyfish_enabled, budget):
     if st.button("Reset to cheapest"):
         state.choice, state.manual = {}, {}
         st.rerun()
-    for part in custom["parts"]:
-        _component_card(state, part["role"], part, line_for[part["id"]])
+    for part in active_list:
+        if part["id"] in line_for:
+            _component_card(state, part["role"], part, line_for[part["id"]])
     _optimizer_section(state, budget, False, rule_checked=True)
-    wiring_panel.render(state, custom["parts"], project_label=custom["label"])
+    wiring_panel.render(state, active_list, project_label=custom["label"])
     _bill_section(state, invoice, parts, "custom")
-    return {"parts": parts, "label": custom["label"], "custom": True, "budget": budget, "bluetooth": False}
+    return {"parts": parts, "label": shown_label, "custom": True, "budget": budget, "bluetooth": False}
 
 
 def render(state, tinyfish_enabled, gemini_enabled):
@@ -438,18 +447,11 @@ def render(state, tinyfish_enabled, gemini_enabled):
             cleaned_kept[k] = p
         state.opt_kept = cleaned_kept
 
-    # Determine final active parts incorporating all kept replacements and auto-fixes
-    active_parts = dict(best["parts"])
-    if state.get("opt_kept"):
-        from core import optimizer as opt_core
-        for r_k, p in state.opt_kept.items():
-            if r_k in active_parts:
-                try: active_parts = opt_core.replace(active_parts, r_k, p)
-                except Exception: active_parts[r_k] = copy.deepcopy(p)
-            else:
-                active_parts[r_k] = copy.deepcopy(p)
+    # Final active parts = this build + the replacements kept for THIS build (a swap kept on another project never applies here)
+    active_parts = kept_mod.active_build(state, state.project, best["parts"])
+    n_swaps = kept_mod.count(state, state.project, best["parts"])
 
-    project_title = f"{_label(state.project)} (optimized)" if state.get("opt_kept") else _label(state.project)
+    project_title = f"{_label(state.project)} (optimized)" if n_swaps else _label(state.project)
     invoice = bill.make(active_parts, state.live, state.choice, budget, project_title, manual=state.manual)
     totals, lines = invoice["tot"], invoice["lines"]
     line_for = {line["part_id"]: line for line in lines}

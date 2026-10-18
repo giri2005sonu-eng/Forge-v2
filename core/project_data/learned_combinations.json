@@ -263,6 +263,82 @@
    "fails": 0,
    "warns": 0,
    "updated": "2026-10-17T17:58:15+00:00"
+  },
+  "combo_9a2ff5645946": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The electrical and control interfaces are fully compatible using the 5V 2A supply, but the 28BYJ-48 motor provides very low torque and is likely to stall or jam when dispensing dry pet food.",
+   "notes": [
+    "The 28BYJ-48 stepper has only ~0.34 kg·cm of torque, which may easily jam under the weight and friction of kibble.",
+    "Power the DS3231 module from the 3.3V rail rather than 5V to ensure I2C bus levels remain safe for the ESP32 and avoid onboard battery charging issues.",
+    "Add a bulk decoupling capacitor (100–470 µF) across the breadboard power rail to absorb motor switching transients and prevent ESP32 brownout resets."
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-18T09:24:37+00:00"
+  },
+  "combo_40282af326ac": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The setup is electrically functional with proper wiring, but requires caution due to logic level mismatches on the Bluetooth module and low motor torque for kibble dispensing.",
+   "notes": [
+    "The HC-05 RX pin requires 3.3V logic; use a simple voltage divider from the Arduino Nano 5V TX pin to avoid damaging the module.",
+    "Connect the 5V adapter directly to the 5V pin and ULN2003 power rails in parallel, bypassing the Arduino Vin pin which requires at least 7V.",
+    "The 28BYJ-48 motor offers very low torque (0.34 kg-cm) and may easily stall or jam under the mechanical resistance of solid pet food."
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-18T09:26:23+00:00"
+  },
+  "combo_0cb487feba32": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The system is electrically compatible and functionally sound for a curtain opener, but routing high motor currents through a solderless breadboard poses a significant thermal and reliability risk.",
+   "notes": [
+    "Avoid running high motor current through breadboard contacts; wire motor power (12V) directly to the A4988 with rated wire/terminals to prevent melting.",
+    "Set the A4988 current limit (Vref) carefully to prevent overheating the driver and exceeding the 2A power adapter capacity.",
+    "Power the A4988 VDD logic pin directly from the ESP32 3.3V rail so control logic levels match natively without a level shifter."
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-18T09:28:26+00:00"
+  },
+  "combo_5d9d78988c0c": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The components are electrically and functionally compatible, but careful attention is needed regarding thermal management, breadboard current limits, and logic level shifting.",
+   "notes": [
+    "Breadboards and thin jumper wires can overheat or fail carrying the 1.7A stepper motor current; solder or use terminal blocks for high-current motor lines.",
+    "The A4988 driver requires a heatsink and VREF calibration (ideally set below 1.5A) to stay within the 12V 2A power budget and prevent thermal shutdown.",
+    "The HC-05 RX pin operates at 3.3V logic and requires a voltage divider when connected to the 5V Arduino Nano TX pin."
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-18T09:29:12+00:00"
+  },
+  "combo_96d6a26eb763": {
+   "status": "compatible",
+   "state": "PASS",
+   "summary": "All electrical and logic compatibility rules verified.",
+   "notes": [],
+   "source": "rules",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-18T09:31:26+00:00"
+  },
+  "combo_e91b8fa90231": {
+   "status": "incompatible",
+   "state": "FAIL",
+   "summary": "",
+   "notes": [],
+   "source": "gemini_learned",
+   "fails": 1,
+   "warns": 0,
+   "updated": "2026-10-18T09:55:02+00:00"
   }
  }
 }

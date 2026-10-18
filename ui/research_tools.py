@@ -1,6 +1,7 @@
 import streamlit as st
 
 from core import part_specs, research
+from ui import cart_check
 from core.data import PROJECTS
 
 
@@ -67,3 +68,5 @@ def render(state, build, tinyfish_enabled, gemini_enabled):
                         from core import custom_bom
                         custom_bom.fetch_and_apply_missing_specs([p for p in parts.values() if p["name"] in without])
                         st.rerun()
+
+    cart_check.render(state, build, tinyfish_enabled)
