@@ -32,7 +32,7 @@ html, body, [class*="css"] {
 }
 
 .block-container {
-  padding: 2rem 2.5rem 4rem !important;
+  padding: 1.2rem 2rem 2.5rem !important;
   max-width: 1160px !important;
 }
 
@@ -332,24 +332,24 @@ for k, v in dict(live={}, res=None, log=[], stage="pick", A={}, pick=None, proje
 tf_key, gem_key = bool(os.getenv("TINYFISH_API_KEY")), bool(os.getenv("GEMINI_API_KEY"))
 
 st.markdown("""
-<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin:0.25rem 0 1.25rem;padding-bottom:1.1rem;border-bottom:1px solid rgba(51,65,85,0.4)">
-  <div style="display:flex;align-items:center;gap:16px">
-    <div style="background:linear-gradient(135deg,#7C3AED,#06B6D4);border-radius:14px;width:50px;height:50px;
-                display:flex;align-items:center;justify-content:center;font-size:26px;
-                box-shadow:0 4px 20px rgba(124,58,237,.45);flex-shrink:0">⚡</div>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin:0 0 0.75rem;padding-bottom:0.65rem;border-bottom:1px solid rgba(51,65,85,0.4)">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div style="background:linear-gradient(135deg,#7C3AED,#06B6D4);border-radius:12px;width:44px;height:44px;
+                display:flex;align-items:center;justify-content:center;font-size:22px;
+                box-shadow:0 4px 18px rgba(124,58,237,.45);flex-shrink:0">⚡</div>
     <div>
       <div style="background:linear-gradient(135deg,#C084FC 0%,#38BDF8 100%);-webkit-background-clip:text;
                   -webkit-text-fill-color:transparent;background-clip:text;
-                  font-size:1.75rem;font-weight:800;letter-spacing:-.03em;line-height:1.2;font-family:Inter,sans-serif">
-        FORGE <span style="font-size:1.15rem;font-weight:600;opacity:0.95">— Project Planning &amp; Execution Copilot</span>
+                  font-size:1.6rem;font-weight:800;letter-spacing:-.03em;line-height:1.2;font-family:Inter,sans-serif">
+        FORGE <span style="font-size:1.05rem;font-weight:600;opacity:0.95">— Project Planning &amp; Execution Copilot</span>
       </div>
-      <div style="color:#94A3B8;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-top:3px">
+      <div style="color:#94A3B8;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-top:2px">
         Autonomous Project Architecture &nbsp;·&nbsp; Live Market Sourcing &nbsp;·&nbsp; Hardware Verification &amp; Execution
       </div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
-    <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;color:#C084FC;letter-spacing:0.04em">
+    <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);padding:3px 10px;border-radius:99px;font-size:10.5px;font-weight:700;color:#C084FC;letter-spacing:0.04em">
       ⚡ COPILOT ACTIVE
     </span>
   </div>
@@ -367,11 +367,11 @@ phase_html = []
 for p_key, p_label in phases:
     is_curr = (S.stage == p_key) or (p_key == "pick" and S.stage == "results")
     if is_curr:
-        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(6,182,212,0.22));border:1px solid rgba(6,182,212,0.5);color:#38BDF8;font-weight:700;font-size:0.75rem;box-shadow:0 2px 8px rgba(6,182,212,0.15)">{p_label}</span>')
+        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:8px;background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(6,182,212,0.22));border:1px solid rgba(6,182,212,0.5);color:#38BDF8;font-weight:700;font-size:0.72rem;box-shadow:0 2px 8px rgba(6,182,212,0.15)">{p_label}</span>')
     else:
-        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:8px;background:rgba(15,23,42,0.45);border:1px solid rgba(51,65,85,0.4);color:#64748B;font-weight:500;font-size:0.75rem">{p_label}</span>')
+        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:8px;background:rgba(15,23,42,0.45);border:1px solid rgba(51,65,85,0.4);color:#64748B;font-weight:500;font-size:0.72rem">{p_label}</span>')
 
-st.markdown(f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 1.5rem">{"".join(phase_html)}</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 0.85rem">{"".join(phase_html)}</div>', unsafe_allow_html=True)
 
 
 # 1. recommendation helper (skippable) -> 2. results -> optional competition shortlist -> 3. BOM agent
