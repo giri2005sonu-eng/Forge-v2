@@ -54,21 +54,41 @@ Building physical robotics and embedded systems is notoriously fragmented and er
   - **Compute & I/O**: Clock speed, RAM, Flash, ADC/PWM channels, and spare GPIO pins.
 - **Atomic Swap State Management (`core/kept.py`)**: "Keep this replacement" commits the swap directly into the active bill, totals, and PDF export without cross-contaminating other catalog builds.
 
-### 6. 🔌 Wiring & Firmware Studio
+### 6. 📊 Part Specs & Side-by-Side Comparison
+- **Part specs · typical datasheet values, best value in green when comparing**:
+  - Curated, typed engineering specifications for all 231 parts in the library (`core/part_specs.py`), detailing supply voltages, logic levels, peak/stall currents, clock/memory, torque, range, and accuracy.
+  - **Compare with other microcontrollers / motor drivers / sensors**: Put any component side-by-side against similar alternatives from the library. The best value in each spec row is highlighted in **green** (only where "better" is clearly defined, e.g. lower voltage dropout, higher clock speed, longer range, or lower price).
+
+### 7. 🔌 Wiring & Firmware Studio
 - **Dynamic Wiring Guide**: Visual pin-to-pin wiring map between microcontrollers, sensors, drivers, and power rails.
 - **Logic Level Warnings**: Proactively highlights missing level shifters, pull-up resistors, and power decoupling.
 - **Starter Firmware Synthesis**: Generates ready-to-flash C++/Arduino or MicroPython code configured with the exact pinouts and sensors in the active BOM.
 
-### 7. 🚚 Delivery Optimizer & Dual-Engine Cart Verification
-- **Vendor Consolidation**: Analyzes supplier distribution to minimize split shipments and reduce delivery costs.
-- **Headless Cloud Browser (Playwright + TinyFish)**:
-  - Automates real store verification on Robu.in and Robocraze.
-  - Targets the primary product's Add-to-Cart button with strict stock inspection (preventing false positives from out-of-stock related items).
-- **Autonomous Web Agent Fallback**: Handles arbitrary third-party stores with strict safety rules (read-only, never log in, never enter payment credentials).
+### 8. 🔬 Research What This Project Needs
+- **Research what this project needs · Search + Fetch (free)**:
+  - Discovers real-world build guides, open-source hardware projects, and tutorials using TinyFish **Search + Fetch** (free API, no quota used).
+  - Extracts the exact components used in published guides accompanied by verbatim supporting quotes, allowing users to validate community-tested parts against the generated BOM.
 
-### 8. 📄 Audit & Export
-- Interactive on-screen invoice with manual override controls.
+### 9. 🚚 Delivery Optimizer & Cart Check
+- **Vendor Consolidation**: Analyzes supplier distribution to minimize split shipments and reduce delivery costs.
+- **Cart check · TinyFish Browser for robu.in and robocraze.com, Web Agent for other shops**:
+  - **TinyFish Browser for robu.in and robocraze.com**: Automated cloud browser driven by Playwright with a fixed, deterministic script (opt-in, consumes zero agent step credits). Targets only the main product's own Add-to-Cart button with strict stock inspection, preventing false clicks on out-of-stock related items, and reads the real shop cart total.
+  - **Web Agent for other shops**: Autonomous web agent that navigates arbitrary third-party storefronts or handles browser fallbacks with strict safety instructions (capped at 12 steps and 180 seconds, read-only, never log in, never enter payment details).
+
+### 10. 📄 Audit & Export
+- Interactive on-screen invoice with manual override controls and unverified price adjustments.
 - Clean PDF bill of materials export with native Indian Rupee (`₹`) symbol formatting.
+
+### 🌐 TinyFish API & Cost Breakdown
+| Feature | TinyFish API | Cost / Quota |
+|---|---|---|
+| **Sourcing**: Find real vendor pages for each BOM component | **Search** | Free |
+| **Price & Spec Reading**: Extract live page text and proof quotes | **Fetch** | Free |
+| **Research what this project needs**: Discover build guides & listed parts with quotes | **Search + Fetch** | Free |
+| **Cart check (robu.in & robocraze.com)**: Open listing, add to cart, compare cart total | **Browser** (Playwright Cloud Browser) | Free (no agent steps) |
+| **Cart check (other shops & browser fallback)**: Autonomous store navigation | **Web Agent** | Step credits, capped & opt-in |
+| **Career & Market Research**: Research role & industry requirements | **Search + Fetch** | Free |
+
 
 ---
 
