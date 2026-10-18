@@ -339,6 +339,34 @@
    "fails": 1,
    "warns": 0,
    "updated": "2026-10-18T09:55:02+00:00"
+  },
+  "combo_ae370a8c1eaa": {
+   "status": "caution",
+   "state": "WARN",
+   "summary": "The components are generally suitable for a micro quadcopter, but using a breadboard and jumper wires for flight wiring introduces structural and reliability risks.",
+   "notes": [
+    "Breadboard and jumper wires are prone to disconnecting under motor vibration and add unnecessary weight; direct soldering is recommended.",
+    "Ensure the ESP32 is powered via a 3.3V step-up/step-down regulator or connected safely, as a 1S LiPo (3.7V-4.2V) is below the ESP32 DevKit's 5V minimum VIN requirement.",
+    "Verify that the AO3400 MOSFET gate can be driven fully by the 3.3V logic level of the ESP32 GPIO pins."
+   ],
+   "source": "gemini_learned",
+   "fails": 1,
+   "warns": 0,
+   "updated": "2026-10-18T10:07:19+00:00"
+  },
+  "combo_3273e06bef27": {
+   "status": "incompatible",
+   "state": "FAIL",
+   "summary": "The system architecture mixes 5V logic and 3.7V components improperly, and a breadboard with jumper wires is structurally and electrically unsuitable for a quadcopter.",
+   "notes": [
+    "The 1S LiPo battery (max 4.2V) cannot power the Arduino Nano through its VIN pin since the LM2596 step-down converter outputs 6.0V, which exceeds the Nano's safe operating limits o",
+    "The 7x16mm coreless motors require 3.7V and are driven by AO3400 MOSFETs, but using an Arduino Nano with 5V logic means peripheral wiring and sensor levels (MPU6050 at 3.3V/5V) nee",
+    "Breadboards and jumper wires add excessive weight and will easily disconnect due to motor vibrations, making them completely unsafe for a micro drone frame."
+   ],
+   "source": "gemini_learned",
+   "fails": 0,
+   "warns": 0,
+   "updated": "2026-10-18T10:08:09+00:00"
   }
  }
 }

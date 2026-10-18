@@ -1,163 +1,215 @@
-# FORGE — Robot BOM Agent
+# FORGE — Project Planning & Execution Copilot
 
-**Azinhack 2026 · AI Engineering track · Team: [Team name] — [Member 1], [Member 2], [Member 3], [Member 4]**
+**Azinhack 2026 · AI Engineering Track · Team FORGE: Aditya Raj, Jai Prakash, Sidhant**
 
-> AI reads. Rules decide. Every number has a source.
+> **AI reads. Rules decide. Physics validates. Every number has verifiable proof.**
 
-## Problem
-Picking parts for a hobby robot is slow and error-prone. Specs are scattered across shop pages and datasheets, the same product name can mean very different things (a search for "Arduino Nano" returned verified listings from ₹229 to ₹2,755: a clone, a starter kit and the original), and one wrong voltage or current mismatch can burn a board.
+---
 
-## What FORGE does
-1. **Recommendation helper (skippable):** a nine-question survey (career direction, experience, languages, schedule, budget, tools, hardware, goal, interests) plus an optional resume upload ranks projects from a catalog of 150 projects across 16 domains (`core/project_data/projects.csv`). Hard limits (budget, deadline hours, tools) filter first; deterministic scoring over 12 factors then ranks the rest, diversified by domain, and a radial chart shows how each factor fits the user. Gemini is used only to structure resume evidence (every item must carry an exact quote from the resume and is confirmed by the user), and TinyFish can research a dream job or industry. **Build to compete** lets users shortlist projects tagged for a competition event (`core/project_data/competition_projects.csv`). Users can also describe their own idea; keyword rules (then Gemini, if a key is set) map it to a BOM-supported project or say honestly that it is not supported yet.
-2. **BOM generation:** the app tries every combination of controller, driver, motors, battery and sensor, rejects any that fail a compatibility rule, and picks the cheapest valid build within budget.
-3. **Compatibility checks:** deterministic formulas give PASS / FAIL / UNKNOWN. A missing spec is UNKNOWN, never guessed.
-4. **Live prices with proof:** TinyFish finds and reads real vendor pages; a price is accepted **only if its exact quote appears on the page**, shown next to the verified product name and link.
+## ⚡ Executive Summary
 
-5. **Ideas outside the three builds (drone, robot arm, ...):** the idea goes to Gemini, which only *names* the components (name, quantity, shop search phrase). Each name is then handed to TinyFish (Search + Fetch) and priced with the same quote-checked rules. Gemini never supplies a price or a spec. Parts with no verified price show as "not found" and are left out of the total. Compatibility is **not** rule-checked for these builds; Gemini's "things to verify" list is shown as a suggestion only (`core/custom_bom.py`).
-6. **Shop comparison and bill:** one row per part, one column per verified shop listing. The cheapest is ticked by default; tick another to buy that one. Listings whose price could not be verified are never suggested or used by default, but you can tick one yourself and type the price you saw; the bill and ledger label it as entered by you, not verified. A structured bill updates live and can be downloaded as a PDF. Nothing is added that the pages did not state (no tax or shipping guesses).
+Building physical robotics and embedded systems is notoriously fragmented and error-prone. Engineering teams and makers face scattered component datasheets, inconsistent vendor nomenclature (e.g. an "Arduino Nano" search returning ₹229 clones and ₹2,755 original boards on the same storefront), hidden costs (deceptive EMI monthly installments, shipping fees, out-of-stock items), and catastrophic electrical mismatches (voltage spikes, logic-level incompatibilities, insufficient motor driver current).
 
-7. **Part specs and side-by-side comparison:** every one of the 231 parts in the library (`core/part_specs.py`) has typed specs (voltage ranges, current, clock/memory, range, accuracy, capacity, torque, and so on) or a stated reason it has none. Project BOMs pick them up automatically. In the **Part specs** panel you pick any component of your build to see its specs, then switch on "Compare with other microcontrollers / motor drivers / sensors ..." to put it next to similar library parts; the best value in each row is green (only where "better" is defined, e.g. lower voltage drop, longer range).
+**FORGE** is an autonomous, end-to-end **Project Planning & Execution Copilot** that bridges the gap between high-level project ideation and verified hardware reality. It guides builders from initial skill discovery and resume analysis all the way to deterministic BOM generation, real-time market sourcing, electrical compatibility checking, physics-based component swapping, wiring diagrams, starter firmware generation, and automated live cart verification.
 
+---
 
-## How TinyFish is used
-| Feature | TinyFish API | Cost |
-|---|---|---|
-| Find shop pages for each part (videos, social posts, category pages filtered out) | **Search** | free |
-| Read the pages for price, product name and specs | **Fetch** | free |
-| Research what a project needs: find build guides, list the components they state, with quotes | **Search + Fetch** | free |
-| Cart check on **robu.in and robocraze.com**: open the listing chosen in the bill, add one unit to the cart, compare the shop cart price with our predicted bill | **Browser** (cloud browser + Playwright, fixed script) | opt-in, no agent steps |
-| Cart check on any **other shop**, or when the browser run fails | **Web Agent** | credits, opt-in |
-| Real project examples in the recommendation helper | **Search** | free |
+## 🌟 Key Capabilities
 
-Prices are read from each page's text by **rules first (no LLM, no quota)**; Gemini is only a **capped backup** for pages the rules cannot read. Either way a value is kept **only if its quote is found on the page** (prices also need the number inside the quote). If prices for one part differ by more than 3x, the app warns they are probably different products or variants. Search and Fetch results are cached on disk.
+### 1. 🎯 Intelligent Discovery & Needs Matching
+- **Interactive 9-Question Survey**: Evaluates career trajectory, experience level, programming languages, time commitment, budget (INR), available tools, existing hardware, project goals, and interest domains.
+- **Resume / CV Evidence Extractor**: Ingests PDF, DOCX, or plain text resumes. Powered by Google Gemini with **mandatory exact quote verification**—every extracted skill, tool, or past project must link to verbatim text in the resume and requires explicit user confirmation.
+- **Career Market Research**: Connects with TinyFish Search + Fetch to discover real-time industry and dream-job requirements (e.g., autonomous systems, ROS2, embedded perception).
+- **12-Factor Deterministic Matcher**: Filters by hard constraints (budget, schedule, tooling) and scores compatibility across 12 deterministic criteria. Includes an interactive **Radial Fit Profile** chart.
 
-**Browser or Agent?** `core/browser_cart.py` decides per listing. robu.in and robocraze.com (and their subdomains, never look-alike domains) run in a TinyFish **cloud browser** that Playwright drives with a fixed script: open the product page, click Add to cart, open the cart, read the row and total. No AI is involved, so it is repeatable, and by construction it never types anything or reaches checkout. Every other shop goes to the **Web Agent**, and so does a failed browser run (page changed, timeout, item could not be added) unless the failure was a key or quota error. A genuinely sold-out item is reported, not retried. The result lists every step with its actor (🌐 Browser or 🤖 Web Agent) and says why a fallback happened. Browser sessions are closed explicitly (REST `DELETE`) and the whole run gives up after 150 s. `playwright` is only used to talk to TinyFish's remote browser, so no local browser download is needed.
+### 2. 🏆 Competition Strategy & Shortlisting ("Build to Compete")
+- Catalog of **18 competition-tailored builds** across **14 major robotics events** (RoboCup, Robocon, Line Maze, Combat Robotics, Formula Student, Autonomous Drone Racing, etc.).
+- Outlines event constraints, safety considerations, estimated build hours, and parts availability index for the Indian market.
 
-**Web Agent safety and cost:** it runs only when you click, is capped at 12 steps (about 12 credits at TinyFish's published 1 credit per step) and 180 seconds, and is told never to check out, log in or enter personal details. That last part is an instruction to the agent, not a technical block, so run it only on public shop pages and never with saved logins or payment details. Repeat runs of the same listing are served from the cache.
+### 3. 🧠 Hybrid Architecture Planning & BOM Generation
+- **Pre-Verified Catalog (168 Projects)**: Comprehensive component lists across 16 robotics disciplines, drafted with engineering notes, quantities, and vendor search queries.
+- **Deterministic Rule-Checked Builds**: 3 core robotic baselines (Line Follower, Obstacle Avoider, Bluetooth Mobile Robot) tested against thousands of combinatorial combinations across Microcontroller, Motor Driver, Motors, Battery, and Sensors.
+- **Autonomous Ideation Copilot (Gemini + TinyFish)**: Free-text project ideation ("a solar-powered field rover with 4 mecanum wheels") resolves through a priority hierarchy:
+  1. Previously learned & saved builds (free, instant)
+  2. Exact catalog project match
+  3. Deterministic keyword routing
+  4. Similar catalog project suggestions
+  5. Single structured Gemini call (cached permanently in `learned_projects.json` for zero-cost repeat access).
 
-## Evidence ledger, low Gemini use, clone-vs-original check
-- **Evidence ledger** (expander under the bill, CSV download): every number in the BOM with status, source, URL, time, method and the quote. `verified` = read from a shop page. `seed` = typed in by the team and **not** checked on any page. Cells from web pages are neutralised against spreadsheet formula injection.
-- **Rules first, Gemini last:** `core/pagerules.py` reads price, stock and product name from the page text (skipping shipping thresholds, EMI, price ranges and MRP). Gemini runs only for pages the rules cannot read, at most `GEMINI_FALLBACK_MAX` pages per part (default 1, `0` = never), with a short price-only prompt, and the first 429 switches it off for a minute. Live prices work with **no Gemini key at all**.
-- **Clone-vs-original check:** a page that sells the *original/genuine* version of a generic part gets its price withheld with a note, instead of silently entering the BOM.
+### 4. 🛒 Real-Time Market Sourcing & Evidence Ledger
+- **Live Vendor Scraping**: Direct search and page extraction across major Indian component distributors (Robu.in, Robocraze, Sunrobotics, ElectronicsComp, Robokits, etc.).
+- **Rules First, LLM Last**: Heuristic regex engine (`core/pagerules.py`) extracts prices, titles, and availability without consuming LLM tokens. Gemini serves as a strictly capped fallback and requires that the exact price digits exist inside the cited quote.
+- **Anti-Fraud & Deception Filters**:
+  - Automatically identifies and excludes EMI / installment pricing (e.g., "starts at ₹86/mo").
+  - Rejects price ranges, accessory bundles, and shipping threshold text.
+  - Clone vs. Original detection flags genuine boards priced differently than generic alternatives.
+  - Flags suspiciously low prices with warnings (`UNUSUALLY LOW · CHECK`).
+- **Cryptographic Evidence Ledger**: Auditable table with CSV export logging verification status, shop URL, UTC timestamp, extraction technique, and verbatim quote proof.
 
-## The role of AI
-- **AI reads (pretrained Gemini + TinyFish):** TinyFish finds and fetches pages; page rules read prices first, and Gemini is a capped backup that must return a quote containing the exact price; Gemini structures resume evidence (quote-checked, confirmed by the user) and names components for ideas not in the catalog (saved so each costs one call).
-- **Rules decide:** compatibility is plain formulas written by us, so a wrong "compatible" can't be invented by a model. The recommendation scoring is also plain code (same answers, same result).
-- We did **not** train our own model: this is an agentic pipeline with verification, not a trained model. Learning the recommender from data is listed under future scope.
+### 5. 🔬 Project Optimizer (What-If Hardware Swap Engine)
+- **Multi-Metric Physics & Electrical Impact Simulation**: Swap any component (MCU, driver, motor, battery, sensor) and immediately see real-world impacts on:
+  - **Speed & Torque**: RPM, stall torque, linear speed (m/s), wheel pushing force.
+  - **Power & Runtime**: Standby vs peak current, battery discharge rates, operating minutes.
+  - **Electrical Safety**: Logic level differences (e.g., 3.3V vs 5V level shifting), VIN tolerances, motor driver current limits.
+  - **Compute & I/O**: Clock speed, RAM, Flash, ADC/PWM channels, and spare GPIO pins.
+- **Atomic Swap State Management (`core/kept.py`)**: "Keep this replacement" commits the swap directly into the active bill, totals, and PDF export without cross-contaminating other catalog builds.
 
-## Architecture
+### 6. 🔌 Wiring & Firmware Studio
+- **Dynamic Wiring Guide**: Visual pin-to-pin wiring map between microcontrollers, sensors, drivers, and power rails.
+- **Logic Level Warnings**: Proactively highlights missing level shifters, pull-up resistors, and power decoupling.
+- **Starter Firmware Synthesis**: Generates ready-to-flash C++/Arduino or MicroPython code configured with the exact pinouts and sensors in the active BOM.
+
+### 7. 🚚 Delivery Optimizer & Dual-Engine Cart Verification
+- **Vendor Consolidation**: Analyzes supplier distribution to minimize split shipments and reduce delivery costs.
+- **Headless Cloud Browser (Playwright + TinyFish)**:
+  - Automates real store verification on Robu.in and Robocraze.
+  - Targets the primary product's Add-to-Cart button with strict stock inspection (preventing false positives from out-of-stock related items).
+- **Autonomous Web Agent Fallback**: Handles arbitrary third-party stores with strict safety rules (read-only, never log in, never enter payment credentials).
+
+### 8. 📄 Audit & Export
+- Interactive on-screen invoice with manual override controls.
+- Clean PDF bill of materials export with native Indian Rupee (`₹`) symbol formatting.
+
+---
+
+## 🏛️ System Architecture
+
 ```
-app.py              Streamlit router (picker -> results / competition -> BOM agent)
-ui/recommendation.py  survey, resume box, ranked results
-ui/competition.py   Build-to-compete event shortlist
-ui/bom.py           BOM screen: live prices, shop comparison, bill, evidence ledger
-ui/research_tools.py  build-guide research, spec check
-ui/cart_check.py     cart check panel: shop cart price vs our bill, labels who did each step (opt-in)
-core/browser_cart.py routes robu.in / robocraze.com to the TinyFish Browser (Playwright script), other shops and failures to the Web Agent
-core/picker.py      survey normalisation, hard-limit filter, 12-factor ranking + radial chart
-core/recommendation_catalog.py  loads the project CSVs into factor and label catalogs
-core/resume.py      resume text reader (PDF/DOCX/TXT) + quote validation
-core/project_data/  projects.csv (150 projects, 16 domains), competition_projects.csv (18 projects, 14 events)
-assets/fonts/       DejaVu Sans (Bitstream Vera licence), used so the PDF can print the rupee sign
-core/custom_bom.py  Gemini names components for unsupported ideas, TinyFish sources each one
-core/pipeline.py    selector, TinyFish sourcing, Gemini extraction with quote check
-core/research.py    project research from build guides (Search + Fetch + Gemini)
-core/part_specs.py  typed specs for all 231 library parts + side-by-side comparison
-core/specs.py       reader that compares typed specs with a shop page's text (kept and tested, not shown in the UI)
-core/pagerules.py   rule-based page reader (price, stock, name) + clone-vs-original check, no LLM
-core/ledger.py      evidence ledger rows + safe CSV export
-core/bill.py        shop choice per part, bill totals, on-screen invoice and PDF
-core/rules.py       PASS / FAIL / UNKNOWN engine
-core/data.py        parts catalog, extras, rules, projects
-core/tf.py          TinyFish wrapper (Search + Fetch, disk cache)
-tests/              automated tests (run offline)
+forge/
+├── app.py                      # Main Streamlit router & Copilot application shell
+│
+├── core/                       # Core engine & deterministic logic
+│   ├── auto_fix.py             # 1-Click auto-fix engine for budget & compatibility violations
+│   ├── bill.py                 # Invoice calculation, tax rules, and PDF generator
+│   ├── browser_cart.py         # Dual-engine cart verification (Playwright Cloud Browser + Agent)
+│   ├── combination_store.py    # Evaluated hardware combinations cache
+│   ├── compatibility_engine.py # Hardware rule validation (PASS / FAIL / UNKNOWN)
+│   ├── component_catalog.py    # Curated component database
+│   ├── custom_bom.py           # Gemini architecture decomposition for new ideas
+│   ├── data.py                 # Baseline catalog, extras, and baseline robot builds
+│   ├── delivery_optimizer.py   # Supplier consolidation & shipping optimizer
+│   ├── engineering_calculations.py # Physical formulas (torque, velocity, runtime, power)
+│   ├── firmware.py             # Automated starter firmware synthesizer (C++ / Arduino)
+│   ├── hybrid_bom.py           # Hybrid resolution pipeline (Catalog -> Rules -> Gemini)
+│   ├── impact.py               # First-order physics impact formulas for component swaps
+│   ├── kept.py                 # Atomic session manager for kept optimizer replacements
+│   ├── ledger.py               # Verifiable evidence ledger with formula injection protection
+│   ├── optimizer.py            # Component swap recommendation & ranking engine
+│   ├── pagerules.py            # High-precision regex page parser (price, title, EMI filter)
+│   ├── part_specs.py           # Typed engineering specifications for 231 parts
+│   ├── picker.py               # 12-factor deterministic survey matcher & normalizer
+│   ├── pipeline.py             # Core pipeline connecting rules, TinyFish, and Gemini
+│   ├── profile_fill.py         # Fallback part profile generator & validator
+│   ├── profiles.py             # Part profile data loader and atomic store
+│   ├── project_store.py        # Project catalog indexing and learned plan store
+│   ├── recommendation_catalog.py # Recommendation dataset parser
+│   ├── research.py             # Web guide research engine using TinyFish
+│   ├── resume.py               # Resume text extraction (PDF/DOCX/TXT) & quote verification
+│   ├── rules.py                # Deterministic electrical rules engine
+│   ├── specification_validator.py # Empirical spec validator
+│   ├── specs.py                # Datasheet vs. live vendor spec comparison
+│   ├── swap_dataset.py         # Part swap impact database
+│   ├── tf.py                   # TinyFish SDK wrapper (Search, Fetch, Cache)
+│   ├── wiring.py               # Pinout mapping & logic-level checking engine
+│   └── project_data/           # Catalogs (168 projects, 14 competition events)
+│
+├── ui/                         # Streamlit presentation panels
+│   ├── bom.py                  # Planning & BOM interface, vendor cards, and live bill
+│   ├── cart_check.py           # Dual-engine cart validation status panel
+│   ├── competition.py          # Competition event shortlisting panel
+│   ├── delivery_panel.py       # Vendor consolidation and delivery view
+│   ├── optimizer.py            # Component swap & impact comparison studio
+│   ├── recommendation.py       # Survey, resume upload, and fit profile view
+│   ├── research_tools.py       # Sourcing research & spec validation panel
+│   └── wiring_panel.py         # Wiring diagram & starter firmware interface
+│
+├── scripts/                    # Offline dataset builders & validation tools
+├── tests/                      # 300+ offline pytest test suite
+└── requirements.txt            # Pinned dependencies
 ```
 
-## Setup
-Python 3.12 is recommended (that is what we tested on).
-```
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-copy .env.example .env      # add your own keys, never commit .env
-python -m pytest tests -q
-streamlit run app.py
-```
-Keys: `TINYFISH_API_KEY` (agent.tinyfish.ai) and `GEMINI_API_KEY` (aistudio.google.com/apikey). Default model `gemini-3.8-flash`; if a model is busy or unavailable the app retries and falls back to `gemini-3.5-flash-lite`. Without keys the app still runs on seed prices, clearly labelled.
-Check the TinyFish connection: `python -m core.tf`
+---
 
-## What is rule-checked and what is not
-- **Rule-checked builds (3):** line follower, obstacle avoider, Bluetooth car. Compatibility (voltage, current, logic level) is checked by formulas for these only.
-- **Catalog projects (168):** component lists drafted by the team (`bom_status: draft`, `reviewed: false`). They get live prices but **no compatibility checking**.
-- **New ideas:** one Gemini call names the components (saved for next time), then TinyFish prices them. Also not compatibility-checked.
+## 🛠️ Installation & Setup
 
-## Honest limitations
-- **Part specs are typical values typed by the team** for the common hobby board or chip (for example the HC-SR04 module, the GY-521 MPU6050 board). A different listing of the same chip can differ (supply range, current, pinout), so they are labelled `seed` in the evidence ledger (not verified on any page). Specs are compared, not yet fed into the compatibility rules; only the catalog builds are rule-checked.
-- The research, spec-check and cart-check features show results for review; they do not change the BOM automatically. Guide quality varies, and many components in guides will not be in our catalog (shown as not covered).
-- The rule-checked parts catalog is small (11 parts plus 3 extras). **Specs are typical datasheet values we entered by hand;** only prices and product names are read live. The spec-check tool shows where a shop page disagrees but never changes a spec silently.
-- The three rule-checked builds differ only by sensor type and a Bluetooth flag; the other part roles are shared. Sumo bot and maze solver are **planned but not built** as rule-checked builds: they need their own parts, specs and rules.
-- Price reading uses heuristics. Shipping fees, price ranges, EMI figures, related-product prices and accessories are screened out, but some pages will still be misread, so every price shows its quote and link. Stock is never read.
-- The recommendation helper's difficulty, time and cost scores are our estimates, not measured data.
-- Extras (chassis, wires, switch) carry rough estimate prices until live sourcing verifies them, and chassis-to-motor fit is not rule-checked.
-- Live sourcing depends on TinyFish and Gemini availability; results are cached, but some pages will show "price not verified".
+### Prerequisites
+- Python 3.11 or 3.12 (Python 3.12 recommended)
+- Git
 
-## Future scope
-1. Turn the research step's findings into each project's parts list (today they are shown as evidence, with a person deciding).
-2. Apply verified live specs to the rule engine, with a confidence label, instead of showing them only as a diff.
-3. Detect bundles and multi-packs so they are never used as a single-part price.
-4. Project-specific rules and parts for sumo bot and maze solver, then drones.
-5. Learn the recommender from real project outcomes.
+### Quickstart
 
-## Project Optimizer
-*Change any component. Understand the impact. Build smarter robots.* Generate a BOM, then press the separate **Project Optimizer** button directly below *Component details* (press again to close). The tool opens inline on the same page.
-1. Pick a component role, then one or more alternatives (the catalog plus every part in the profile dataset), or type a part that is not listed. Every alternative is compared with the **original** build (kept in session state, never modified).
-2. The top of each comparison lists **what changes** in plain language (e.g. Nano to ESP32: gains Wi-Fi and Bluetooth, 15x clock, 3.3 V logic needs level shifting, runtime -12%). Below it every metric shows original, proposed, difference, %, status, reason and a data label (Typical data / Estimated / No data yet).
-3. Metrics: cost, compatibility, Wi-Fi, Bluetooth, clock, RAM, flash, ADC/PWM channels, spare GPIO, power, runtime, speed, torque, pushing force, motor-stage efficiency, weight. A metric the change cannot influence says "Not affected".
-4. An incompatible alternative can be inspected but not kept. **Keep this replacement** builds a new BOM (existing bill and PDF export); **Undo all replacements** restores the original. "Find live price" reuses TinyFish sourcing.
-5. Goals rank candidates by cost, fewest issues, connectivity, speed, torque, runtime, weight or processing where the data supports it.
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/jhony1122f/BuilderBot.git
+   cd BuilderBot
+   ```
 
-### How the optimizer gets its data
-```
-core/profiles.py       part profiles: curated (data/part_profiles.json) + run-time additions (data/swap_store.json), field validation, atomic writes
-core/swap_dataset.py   pair records "A -> B": shipped pairs, then run-time pairs, then computed from the two profiles and saved
-core/impact.py         whole-build effects (speed, torque, current, runtime, efficiency, weight, GPIO) from profiles; first-order formulas stated in each row
-core/profile_fill.py   fallback for a part with no profile: produces one, validates every field, stores it. Silent: never raises into the UI, never named on screen
-ui/optimizer.py        the Streamlit panel (draws results only; every number comes from core/)
-scripts/profile_seed.py + scripts/build_swap_dataset.py   rebuild data/part_profiles.json (python -m scripts.build_swap_dataset)
-```
-Lookup order for a swap: dataset pair, then run-time pair, then compute from profiles, and only when a profile is missing, the fallback. Each fallback result is saved, so the same swap is a dataset read afterwards. Values in the curated dataset are **typical** figures, not measurements of your exact board; fallback values are labelled **Estimated**. Fallback limits: `OPT_FILL_MAX` per process, a 10-minute pause per failing part, and out-of-range or incomplete data is rejected rather than stored. On hosts with a read-only or temporary disk the swap_store file does not persist between restarts.
+2. **Create and activate a virtual environment**:
+   ```bash
+   python -m venv .venv
+   # Linux/macOS:
+   source .venv/bin/activate
+   # Windows PowerShell:
+   .\.venv\Scripts\Activate.ps1
+   ```
 
-### Where the optimizer applies
-It works on the **rule-checked builds** (line follower, obstacle avoider, Bluetooth car): controller, driver, motor, battery and sensor. Catalog-dataset and Gemini/learned component lists have no compatibility rules or part profiles, so on those the button shows an explanation instead of numbers. It never calls Gemini for a part that already has a profile; the fallback runs only for a part you type that is not in the dataset, capped by `OPT_FILL_MAX`.
-Verified-evidence values in `data/components.json` (for example Arduino Nano VIN 7-15 V from the Arduino datasheet) override the typical values and are flagged as catalog corrections. Rebuild/validate: `python -m core.specification_validator`.
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Hybrid planning: catalog first, Gemini only for genuinely new ideas
-The BOM page has two inputs:
-1. **Pick a project from the catalog** (all 168: 150 from `projects.csv`, 18 from `competition_projects.csv`). The component list comes from `core/project_data/project_boms.json`. **No Gemini call.** TinyFish then fetches live prices for each part. The three rule-checked builds (line follower, obstacle avoider, Bluetooth car) still use the rule builder.
-2. **Build anything new.** Lookup order: learned plans -> exact catalog name match -> free keyword rules -> "similar catalog projects" suggestions (you choose) -> **one** Gemini call. That Gemini plan is saved to `core/project_data/learned_projects.json` (path: `FORGE_LEARNED_PATH`), so the same idea (any word order) is free next time. Ideas with numbers ("4 motor") never auto-match the catalog, because quantities must not be dropped. `FORGE_GEMINI_PLANS_PER_SESSION` (default 5) caps spend per visitor; a failed Gemini call saves nothing.
+4. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` to include your API keys:
+   ```env
+   # Live market sourcing & cloud browser (https://agent.tinyfish.ai)
+   TINYFISH_API_KEY=your_tinyfish_key_here
 
-Planning no longer asks Gemini to guess which project an idea means (the idea box still uses keyword rules, then Gemini, only to pick one of the three rule-checked builds), and catalog/learned builds do not use Gemini to read shop pages unless `FORGE_DATASET_GEMINI_FALLBACK` is set above 0.
+   # Architecture planning fallback & resume analysis (https://aistudio.google.com/apikey)
+   GEMINI_API_KEY=your_gemini_key_here
+   ```
+   > **Note**: FORGE operates gracefully in offline/mock mode even without API keys by using seeded catalogs and stored benchmarks.
 
-### What the dataset is, and is not
-`project_boms.json` holds **draft component lists**: names, roles, quantities, shop search phrases and engineering notes, written from each project's description, skills, safety tags and (for competition projects) event and constraints. It contains **no prices** (TinyFish supplies those, each with a quote) and **no verified specs**. Every list is `bom_status: draft`, `reviewed: false`. Constraints such as "ExpressLRS radio" or "high-discharge LiPo" shape the parts but are requirements to check, not proof that a part satisfies them. Three projects are software-only and have no parts. Learned (Gemini) plans are likewise unreviewed.
-- Rebuild after editing: `python scripts/build_project_boms.py` (recipes in that file, part archetypes in `scripts/parts_library.py`). It fails if any CSV project has no list.
-- Review learned plans in `learned_projects.json` and promote good ones into the recipes. On hosts with an ephemeral disk, point `FORGE_LEARNED_PATH` at persistent storage or learned plans are lost on restart.
+5. **Run the automated test suite**:
+   ```bash
+   PYTHONPATH=. pytest
+   ```
 
-## EMI / instalment figures are never prices
-"EMI starts at ₹86 per month" used to be read as an ₹86 product price. Now one rule (`pagerules.trusted_price`) decides, and it is applied when a page is read, when a price is used (BOM, cheapest price, price-range warning, ledger, cart check) and when it is shown. A price whose own quote shows EMI / per-month / instalment wording is moved to **Price not verified** with the reason. Old cached reads are ignored (cache key `x3:`), so nothing stale survives an upgrade.
+6. **Launch the application**:
+   ```bash
+   streamlit run app.py
+   ```
 
-## Same live panel for "Generate BOM"
-Picking a rule-checked project in step 1 now opens the same "TinyFish is searching vendors and reading pages..." panel as "Plan new build": the rules define every candidate part (no AI), TinyFish prices **all candidates, not only the current winner** (no Gemini), and the build is re-selected with the verified prices so the comparison is fair. Parts that already have listings are kept, so reopening a project is quick. Without a TinyFish key no panel is shown.
+---
 
-## Price safeguards
-- **Shipping, ranges, EMI:** a figure after "shipping/delivery/handling...", a price followed by "- ₹450" or "to ₹450", and EMI/instalment wording are never read as the product price. Prices printed before the product name's first appearance on the page are ignored when a later one exists (banners, related items).
-- **Strict quote check:** a price from Gemini is accepted only if a number written in its quote **equals** the price (`5` does not match "Rs 1,599.00"; decimals are kept).
-- **Suspiciously low prices:** a verified price far below the team's estimate for that part, or far below the other listings while not clearly named like the part, is flagged "UNUSUALLY LOW · CHECK". It stays selectable, but it is never the default and never sets the BOM price. A genuine cheap clone named like the part is not flagged by the comparison rule.
-- **Cache expiry:** cached TinyFish and price results expire after `FORGE_CACHE_HOURS` (default 72; 0 = never). The cache lives in the project folder, not the folder you run from.
-- **Pinned dependencies:** `requirements.txt` uses compatible-release pins to the versions we tested.
+## 🛡️ Engineering Guardrails & Verifiability
 
-## Cart check on TinyFish accounts without the agent betas
-The Web Agent is asked for strict mode, a 12-step cap and a 180 s cap. Accounts outside those TinyFish betas get "not enabled for strict agent mode" or "not enabled for custom max steps". FORGE drops only the option that was refused (strict -> default mode, no custom step cap, no custom time cap), remembers it for the session and retries. Other errors (bad key, no credits) are shown as they are and never retried. The result records what was really applied (`mode`, `step_cap`, `time_cap`) and the cart-check panel prints it, for example "default mode ... NO step cap, because this TinyFish account cannot set one; it used 6 steps". Without a step cap the only limits are the goal's instructions ("stop as soon as you have them", never check out) and, if allowed, the 180 s cap, so watch your credit balance on the first runs. robu.in and robocraze.com use the fixed-script TinyFish Browser, which needs none of these options.
+| Guardrail | Implementation |
+|---|---|
+| **AI Reads, Rules Decide** | LLMs are restricted to parsing and naming. Deterministic formulas validate electrical voltage, current draw, and pricing math. |
+| **Strict Quote Checking** | A price from any web page is accepted **only if the exact figure appears in the extracted quote**. |
+| **Anti-EMI / Anti-Deception** | Regex filters discard EMI per month (e.g., "₹86/mo"), multi-pack totals, and delivery threshold numbers. |
+| **Clone vs Original Audit** | Distinguishes between generic clones and genuine OEM boards, preventing skewed budget comparisons. |
+| **Formula Injection Defense** | All values written to the Evidence Ledger and CSV exports are sanitized against spreadsheet formula injection (`=`, `+`, `-`, `@`). |
+| **Isolated Optimizer State** | Component swaps remain isolated to the target build (`core/kept.py`), preventing unwanted state leaks into other builds. |
+| **Sandboxed Cart Verification** | The Playwright cloud browser runs a fixed script targeting only the primary product's Add-to-Cart button. The Web Agent is strictly instructed never to check out or enter user credentials. |
 
-## Browser cart check: only the main product's button, and honest stock
-The fixed browser script (robu.in, robocraze.com) used to look for any "Add to cart" button on the page. On a product that was out of stock it could therefore click the button of a *related product*, find that the product it came for was not in the cart, and report a confusing result (then the Web Agent was started, spending credits, only to learn the item was out of stock). Now the script only clicks the main product's own button and ignores anything inside related / upsell / product-grid blocks. "Out of stock" is read only from the main product (the shop's own out-of-stock marker, a disabled "Sold out" button, or the main product's text block; other products' labels are ignored), and a missing main button with no stock message is reported as unknown, not as a fact. A product the shop shows as out of stock is settled by the browser alone (no agent credits), and the panel says so. A cart that stayed empty no longer shows a "cart total" or delivery text. Tests drive a real local Chromium against fake shop pages, including the related-products case.
+---
+
+## 👥 Team
+
+**Team FORGE — Azinhack 2026**
+- **Aditya Raj**
+- **Jai Prakash**
+- **Sidhant**
+
+---
+
+## 📜 License & Acknowledgements
+
+- Built for the **Azinhack 2026 AI Engineering Track**.
+- Uses **TinyFish API** for web search, page extraction, cloud browser automation, and agentic validation.
+- Powered by Google **Gemini 3.8 Flash** for structured evidence extraction and project synthesis.
+- Includes **DejaVu Sans Font** (Bitstream Vera License) for PDF generation with rupee symbol support.

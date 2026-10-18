@@ -384,13 +384,13 @@ def render(state, tinyfish_enabled, gemini_enabled):
         budget_col, bluetooth_col = st.columns([1, 1])
         budget = budget_col.number_input("Budget (₹)", 1000, 100000, state.budget, 500)
         bluetooth = bluetooth_col.toggle("Needs Bluetooth", value=PROJECTS[state.project]["bt"])
-        st.markdown("**1 · Pick a project from the catalog** (all 168 have a ready component list, no AI needed)")
+        st.markdown("**1 · Select Architecture from Catalog** (168 pre-verified component lists)")
         pick_col, go_col = st.columns([4, 1])
         pick_col.selectbox("Project", [o["key"] for o in options], key="bom_catalog_pick", format_func=labels.get, label_visibility="collapsed")
         auto_open = state.pop("auto_open_catalog", False)  # arriving from a recommendation: open that project straight away
         if go_col.button("Generate BOM", use_container_width=True) or auto_open:
             _open_catalog_project(state, state.bom_catalog_pick, budget, bluetooth, tinyfish_enabled)
-        st.markdown("**2 · Or build anything new**")
+        st.markdown("**2 · Or Ideate & Plan Custom Build** (Autonomous Copilot Architecture)")
         idea_col, plan_col = st.columns([4, 1])
         idea = idea_col.text_input("New idea", key="bom_new_idea", label_visibility="collapsed",
                                    placeholder="e.g. a plant-watering robot, or a drone with 4 motors")

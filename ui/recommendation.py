@@ -198,11 +198,11 @@ def _resume_box(state, gemini_enabled):
 
 def render_picker(state, tinyfish_enabled, gemini_enabled):
     title_col, competition_col = st.columns([3, 1])
-    title_col.subheader("Not sure what to build?")
+    title_col.subheader("🎯 Project Discovery & Planning Copilot")
     if competition_col.button("Build to compete", key="open_competition_picker"):
         state.stage = "competition"
         st.rerun()
-    st.caption("Tell us what you have done, what you can access, and where you want to go. Deterministic scoring ranks supported builds; Gemini only structures resume evidence.")
+    st.caption("Tell us what you have built, your target skills, and constraints. FORGE Copilot matches optimal architectures; Gemini parses resume evidence.")
     answers, finish_requested = _survey_box(state)
     with st.expander("Optional: add a resume for sharper matches"):
         _resume_box(state, gemini_enabled)

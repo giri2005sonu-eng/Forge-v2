@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 from ui import bom, competition, recommendation, research_tools
 
 load_dotenv()
-st.set_page_config(page_title="FORGE", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="FORGE — Project Planning & Execution Copilot", page_icon="⚡", layout="wide")
 st.markdown("""<style>
 /* ─────────────────────────────────────────────────────────────────────────
-   FORGE  ·  Premium Production UI
+   FORGE — Project Planning & Execution Copilot
    Palette:  Obsidian #0A0F1E  |  Midnight #0D1528  |  Ink #111827
              Electric Violet #7C3AED  |  Neon Cyan #06B6D4
              Emerald #10B981  |  Amber #F59E0B  |  Rose #F43F5E
@@ -332,19 +332,47 @@ for k, v in dict(live={}, res=None, log=[], stage="pick", A={}, pick=None, proje
 tf_key, gem_key = bool(os.getenv("TINYFISH_API_KEY")), bool(os.getenv("GEMINI_API_KEY"))
 
 st.markdown("""
-<div style="display:flex;align-items:center;gap:16px;margin:0.5rem 0 1.5rem">
-  <div style="background:linear-gradient(135deg,#7C3AED,#06B6D4);border-radius:14px;width:48px;height:48px;
-              display:flex;align-items:center;justify-content:center;font-size:24px;
-              box-shadow:0 4px 20px rgba(124,58,237,.4);flex-shrink:0">⚡</div>
-  <div>
-    <div style="background:linear-gradient(135deg,#7C3AED,#06B6D4);-webkit-background-clip:text;
-                -webkit-text-fill-color:transparent;background-clip:text;
-                font-size:2rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;font-family:Inter,sans-serif">FORGE</div>
-    <div style="color:#475569;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;margin-top:2px">
-      Robot BOM Intelligence &nbsp;·&nbsp; Live Pricing &nbsp;·&nbsp; Compatibility Engine</div>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin:0.25rem 0 1.25rem;padding-bottom:1.1rem;border-bottom:1px solid rgba(51,65,85,0.4)">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div style="background:linear-gradient(135deg,#7C3AED,#06B6D4);border-radius:14px;width:50px;height:50px;
+                display:flex;align-items:center;justify-content:center;font-size:26px;
+                box-shadow:0 4px 20px rgba(124,58,237,.45);flex-shrink:0">⚡</div>
+    <div>
+      <div style="background:linear-gradient(135deg,#C084FC 0%,#38BDF8 100%);-webkit-background-clip:text;
+                  -webkit-text-fill-color:transparent;background-clip:text;
+                  font-size:1.75rem;font-weight:800;letter-spacing:-.03em;line-height:1.2;font-family:Inter,sans-serif">
+        FORGE <span style="font-size:1.15rem;font-weight:600;opacity:0.95">— Project Planning &amp; Execution Copilot</span>
+      </div>
+      <div style="color:#94A3B8;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-top:3px">
+        Autonomous Project Architecture &nbsp;·&nbsp; Live Market Sourcing &nbsp;·&nbsp; Hardware Verification &amp; Execution
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;color:#C084FC;letter-spacing:0.04em">
+      ⚡ COPILOT ACTIVE
+    </span>
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+# Visual Workflow Phase Indicator
+phases = [
+    ("pick", "1 · Discovery & Survey"),
+    ("results", "2 · Recommended Matches"),
+    ("competition", "3 · Competition Shortlist"),
+    ("bom", "4 · Planning & Execution"),
+]
+phase_html = []
+for p_key, p_label in phases:
+    is_curr = (S.stage == p_key) or (p_key == "pick" and S.stage == "results")
+    if is_curr:
+        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(6,182,212,0.22));border:1px solid rgba(6,182,212,0.5);color:#38BDF8;font-weight:700;font-size:0.75rem;box-shadow:0 2px 8px rgba(6,182,212,0.15)">{p_label}</span>')
+    else:
+        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:8px;background:rgba(15,23,42,0.45);border:1px solid rgba(51,65,85,0.4);color:#64748B;font-weight:500;font-size:0.75rem">{p_label}</span>')
+
+st.markdown(f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 1.5rem">{"".join(phase_html)}</div>', unsafe_allow_html=True)
+
 
 # 1. recommendation helper (skippable) -> 2. results -> optional competition shortlist -> 3. BOM agent
 if S.stage == "pick":
