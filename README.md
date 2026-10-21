@@ -30,7 +30,13 @@ Building physical robotics and embedded systems is notoriously fragmented and er
   - Instantly transitions from competition discovery to **Stage 4 (Planning & Execution)**, pre-loading the bot's complete architecture (10–15 parts), target budget, live vendor sourcing, What-If hardware optimizer, and pinout wiring diagram.
   - Seamlessly bridges competition requirements with immediate physical BOM execution—no manual searching or re-entry required.
 
-### 3. 🧠 Hybrid Architecture Planning & BOM Generation
+### 3. ✦ Curated Star Projects
+- **20 team-curated builds** spanning autonomous robotics, advanced control, FPGA, embedded Linux, power electronics, and more, stored separately in `core/project_data/star_projects.csv`.
+- Search each project by name, domain, skills, or prerequisites; expand project cards to review tools, safety notes, effort, and estimated cost.
+- Star-project cards are a curated discovery catalog and do not imply that every project has a ready-to-generate BOM.
+- Star-catalog costs are rough estimates, not quotes. Prices for the QDD arm, CubeSat flatsat, and imitation-learning arm are withheld pending vendor-price verification.
+
+### 4. 🧠 Hybrid Architecture Planning & BOM Generation
 - **Pre-Verified Catalog (168 Projects)**: Comprehensive component lists across 16 robotics disciplines, drafted with engineering notes, quantities, and vendor search queries.
 - **Deterministic Rule-Checked Builds**: 3 core robotic baselines (Line Follower, Obstacle Avoider, Bluetooth Mobile Robot) tested against thousands of combinatorial combinations across Microcontroller, Motor Driver, Motors, Battery, and Sensors.
 - **Autonomous Ideation Copilot (Gemini + TinyFish)**: Free-text project ideation ("a solar-powered field rover with 4 mecanum wheels") resolves through a priority hierarchy:
@@ -40,7 +46,7 @@ Building physical robotics and embedded systems is notoriously fragmented and er
   4. Similar catalog project suggestions
   5. Single structured Gemini call (cached permanently in `learned_projects.json` for zero-cost repeat access).
 
-### 4. 🛒 Real-Time Market Sourcing & Evidence Ledger
+### 5. 🛒 Real-Time Market Sourcing & Evidence Ledger
 - **Live Vendor Scraping**: Direct search and page extraction across major Indian component distributors (Robu.in, Robocraze, Sunrobotics, ElectronicsComp, Robokits, etc.).
 - **Rules First, LLM Last**: Heuristic regex engine (`core/pagerules.py`) extracts prices, titles, and availability without consuming LLM tokens. Gemini serves as a strictly capped fallback and requires that the exact price digits exist inside the cited quote.
 - **Anti-Fraud & Deception Filters**:
@@ -50,7 +56,7 @@ Building physical robotics and embedded systems is notoriously fragmented and er
   - Flags suspiciously low prices with warnings (`UNUSUALLY LOW · CHECK`).
 - **Cryptographic Evidence Ledger**: Auditable table with CSV export logging verification status, shop URL, UTC timestamp, extraction technique, and verbatim quote proof.
 
-### 5. 🔬 Project Optimizer (What-If Hardware Swap Engine)
+### 6. 🔬 Project Optimizer (What-If Hardware Swap Engine)
 - **Multi-Metric Physics & Electrical Impact Simulation**: Swap any component (MCU, driver, motor, battery, sensor) and immediately see real-world impacts on:
   - **Speed & Torque**: RPM, stall torque, linear speed (m/s), wheel pushing force.
   - **Power & Runtime**: Standby vs peak current, battery discharge rates, operating minutes.
@@ -58,28 +64,29 @@ Building physical robotics and embedded systems is notoriously fragmented and er
   - **Compute & I/O**: Clock speed, RAM, Flash, ADC/PWM channels, and spare GPIO pins.
 - **Atomic Swap State Management (`core/kept.py`)**: "Keep this replacement" commits the swap directly into the active bill, totals, and PDF export without cross-contaminating other catalog builds.
 
-### 6. 📊 Part Specs & Side-by-Side Comparison
+### 7. 📊 Part Specs & Side-by-Side Comparison
 - **Part specs · typical datasheet values, best value in green when comparing**:
   - Curated, typed engineering specifications for all 231 parts in the library (`core/part_specs.py`), detailing supply voltages, logic levels, peak/stall currents, clock/memory, torque, range, and accuracy.
   - **Compare with other microcontrollers / motor drivers / sensors**: Put any component side-by-side against similar alternatives from the library. The best value in each spec row is highlighted in **green** (only where "better" is clearly defined, e.g. lower voltage dropout, higher clock speed, longer range, or lower price).
 
-### 7. 🔌 Wiring & Firmware Studio
-- **Dynamic Wiring Guide**: Visual pin-to-pin wiring map between microcontrollers, sensors, drivers, and power rails.
+### 8. 🔌 Wiring & Firmware Studio
+- **Dynamic Wiring Guide**: Visual pin-to-pin schematic, Mermaid-rendered device and signal map, and a pinout table generated from the active BOM.
 - **Logic Level Warnings**: Proactively highlights missing level shifters, pull-up resistors, and power decoupling.
 - **Starter Firmware Synthesis**: Generates ready-to-flash C++/Arduino or MicroPython code configured with the exact pinouts and sensors in the active BOM.
+- **Wokwi starter bundle**: Download `diagram.json`, `sketch.ino`, and `wiring.mmd` for the active build. Import the files into a Wokwi project and start the simulation there; FORGE cannot create a project in your Wokwi account or start its remote simulator from the browser.
 
-### 8. 🔬 Research What This Project Needs
+### 9. 🔬 Research What This Project Needs
 - **Research what this project needs · Search + Fetch (free)**:
   - Discovers real-world build guides, open-source hardware projects, and tutorials using TinyFish **Search + Fetch** (free API, no quota used).
   - Extracts the exact components used in published guides accompanied by verbatim supporting quotes, allowing users to validate community-tested parts against the generated BOM.
 
-### 9. 🚚 Delivery Optimizer & Cart Check
+### 10. 🚚 Delivery Optimizer & Cart Check
 - **Vendor Consolidation**: Analyzes supplier distribution to minimize split shipments and reduce delivery costs.
 - **Cart check · TinyFish Browser for robu.in and robocraze.com, Web Agent for other shops**:
   - **TinyFish Browser for robu.in and robocraze.com**: Automated cloud browser driven by Playwright with a fixed, deterministic script (opt-in, consumes zero agent step credits). Targets only the main product's own Add-to-Cart button with strict stock inspection, preventing false clicks on out-of-stock related items, and reads the real shop cart total.
   - **Web Agent for other shops**: Autonomous web agent that navigates arbitrary third-party storefronts or handles browser fallbacks with strict safety instructions (capped at 12 steps and 180 seconds, read-only, never log in, never enter payment details).
 
-### 10. 📄 Audit & Export
+### 11. 📄 Audit & Export
 - Interactive on-screen invoice with manual override controls and unverified price adjustments.
 - Clean PDF bill of materials export with native Indian Rupee (`₹`) symbol formatting.
 

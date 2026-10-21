@@ -12,7 +12,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     activeProject: null,
     recommendations: [],
     catalog: [],
+    starProjects: [],
+    starsLoaded: false,
     activeBom: null,
+    optimizerOpen: false,
+    optimizerRole: null,
+    optimizerCandidate: null,
+    optimizerEvaluation: null,
+    optimizerNotice: '',
+    optimizerLoadId: 0,
     wiringData: null
   };
   const stageHistory = [];
@@ -65,12 +73,311 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (stageName === 'discovery') renderSurveyStep(state.currentStep);
     if (stageName === 'competition') loadCompetitionEvents();
+    if (stageName === 'stars') loadStarProjects();
     if (stageName === 'bom' && !state.activeBom) loadInitialBom();
   }
 
   function goBack() {
     const previousStage = stageHistory.pop() || 'home';
     switchStage(previousStage, { recordHistory: false });
+  }
+
+  document.getElementById('star-project-search')?.addEventListener('input', renderStarProjects);
+
+  async function loadStarProjects() {
+    if (state.starsLoaded) return renderStarProjects();
+    const count = document.getElementById('star-project-count');
+    count.textContent = 'Loading curated builds…';
+    try {
+      const response = await api.getStarProjects();
+      state.starProjects = response.projects || [];
+      state.starsLoaded = true;
+      renderStarProjects();
+    } catch (err) {
+      count.textContent = `Could not load star projects: ${err.message}`;
+    }
+  }
+
+  function renderStarProjects() {
+    const grid = document.getElementById('star-project-grid');
+    const count = document.getElementById('star-project-count');
+    if (!grid || !count) return;
+    const query = document.getElementById('star-project-search').value.trim().toLowerCase();
+    const projects = state.starProjects.filter(project => [
+      project.name,
+      project.domain,
+      project.description,
+      ...(project.skills || []),
+      ...(project.prerequisites || [])
+    ].join(' ').toLowerCase().includes(query));
+    grid.replaceChildren();
+    count.textContent = `${projects.length} of ${state.starProjects.length} curated projects`;
+
+    projects.forEach(project => {
+      const card = document.createElement('article');
+      card.className = 'card star-project-card';
+      const heading = document.createElement('div');
+      heading.className = 'star-project-heading';
+      const title = document.createElement('h2');
+      title.textContent = project.name;
+      const tier = document.createElement('span');
+      tier.className = 'star-project-tier';
+      tier.textContent = '✦ STAR';
+      heading.append(title, tier);
+
+      const domain = document.createElement('p');
+      domain.className = 'star-project-domain';
+      domain.textContent = project.domain.replaceAll('_', ' ');
+      const description = document.createElement('p');
+      description.className = 'text-secondary star-project-description';
+      description.textContent = project.description;
+      const metrics = document.createElement('div');
+      metrics.className = 'star-project-metrics';
+      [
+        `Difficulty ${project.difficulty}/5`,
+        `${project.build_hours} build hours`,
+        project.cost_inr == null
+          ? 'Price estimate withheld pending verification'
+          : `Rough estimate: ₹${formatPrice(project.cost_inr)} · not a quote`
+      ].forEach(value => {
+        const metric = document.createElement('span');
+        metric.textContent = value;
+        metrics.appendChild(metric);
+      });
+
+      const details = document.createElement('details');
+      details.className = 'star-project-details';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Skills, tools & build notes';
+      const detailList = document.createElement('dl');
+      [
+        ['Skills', project.skills],
+        ['Prerequisites', project.prerequisites],
+        ['Tools', project.tools],
+        ['Safety', project.safety],
+        ['Parts availability', [`${project.parts_availability}/5`]]
+      ].forEach(([label, values]) => {
+        if (!values?.length) return;
+        const term = document.createElement('dt');
+        term.textContent = label;
+        const definition = document.createElement('dd');
+        definition.textContent = values.join(', ').replaceAll('_', ' ');
+        detailList.append(term, definition);
+      });
+      details.append(summary, detailList);
+      card.append(heading, domain, description, metrics, details);
+      grid.appendChild(card);
+    });
+  }
+
+  document.getElementById('btn-toggle-optimizer')?.addEventListener('click', async () => {
+    state.optimizerOpen = !state.optimizerOpen;
+    const content = document.getElementById('optimizer-content');
+    const button = document.getElementById('btn-toggle-optimizer');
+    content.hidden = !state.optimizerOpen;
+    button.setAttribute('aria-expanded', String(state.optimizerOpen));
+    button.textContent = state.optimizerOpen ? 'Close optimizer' : 'Open optimizer';
+    if (state.optimizerOpen) {
+      renderOptimizerRoles();
+      await loadOptimizerCandidates();
+    }
+  });
+
+  document.getElementById('optimizer-role-select')?.addEventListener('change', async event => {
+    state.optimizerRole = event.target.value;
+    state.optimizerEvaluation = null;
+    state.optimizerNotice = '';
+    document.getElementById('optimizer-result').hidden = true;
+    document.getElementById('optimizer-actions').hidden = true;
+    await loadOptimizerCandidates();
+  });
+  document.getElementById('optimizer-part-select')?.addEventListener('change', event => {
+    state.optimizerCandidate = event.target.value;
+    state.optimizerEvaluation = null;
+    state.optimizerNotice = '';
+    document.getElementById('optimizer-result').hidden = true;
+    document.getElementById('optimizer-actions').hidden = true;
+  });
+
+  document.getElementById('btn-evaluate-swap')?.addEventListener('click', evaluateOptimizerSwap);
+  document.getElementById('btn-keep-swap')?.addEventListener('click', async () => {
+    if (!state.optimizerRole || !state.optimizerCandidate || !state.optimizerEvaluation?.summary?.ready) return;
+    const button = document.getElementById('btn-keep-swap');
+    button.disabled = true;
+    try {
+      await api.applySwap(state.optimizerRole, state.optimizerCandidate);
+      state.optimizerNotice = 'Replacement applied. The BOM, bill, wiring, and compatibility data now use the updated build.';
+      renderBomView(await api.getBom());
+    } catch (err) {
+      state.optimizerNotice = '';
+      document.getElementById('optimizer-message').textContent = `Could not apply replacement: ${err.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-reset-swaps')?.addEventListener('click', async () => {
+    const button = document.getElementById('btn-reset-swaps');
+    button.disabled = true;
+    try {
+      await api.resetSwaps();
+      state.optimizerNotice = 'All optimizer replacements were undone.';
+      renderBomView(await api.getBom());
+    } catch (err) {
+      state.optimizerNotice = '';
+      document.getElementById('optimizer-message').textContent = `Could not undo replacements: ${err.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  function renderOptimizerRoles() {
+    const selector = document.getElementById('optimizer-role-select');
+    const parts = Object.entries(state.activeBom?.parts || {}).filter(([, part]) => part && !part.none);
+    selector.replaceChildren();
+    parts.forEach(([key, part]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = `${part.role || key}: ${part.name}`;
+      selector.appendChild(option);
+    });
+    if (!parts.some(([key]) => key === state.optimizerRole)) {
+      state.optimizerRole = parts[0]?.[0] || null;
+    }
+    selector.value = state.optimizerRole || '';
+    selector.disabled = parts.length === 0;
+    if (!parts.length) {
+      document.getElementById('optimizer-message').textContent = 'This BOM has no replaceable components.';
+    }
+  }
+
+  async function loadOptimizerCandidates() {
+    const selector = document.getElementById('optimizer-part-select');
+    const message = document.getElementById('optimizer-message');
+    const evaluateButton = document.getElementById('btn-evaluate-swap');
+    const role = state.optimizerRole;
+    const current = state.activeBom?.parts?.[role];
+    const requestId = ++state.optimizerLoadId;
+    selector.replaceChildren();
+    state.optimizerCandidate = null;
+    evaluateButton.disabled = true;
+    if (!role || !current) {
+      message.textContent = 'Choose a component from the active BOM.';
+      return;
+    }
+    message.textContent = state.optimizerNotice || 'Loading replacement options…';
+    try {
+      const candidates = await api.getOptimizerCandidates(role);
+      if (requestId !== state.optimizerLoadId) return;
+      candidates.filter(candidate => candidate.id !== current.id).forEach(candidate => {
+        const option = document.createElement('option');
+        option.value = candidate.id;
+        option.textContent = `${candidate.name}${candidate.price == null ? ' · price unknown' : ` · ₹${formatPrice(candidate.price)}`}`;
+        selector.appendChild(option);
+      });
+      if (!selector.options.length) {
+        message.textContent = 'No alternative components are available for this role yet.';
+        return;
+      }
+      state.optimizerCandidate = selector.value;
+      evaluateButton.disabled = false;
+      message.textContent = state.optimizerNotice || 'Select an alternative and compare it with the current configuration.';
+    } catch (err) {
+      if (requestId === state.optimizerLoadId) message.textContent = `Could not load replacements: ${err.message}`;
+    }
+  }
+
+  async function evaluateOptimizerSwap() {
+    if (!state.optimizerRole || !state.optimizerCandidate) return;
+    const button = document.getElementById('btn-evaluate-swap');
+    button.disabled = true;
+    state.optimizerNotice = '';
+    document.getElementById('optimizer-message').textContent = 'Calculating component and system impact…';
+    try {
+      state.optimizerEvaluation = await api.evaluateSwap(state.optimizerRole, state.optimizerCandidate);
+      renderOptimizerEvaluation(state.optimizerEvaluation);
+    } catch (err) {
+      document.getElementById('optimizer-message').textContent = `Could not compare this replacement: ${err.message}`;
+      document.getElementById('optimizer-result').hidden = true;
+      document.getElementById('optimizer-actions').hidden = true;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function renderOptimizerEvaluation(payload) {
+    const result = document.getElementById('optimizer-result');
+    const actions = document.getElementById('optimizer-actions');
+    const evaluation = payload.evaluation || {};
+    const summary = payload.summary || {};
+    result.replaceChildren();
+
+    const status = document.createElement('div');
+    status.className = `alert ${summary.ready ? 'success' : 'warn'}`;
+    status.textContent = summary.ready
+      ? `Proposed build has no failed compatibility rules (${summary.warn || 0} warnings, ${summary.unknown || 0} unknown).`
+      : `Proposed build has ${summary.fail || 0} failed compatibility rule(s). Review the results before applying.`;
+    result.appendChild(status);
+
+    if (evaluation.chips?.length) {
+      const chips = document.createElement('div');
+      chips.className = 'optimizer-chips';
+      evaluation.chips.forEach(item => {
+        const chip = document.createElement('span');
+        chip.className = `optimizer-chip ${item.tone || ''}`;
+        chip.textContent = item.text;
+        chips.appendChild(chip);
+      });
+      result.appendChild(chips);
+    }
+
+    const table = document.createElement('table');
+    table.className = 'fg-t optimizer-results-table';
+    table.innerHTML = '<thead><tr><th>Impact</th><th>Current</th><th>Proposed</th><th>Change</th><th>Status</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    (evaluation.rows || []).forEach(row => {
+      const tr = document.createElement('tr');
+      const changed = row.diff == null ? '—' : `${row.diff > 0 ? '+' : ''}${Number(row.diff).toLocaleString(undefined, { maximumFractionDigits: 2 })}${row.unit ? ` ${row.unit}` : ''}${row.pct == null ? '' : ` (${row.pct > 0 ? '+' : ''}${Number(row.pct).toFixed(1)}%)`}`;
+      const formatValue = value => {
+        if (value == null) return '—';
+        if (row.key === 'cost' && typeof value === 'number') return `₹${formatPrice(value)}`;
+        return typeof value === 'number' ? `${formatPrice(value)}${row.unit ? ` ${row.unit}` : ''}` : String(value);
+      };
+      [row.metric, formatValue(row.original), formatValue(row.proposed), changed, row.status || '—'].forEach(value => {
+        const td = document.createElement('td');
+        td.textContent = value;
+        tr.appendChild(td);
+      });
+      tr.title = row.reason || '';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    result.appendChild(table);
+
+    if (evaluation.compat_proposed?.length) {
+      const rules = document.createElement('div');
+      rules.className = 'optimizer-rule-list';
+      evaluation.compat_proposed.forEach(rule => {
+        const item = document.createElement('p');
+        const badge = document.createElement('span');
+        badge.className = `b ${rule.status}`;
+        badge.textContent = rule.status;
+        item.append(badge, ' ');
+        const title = document.createElement('b');
+        title.textContent = rule.title;
+        item.append(title, ` · ${rule.explanation || ''}`);
+        if (rule.action) item.append(` Suggested action: ${rule.action}`);
+        rules.appendChild(item);
+      });
+      result.appendChild(rules);
+    }
+
+    result.hidden = false;
+    actions.hidden = false;
+    document.getElementById('btn-keep-swap').disabled = !summary.ready;
+    document.getElementById('optimizer-message').textContent = summary.ready
+      ? 'Numbers are calculated from FORGE’s catalog and available component profiles; unknown values are shown as unavailable.'
+      : 'This replacement is not ready to apply because at least one compatibility rule fails.';
   }
 
   // ── 2. Survey Engine ──
@@ -361,6 +668,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderBomView(bom) {
     state.activeBom = bom;
+    state.optimizerEvaluation = null;
     document.getElementById('bom-project-heading').textContent = `${bom.label} — Architecture & Planning`;
     const totCost = bom.bill?.grand_total ?? bom.bill?.parts_subtotal ?? 0;
     document.getElementById('metric-total-cost').textContent = `₹${formatPrice(totCost)}`;
@@ -377,6 +685,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('bom-origin-banner').innerHTML = `<div class="alert success">${originMap[bom.origin] || 'Verified architecture.'}</div>`;
 
     renderComponentCards(bom.parts || {}, bom.bill?.lines || [], bom.parts_offers || {}, bom.choice || {}, bom.manual || {});
+    renderOptimizerRoles();
+    document.getElementById('optimizer-content').hidden = !state.optimizerOpen;
+    document.getElementById('btn-toggle-optimizer').setAttribute('aria-expanded', String(state.optimizerOpen));
+    document.getElementById('btn-toggle-optimizer').textContent = state.optimizerOpen ? 'Close optimizer' : 'Open optimizer';
+    document.getElementById('optimizer-result').hidden = true;
+    document.getElementById('optimizer-actions').hidden = true;
+    if (state.optimizerOpen) loadOptimizerCandidates();
     renderChecks(bom.checks || []);
     renderBillTable(bom.bill);
     loadWiringStudio();
@@ -597,6 +912,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── 7. Hardware Wiring Studio ──
+  let mermaidRenderCount = 0;
+
+  async function renderMermaidDiagram(source) {
+    const container = document.getElementById('mermaid-diagram');
+    const status = document.getElementById('mermaid-render-status');
+    if (!container || !status) return;
+
+    container.replaceChildren();
+    if (!source) {
+      status.textContent = 'No Mermaid wiring data is available for this build.';
+      return;
+    }
+    if (!window.mermaid) {
+      status.textContent = 'Diagram renderer unavailable; use the Mermaid source below.';
+      return;
+    }
+
+    try {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'dark',
+        flowchart: { htmlLabels: false, curve: 'basis' }
+      });
+      const rendered = await window.mermaid.render(
+        `forge-wiring-diagram-${++mermaidRenderCount}`,
+        source
+      );
+      container.innerHTML = rendered.svg;
+      status.textContent = 'Diagram generated from the active build wiring.';
+    } catch (err) {
+      status.textContent = 'Diagram rendering failed; use the Mermaid source below.';
+      console.warn('Could not render Mermaid wiring diagram:', err);
+    }
+  }
+
   async function loadWiringStudio() {
     try {
       const w = await api.getWiring();
@@ -604,6 +955,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('wiring-svg-container').innerHTML = w.svg_canvas || '';
       document.getElementById('wokwi-json-preview').value = w.wokwi_json_str || '{}';
       document.getElementById('firmware-code-preview').textContent = w.arduino_code || '';
+      document.getElementById('mermaid-source-preview').textContent = w.mermaid_code || '';
+      await renderMermaidDiagram(w.mermaid_code || '');
 
       const pbody = document.querySelector('#pinout-table tbody');
       pbody.innerHTML = '';
@@ -627,6 +980,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       const target = document.getElementById(`tab-content-${tabKey}`);
       if (target) target.style.display = 'block';
     });
+  });
+
+  document.getElementById('btn-copy-mermaid')?.addEventListener('click', async () => {
+    const source = document.getElementById('mermaid-source-preview').textContent;
+    const status = document.getElementById('mermaid-render-status');
+    try {
+      await navigator.clipboard.writeText(source);
+      status.textContent = 'Mermaid source copied.';
+    } catch (err) {
+      status.textContent = 'Could not copy source; select it from “View Mermaid source”.';
+      console.warn('Could not copy Mermaid source:', err);
+    }
+  });
+
+  document.getElementById('btn-prepare-wokwi')?.addEventListener('click', () => {
+    window.open('https://wokwi.com/', '_blank', 'noopener,noreferrer');
+    document.getElementById('wokwi-open-status').textContent =
+      'The starter bundle is downloading and Wokwi is opening. Import diagram.json and sketch.ino there, then start the simulation.';
   });
 
   // ── 8. Delivery Optimizer ──

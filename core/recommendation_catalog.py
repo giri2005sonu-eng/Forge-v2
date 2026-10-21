@@ -19,11 +19,20 @@ RATING_FIELDS = {
 DOMAIN_TAGS = {
     "embedded_basics": "embedded", "stm32_embedded": "embedded", "rtos_firmware": "embedded",
     "mobile_robots": "robotics", "ros_robotics": "robotics", "drones_flying": "drones",
+    "space_aerospace": "space_aerospace",
     "arms_mechatronics": "mechanics", "iot_home": "iot", "vision_ai": "vision",
     "energy_power": "power", "comms_wireless": "iot", "wearables_assistive": "assistive",
     "env_audio_display": "sensing", "pcb_cad_fab": "fabrication", "advanced_control": "control",
     "fpga_digital": "digital",
 }
+SKILL_TAG_ALIASES = {
+    "wireless": {"wireless_other", "rf_comms"},
+}
+PRICE_REVIEW_PENDING = frozenset({
+    "qdd_robot_arm",
+    "cubesat_flatsat",
+    "imitation_learning_arm",
+})
 TOOL_NAMES = {
     "soldering": "soldering_iron", "hand_tools": "hand_tools", "multimeter": "multimeter",
     "3d_printer": "3d_printer", "oscilloscope": "oscilloscope", "logic_analyzer": "logic_analyzer",
@@ -32,6 +41,14 @@ TOOL_NAMES = {
 
 def _tokens(value):
     return {token.strip().lower() for token in str(value or "").split("|") if token.strip() and token.strip().lower() != "none"}
+
+
+def _skill_tokens(value):
+    return {
+        normalized
+        for token in _tokens(value)
+        for normalized in SKILL_TAG_ALIASES.get(token, {token})
+    }
 
 
 def _int(row, field, default=0):
@@ -58,7 +75,7 @@ def _load_rows(path, competition=False):
                 cost_inr=max(0, _int(row, "cost_inr")),
                 parts_availability_india=max(1, min(5, _int(row, "parts_availability", 1))),
                 tools_required=tools,
-                required_skills=_tokens(row.get("skills")),
+                required_skills=_skill_tokens(row.get("skills")),
                 prerequisites=_tokens(row.get("prerequisites")),
                 safety=_tokens(row.get("safety")),
                 tier=row.get("tier", "").strip(),
@@ -79,6 +96,35 @@ def _load_rows(path, competition=False):
                 projects[key]["competition_event"] = values["competition_event"]
                 projects[key]["constraints"] = values["constraints"]
     return factors, projects
+
+
+def _load_star_projects():
+    projects = []
+    with (DATA_DIR / "star_projects.csv").open(encoding="utf-8-sig", newline="") as source:
+        for row in csv.DictReader(source):
+            key = row.get("id", "").strip()
+            if not key:
+                continue
+            projects.append({
+                "key": key,
+                "name": row.get("name", key).strip(),
+                "domain": row.get("domain", "").strip(),
+                "description": row.get("description", "").strip(),
+                "difficulty": _int(row, "difficulty", 1),
+                "build_hours": max(0, _int(row, "build_hours")),
+                "cost_inr": None if key in PRICE_REVIEW_PENDING else max(0, _int(row, "cost_inr")),
+                "price_status": "pending_verification" if key in PRICE_REVIEW_PENDING else "unverified_estimate",
+                "parts_availability": max(1, min(5, _int(row, "parts_availability", 1))),
+                "tools": sorted(_tokens(row.get("tools"))),
+                "skills": sorted(_skill_tokens(row.get("skills"))),
+                "prerequisites": sorted(_tokens(row.get("prerequisites"))),
+                "safety": sorted(_tokens(row.get("safety"))),
+                "tier": row.get("tier", "").strip(),
+            })
+    return projects
+
+
+STAR_PROJECTS = _load_star_projects()
 
 
 PROJECT_CATALOG = {

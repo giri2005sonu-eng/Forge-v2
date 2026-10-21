@@ -39,12 +39,16 @@ def replace(parts, role, new_part):
     if role not in ROLES and role not in parts:
         raise ValueError(f"Unknown or unsupported role: {role}")
     p_role = new_part.get("role")
-    eff_role = profiles.ROLE_ALIASES.get(role, role)
+    current = parts.get(role, {})
+    eff_role = profiles.ROLE_ALIASES.get(role, current.get("role", role))
     eff_p_role = profiles.ROLE_ALIASES.get(p_role, p_role) if p_role else None
     if p_role != role and eff_p_role != eff_role and not new_part.get("none"):
         raise ValueError(f"Cannot replace {role} with part of role {p_role}")
     out = snapshot(parts)
-    out[role] = copy.deepcopy(new_part)
+    replacement = copy.deepcopy(new_part)
+    if not replacement.get("qty") and isinstance(current, dict) and current.get("qty"):
+        replacement["qty"] = current["qty"]
+    out[role] = replacement
     return out
 
 

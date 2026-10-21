@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FORGE — Project Planning &amp; Execution Copilot</title>
   <link rel="stylesheet" href="/css/forge.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 </head>
 <body>
@@ -55,8 +56,8 @@
             <span class="portal-card-index">03 / FORGE PICKS</span>
             <span class="portal-card-icon" aria-hidden="true">✦</span>
             <span class="portal-card-title">Star projects</span>
-            <span class="portal-card-copy">A forthcoming collection of exceptional, team-curated projects selected for their build quality and learning value.</span>
-            <span class="portal-card-action">Curated by FORGE <span aria-hidden="true">→</span></span>
+            <span class="portal-card-copy">Explore exceptional, team-curated builds across robotics, control, embedded systems, FPGA, and more.</span>
+            <span class="portal-card-action">Explore 20 curated builds <span aria-hidden="true">→</span></span>
           </button>
         </div>
       </section>
@@ -64,15 +65,15 @@
       <section id="view-stars" class="view-panel" style="display:none;">
         <div class="portal-intro">
           <p class="eyebrow">FORGE PICKS</p>
-          <h1>Star projects are on the way.</h1>
-          <p class="text-secondary">Our team is curating a collection of standout projects. This space is ready for the collection to be added.</p>
+          <h1>Ambitious builds. Curated by FORGE.</h1>
+          <p class="text-secondary">A hand-picked collection of standout projects, from advanced control and robotics to FPGA and embedded systems.</p>
         </div>
-        <div class="card stars-placeholder">
-          <span class="portal-card-icon" aria-hidden="true">✦</span>
-          <h2>Curated projects. Exceptional builds.</h2>
-          <p class="text-secondary">Project recommendations, build notes, and highlights will appear here once the FORGE team has finalized its picks.</p>
-          <span class="coming-soon">COLLECTION IN PROGRESS</span>
+        <div class="stars-toolbar">
+          <label class="sr-only" for="star-project-search">Search star projects</label>
+          <input id="star-project-search" type="search" placeholder="Search projects, skills, and domains…">
+          <p id="star-project-count" class="caption" role="status" aria-live="polite">Loading curated builds…</p>
         </div>
+        <div class="grid-2 stars-grid" id="star-project-grid"></div>
       </section>
 
       <!-- ── 1. DISCOVERY VIEW ── -->
@@ -263,6 +264,35 @@
           <!-- Component cards rendered here -->
         </div>
 
+        <section class="card optimizer-panel" id="project-optimizer-card" aria-labelledby="optimizer-heading">
+          <div class="optimizer-heading-row">
+            <div>
+              <h4 id="optimizer-heading">Project Optimizer</h4>
+              <p class="caption">Compare component swaps against this build, including cost, compatibility, and system impact.</p>
+            </div>
+            <button class="btn" id="btn-toggle-optimizer" type="button" aria-expanded="false" aria-controls="optimizer-content">Open optimizer</button>
+          </div>
+          <div id="optimizer-content" hidden>
+            <div class="optimizer-controls">
+              <label>
+                <b>Component to change</b>
+                <select id="optimizer-role-select" style="margin-top:6px;"></select>
+              </label>
+              <label>
+                <b>Replacement</b>
+                <select id="optimizer-part-select" style="margin-top:6px;"></select>
+              </label>
+              <button class="btn primary" id="btn-evaluate-swap" type="button">Compare impact</button>
+            </div>
+            <div id="optimizer-message" class="caption" role="status" aria-live="polite"></div>
+            <div id="optimizer-result" hidden></div>
+            <div class="optimizer-actions" id="optimizer-actions" hidden>
+              <button class="btn primary" id="btn-keep-swap" type="button">Keep this replacement</button>
+              <button class="btn ghost" id="btn-reset-swaps" type="button">Undo all replacements</button>
+            </div>
+          </div>
+        </section>
+
         <!-- Compatibility Rule Checks -->
         <div class="card" id="bom-checks-card" style="margin-top:1.5rem;">
           <h4>System Compatibility Checks</h4>
@@ -281,11 +311,12 @@
 
         <!-- Hardware Wiring & Starter Firmware Studio -->
         <div class="card" id="wiring-studio-card" style="margin-top:1.5rem;">
-          <h4>Hardware Wiring &amp; Wokwi Cloud Simulation</h4>
-          <p class="caption">Pin-to-pin wiring guide, visual SVG canvas, and Wokwi project hand-off.</p>
+          <h4>Hardware Wiring &amp; Simulation Studio</h4>
+          <p class="caption">Explore the generated wiring map, pinout, Mermaid diagram, firmware, and Wokwi starter files.</p>
           
           <div class="tabs-nav" style="margin-top:12px;">
             <button class="tab-btn active" data-wiring-tab="schematic">Visual Schematic</button>
+            <button class="tab-btn" data-wiring-tab="mermaid">Mermaid Diagram</button>
             <button class="tab-btn" data-wiring-tab="pinout">Pinout Table</button>
             <button class="tab-btn" data-wiring-tab="wokwi">Wokwi Simulation</button>
             <button class="tab-btn" data-wiring-tab="firmware">Auto-Generated Code</button>
@@ -294,6 +325,16 @@
           <div id="tab-content-schematic" class="wiring-tab-pane">
             <div id="wiring-svg-container" style="background:#090B10;border-radius:10px;padding:12px;overflow-x:auto;"></div>
           </div>
+          <div id="tab-content-mermaid" class="wiring-tab-pane" style="display:none;">
+            <p class="caption">Device-level signal map. Each edge shows signal type and the pin-to-pin route.</p>
+            <div id="mermaid-render-status" class="caption" role="status" aria-live="polite"></div>
+            <div id="mermaid-diagram" class="mermaid-diagram" aria-label="Generated wiring diagram"></div>
+            <details class="mermaid-source">
+              <summary>View Mermaid source</summary>
+              <pre id="mermaid-source-preview"></pre>
+            </details>
+            <button class="btn" id="btn-copy-mermaid" type="button">Copy Mermaid source</button>
+          </div>
           <div id="tab-content-pinout" class="wiring-tab-pane" style="display:none;">
             <table class="fg-t" id="pinout-table">
               <thead><tr><th>Part Pin</th><th>Direction</th><th>Controller Pin</th><th>Signal Type</th></tr></thead>
@@ -301,7 +342,17 @@
             </table>
           </div>
           <div id="tab-content-wokwi" class="wiring-tab-pane" style="display:none;">
-            <p class="caption">Download diagram.json and open in Wokwi simulator:</p>
+            <div class="wokwi-handoff">
+              <h5>Prepare this build for Wokwi</h5>
+              <p class="caption">FORGE generates a starter bundle with <code>diagram.json</code>, <code>sketch.ino</code>, and the Mermaid source. Download it, open Wokwi, create an Arduino project, copy in the generated files, and press Start Simulation.</p>
+              <p class="caption">A browser page cannot import files into your Wokwi account or start its simulation automatically. Check the generated wiring and any library prompts in Wokwi before relying on the result.</p>
+              <div class="wokwi-actions">
+                <a class="btn primary" id="btn-prepare-wokwi" href="/api/wiring/wokwi-project.zip">Download bundle &amp; open Wokwi</a>
+                <a class="btn" href="https://wokwi.com/" target="_blank" rel="noopener noreferrer">Open Wokwi</a>
+              </div>
+              <p class="caption" id="wokwi-open-status" role="status" aria-live="polite"></p>
+            </div>
+            <label class="caption" for="wokwi-json-preview">Generated diagram.json preview</label>
             <textarea id="wokwi-json-preview" readonly style="width:100%;height:140px;background:#05060A;border:1px solid var(--card-border);border-radius:8px;font-family:var(--font-mono);font-size:0.75rem;color:#A7F3D0;padding:8px;"></textarea>
           </div>
           <div id="tab-content-firmware" class="wiring-tab-pane" style="display:none;">

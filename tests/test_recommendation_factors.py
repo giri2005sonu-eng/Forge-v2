@@ -8,6 +8,7 @@ from core.recommendation_catalog import (
     COMPETITION_PROJECT_KEYS,
     PROJECT_CATALOG,
     PROJECT_FACTOR_CATALOG,
+    STAR_PROJECTS,
     competition_projects_for_event,
 )
 
@@ -92,6 +93,27 @@ def test_competition_events_are_ordered_by_project_mentions():
     assert len(competition_projects_for_event("Robo Soccer")) == 4
     assert all(PROJECT_FACTOR_CATALOG[key]["competition_event"] == "Robo Soccer"
                for key in competition_projects_for_event("Robo Soccer"))
+
+
+def test_wireless_skill_tags_are_normalized_to_shared_vocabulary():
+    competition_skills = set().union(*(
+        PROJECT_FACTOR_CATALOG[key]["required_skills"] for key in COMPETITION_PROJECT_KEYS
+    ))
+    assert "wireless" not in competition_skills
+    assert {"wireless_other", "rf_comms"} <= competition_skills
+    assert PROJECT_FACTOR_CATALOG["fpv_speed_racer_drone"]["required_skills"] >= {
+        "wireless_other", "rf_comms"
+    }
+
+
+def test_star_catalog_has_aerospace_domain_and_hides_unverified_large_costs():
+    by_key = {project["key"]: project for project in STAR_PROJECTS}
+    assert by_key["cubesat_flatsat"]["domain"] == "space_aerospace"
+    for key in ("qdd_robot_arm", "cubesat_flatsat", "imitation_learning_arm"):
+        assert by_key[key]["cost_inr"] is None
+        assert by_key[key]["price_status"] == "pending_verification"
+    assert by_key["f1tenth_autonomous_racecar"]["price_status"] == "unverified_estimate"
+    assert by_key["f1tenth_autonomous_racecar"]["cost_inr"] == 55000
 
 
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():

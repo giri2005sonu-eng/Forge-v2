@@ -86,6 +86,14 @@ def _detect_controller(parts: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
             return "nano", CONTROLLERS["nano"]
     return "nano", CONTROLLERS["nano"]
 
+
+def _mermaid_label(value: Any) -> str:
+    """Keep generated labels on one line and prevent Mermaid syntax injection."""
+    label = str(value).replace("&", " and ").replace('"', "'")
+    label = re.sub(r"[\[\]{}()|<>]", " ", label)
+    return re.sub(r"\s+", " ", label).strip()
+
+
 def generate_wiring(parts: Dict[str, Any], project_label: str = "Robot Build") -> Dict[str, Any]:
     """Generate pin-to-pin wiring connections, Wokwi diagram.json, and starter Arduino code."""
     ctrl_key, ctrl = _detect_controller(parts)
@@ -377,19 +385,56 @@ def generate_wiring(parts: Dict[str, Any], project_label: str = "Robot Build") -
 
     firmware_code = "\n".join(code_lines)
 
-    # Generate Mermaid Diagram Syntax
-    mermaid_lines = ["graph LR", "  %% Styling Classes",
-                     "  classDef mcu fill:#1E1B4B,stroke:#7C3AED,stroke-width:2px,color:#E0E7FF;",
-                     "  classDef pwr fill:#312E81,stroke:#EF4444,stroke-width:2px,color:#FEE2E2;",
-                     "  classDef drv fill:#064E3B,stroke:#10B981,stroke-width:2px,color:#D1FAE5;",
-                     "  classDef sen fill:#1E293B,stroke:#06B6D4,stroke-width:2px,color:#CFFAFE;",
-                     f"  MCU[\"🧠 {ctrl['name']}\"]:::mcu"]
+    # Generate a device-level Mermaid diagram with unique IDs and readable signal labels.
+    mermaid_lines = [
+        "graph LR",
+        "  classDef mcu fill:#351D0B,stroke:#FF7A1A,stroke-width:3px,color:#FFF7ED;",
+        "  classDef pwr fill:#3B1515,stroke:#EF4444,stroke-width:2px,color:#FEE2E2;",
+        "  classDef drv fill:#33250B,stroke:#EAB308,stroke-width:2px,color:#FEF9C3;",
+        "  classDef sen fill:#102B35,stroke:#06B6D4,stroke-width:2px,color:#CFFAFE;",
+        "  classDef component fill:#171A22,stroke:#64748B,stroke-width:1px,color:#E2E8F0;",
+        "  classDef note fill:#21170F,stroke:#FF7A1A,stroke-dasharray:4 3,color:#FED7AA;",
+    ]
+    node_ids: Dict[str, str] = {}
+    link_styles = []
 
-    for idx, c in enumerate(connections):
-        src = re.sub(r"[^a-zA-Z0-9]", "_", c["from_part"])
-        dst = re.sub(r"[^a-zA-Z0-9]", "_", c["to_part"])
-        lbl = f"{c['from_pin']} ➔ {c['to_pin']}"
-        mermaid_lines.append(f"  {src}[\"{c['from_part']}\"] -->|\"{lbl}\"| {dst}[\"{c['to_part']}\"]")
+    def add_node(name: str) -> str:
+        if name in node_ids:
+            return node_ids[name]
+
+        node_id = f"device{len(node_ids)}"
+        node_ids[name] = node_id
+        safe_name = _mermaid_label(name)
+        if name == ctrl["name"]:
+            node_class = "mcu"
+        elif re.search(r"battery|power|rail", name, re.IGNORECASE):
+            node_class = "pwr"
+        elif re.search(r"driver|motor", name, re.IGNORECASE):
+            node_class = "drv"
+        elif re.search(r"sensor|ultrasonic|oled|dht|encoder", name, re.IGNORECASE):
+            node_class = "sen"
+        else:
+            node_class = "component"
+        mermaid_lines.append(f'  {node_id}["{safe_name}"]:::{node_class}')
+        return node_id
+
+    add_node(ctrl["name"])
+    for connection in connections:
+        source_id = add_node(connection["from_part"])
+        target_id = add_node(connection["to_part"])
+        pin_label = _mermaid_label(
+            f"{connection['type']}: {connection['from_pin']} -> {connection['to_pin']}"
+        )
+        mermaid_lines.append(f'  {source_id} -->|"{pin_label}"| {target_id}')
+        link_styles.append(
+            f"  linkStyle {len(link_styles)} stroke:{connection['color']},stroke-width:2px"
+        )
+
+    mermaid_lines.extend(link_styles)
+    mermaid_lines.append(
+        '  legend["Read each edge as signal type: source pin -> destination pin. '
+        'Confirm voltage and current limits before building."]:::note'
+    )
 
     mermaid_code = "\n".join(mermaid_lines)
 

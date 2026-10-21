@@ -7,7 +7,7 @@ from fastapi.responses import Response, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from typing import Optional
 
-from core import bill, custom_bom, hybrid_bom, ledger, pipeline, project_store
+from core import bill, component_catalog, compatibility_engine, custom_bom, hybrid_bom, ledger, optimizer, pipeline, project_store
 from core.data import PROJECTS, QTY
 from server.schemas import BomChoiceRequest, BomGenerateRequest
 from server.state import store
@@ -56,6 +56,7 @@ def generate_bom(req: BomGenerateRequest, forge_session: Optional[str] = Cookie(
             raise HTTPException(status_code=400, detail=str(e))
 
         if out["origin"] == "rule":
+            session.opt_swaps.clear()
             session.custom, session.project, session.bom_origin = None, out["project"], "rule"
             needs_bt = req.bluetooth or PROJECTS[out["project"]]["bt"]
             session.res = pipeline.select(out["project"], req.budget, needs_bt, session.live)
@@ -72,6 +73,7 @@ def generate_bom(req: BomGenerateRequest, forge_session: Optional[str] = Cookie(
             }
 
         plan = out["plan"]
+        session.opt_swaps.clear()
         session.res = None
         session.custom_error, session.suggest = None, None
         session.custom = dict(
@@ -92,6 +94,7 @@ def generate_bom(req: BomGenerateRequest, forge_session: Optional[str] = Cookie(
 
     if key.startswith("general:") and key.split(":", 1)[1] in PROJECTS:
         project_id = key.split(":", 1)[1]
+        session.opt_swaps.clear()
         session.custom, session.project, session.bom_origin = None, project_id, "rule"
         needs_bt = req.bluetooth or PROJECTS[project_id]["bt"]
         session.res = pipeline.select(project_id, req.budget, needs_bt, session.live)
@@ -102,6 +105,7 @@ def generate_bom(req: BomGenerateRequest, forge_session: Optional[str] = Cookie(
     if not plan:
         raise HTTPException(status_code=404, detail=f"Project '{key}' not found in catalog")
 
+    session.opt_swaps.clear()
     session.res = None
     session.custom = dict(
         idea=None,
@@ -129,10 +133,21 @@ import datetime as dt
 def _build_response_payload(session):
     parts = session.get_active_parts()
     label = session.get_build_label()
-    checks = []
+    checks = [
+        {
+            "id": row["rule_id"],
+            "status": row["status"],
+            "title": row["title"],
+            "msg": row["explanation"],
+            "action": row["action"],
+        }
+        for row in compatibility_engine.check(
+            optimizer.effective(parts, component_catalog.load()),
+            needs_bt=session.bluetooth or PROJECTS.get(session.project, {}).get("bt", False),
+        )
+    ]
     alternatives = []
     if session.res and session.res.get("best"):
-        checks = session.res["best"].get("checks", [])
         alternatives = [
             {"cost": r["cost"], "parts": [p["name"] for p in r["parts"].values() if not p.get("none")]}
             for r in session.res.get("alternatives", [])

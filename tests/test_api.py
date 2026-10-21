@@ -1,4 +1,6 @@
 import os
+import io
+import zipfile
 import pytest
 from fastapi.testclient import TestClient
 
@@ -18,7 +20,14 @@ def test_static_index():
     assert 'data-feature="recommendations"' in res.text
     assert 'data-feature="workflow"' in res.text
     assert 'id="btn-universal-back"' in res.text
+    assert 'id="project-optimizer-card"' in res.text
+    assert 'id="btn-evaluate-swap"' in res.text
     assert "Star projects" in res.text
+    assert 'id="star-project-grid"' in res.text
+    assert 'data-wiring-tab="mermaid"' in res.text
+    assert 'id="btn-copy-mermaid"' in res.text
+    assert 'id="btn-prepare-wokwi"' in res.text
+    assert 'href="/api/wiring/wokwi-project.zip"' in res.text
     assert "/css/forge.css" in res.text
     assert "/js/app.js" in res.text
 
@@ -177,6 +186,33 @@ def test_wiring_and_firmware():
     assert "connections" in w_data
     assert "arduino_code" in w_data
     assert "void setup()" in w_data["arduino_code"]
+    assert "mermaid_code" in w_data
+    assert "graph LR" in w_data["mermaid_code"]
+
+    bundle_res = client.get("/api/wiring/wokwi-project.zip")
+    assert bundle_res.status_code == 200
+    assert bundle_res.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(bundle_res.content)) as bundle:
+        assert {"diagram.json", "sketch.ino", "wiring.mmd", "README.txt"} <= set(bundle.namelist())
+        assert "void setup()" in bundle.read("sketch.ino").decode()
+
+
+def test_star_projects_catalog():
+    response = client.get("/api/stars")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 20
+    assert len(data["projects"]) == 20
+    racecar = next(project for project in data["projects"] if project["key"] == "f1tenth_autonomous_racecar")
+    assert racecar["cost_inr"] == 55000
+    assert racecar["price_status"] == "unverified_estimate"
+    assert racecar["tier"] == "star"
+    assert "ros" in racecar["skills"]
+    cubesat = next(project for project in data["projects"] if project["key"] == "cubesat_flatsat")
+    assert cubesat["domain"] == "space_aerospace"
+    assert cubesat["cost_inr"] is None
+    assert cubesat["price_status"] == "pending_verification"
+    assert "withheld pending verification" in client.get("/js/app.js").text
 
 
 def test_delivery_optimization():
@@ -186,3 +222,66 @@ def test_delivery_optimization():
     d_data = d_res.json()
     assert "split" in d_data
     assert "smart" in d_data
+
+
+def test_project_optimizer_compare_apply_and_reset():
+    bom = client.post("/api/bom/generate", json={
+        "project": "general:line_follower",
+        "budget": 3500,
+    }).json()
+    controller = next(part for part in bom["parts"].values() if part.get("role") == "controller")
+
+    candidates_res = client.get("/api/optimizer/candidates?role=controller")
+    assert candidates_res.status_code == 200
+    replacement = None
+    evaluation = None
+    rejected_incompatible = False
+    for candidate in candidates_res.json():
+        if candidate["id"] == controller["id"]:
+            continue
+        evaluation_res = client.post("/api/optimizer/evaluate", json={
+            "role": "controller",
+            "swap_part_id": candidate["id"],
+        })
+        if evaluation_res.status_code == 200 and not evaluation_res.json()["summary"]["ready"] and not rejected_incompatible:
+            rejected = client.post("/api/optimizer/apply", json={
+                "role": "controller",
+                "swap_part_id": candidate["id"],
+            })
+            assert rejected.status_code == 409
+            rejected_incompatible = True
+        if evaluation_res.status_code == 200 and evaluation_res.json()["summary"]["ready"]:
+            replacement = candidate
+            evaluation = evaluation_res.json()
+            break
+    assert rejected_incompatible
+    assert replacement is not None and evaluation is not None
+    assert evaluation["summary"]["ready"] in (True, False)
+    assert any(row["key"] == "cost" for row in evaluation["evaluation"]["rows"])
+    assert any(row["key"] == "compat" for row in evaluation["evaluation"]["rows"])
+
+    apply_res = client.post("/api/optimizer/apply", json={
+        "role": "controller",
+        "swap_part_id": replacement["id"],
+    })
+    assert apply_res.status_code == 200
+    changed_bom = client.get("/api/bom").json()
+    assert next(part for part in changed_bom["parts"].values() if part.get("role") == "controller")["id"] == replacement["id"]
+
+    reset_res = client.post("/api/optimizer/reset")
+    assert reset_res.status_code == 200
+    restored_bom = client.get("/api/bom").json()
+    assert next(part for part in restored_bom["parts"].values() if part.get("role") == "controller")["id"] == controller["id"]
+
+
+def test_project_optimizer_requires_a_bom_and_rejects_wrong_role():
+    with TestClient(app) as isolated_client:
+        no_bom = isolated_client.post("/api/optimizer/evaluate", json={
+            "role": "controller",
+            "swap_part_id": "ctrl_esp32",
+        })
+        assert no_bom.status_code == 400
+
+        isolated_client.post("/api/bom/generate", json={"project": "general:line_follower"})
+        wrong_role = isolated_client.get("/api/optimizer/candidates?role=not-a-component")
+        assert wrong_role.status_code == 404

@@ -78,6 +78,21 @@ def test_firmware_and_svg_generation():
     assert svg.endswith("</svg>")
     assert "Arduino Nano" in svg
 
+
+def test_mermaid_diagram_describes_connections_and_escapes_labels():
+    parts = {
+        "controller": {"role": "controller", "name": "Arduino Nano", "id": "ctrl_nano"},
+        "servo": {"role": "actuator", "name": 'Servo"] --> HACK["', "id": "act_servo"},
+    }
+    mermaid = wiring.generate_wiring(parts, "Diagram test")["mermaid_code"]
+
+    assert mermaid.startswith("graph LR")
+    assert "classDef mcu" in mermaid
+    assert "DIGITAL:" in mermaid or "PWM:" in mermaid
+    assert "Confirm voltage and current limits" in mermaid
+    assert 'HACK["' not in mermaid
+
+
 def test_wokwi_json_validity():
     parts = {
         "controller": {"role": "controller", "name": "Arduino Nano", "id": "ctrl_nano"},

@@ -86,6 +86,9 @@ const api = {
   async getCatalog() {
     return this.req('/api/bom/catalog');
   },
+  async getStarProjects() {
+    return this.req('/api/stars');
+  },
 
   async getBom() {
     return this.req('/api/bom');
@@ -167,5 +170,13 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role, swap_part_id })
     });
+  },
+
+  async getOptimizerCandidates(role) {
+    return this.req(`/api/optimizer/candidates?role=${encodeURIComponent(role)}`);
+  },
+
+  async resetSwaps() {
+    return this.req('/api/optimizer/reset', { method: 'POST' });
   }
 };
