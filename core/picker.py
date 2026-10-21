@@ -34,6 +34,7 @@ from .recommender_config import (
     BUDGET_OVERAGE_FLOOR,
 )
 from .role_impact import CAREER_ROLE_MAP, impact_for
+from .prereqs import GRAPH
 
 
 @dataclass
@@ -219,7 +220,10 @@ def score_project_v2(key, profile, ctx=None):
     impact = impact_for(key, project, ctx["roles"])
     learn, learn_skills = _learn_fit(project, ctx)
     base = W_INTEREST * interest + W_IMPACT * impact + W_COVERAGE * 0.5 + W_LEARN * learn
-    final = base * level * feasibility
+    readiness = ctx.get(
+        "readiness_by_project", {}
+    ).get(key, GRAPH.readiness(key, ctx["done"], ctx["user_skills"]))
+    final = base * level * feasibility * (0.4 + 0.6 * readiness)
     reasons = []
     if ctx["targets"]:
         reasons.append("Matches your stated interests")
@@ -228,6 +232,7 @@ def score_project_v2(key, profile, ctx=None):
     return ScoreResult(
         key=key, final=final, interest=interest, level=level,
         feasibility=feasibility, impact=impact, learn=learn,
+        readiness=readiness,
         reasons=reasons[:3], learn_skills=learn_skills,
         flags=sorted(set(flags)), excluded=excluded,
     )

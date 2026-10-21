@@ -237,6 +237,50 @@ def test_v2_role_impact_uses_skill_relevance():
     assert impact_for("test-project", project, {"embedded"}) > impact_for("test-project", project, {"robotics"})
 
 
+def test_prerequisite_graph_orders_chains_and_reports_unlocks():
+    from core.prereqs import PrerequisiteGraph
+
+    graph = PrerequisiteGraph({
+        "base": {"prerequisites": set(), "required_skills": set()},
+        "middle": {"prerequisites": {"base"}, "required_skills": set()},
+        "goal": {"prerequisites": {"middle"}, "required_skills": set()},
+    })
+    assert graph.unmet_chain("goal") == ["middle", "base"]
+    assert graph.unlocks("base") == ["middle"]
+
+
+def test_prerequisite_graph_readiness_uses_partial_skill_coverage():
+    from core.prereqs import PrerequisiteGraph
+
+    graph = PrerequisiteGraph({
+        "base": {"prerequisites": set(), "required_skills": {"embedded", "stm32"}},
+        "goal": {"prerequisites": {"base"}, "required_skills": set()},
+    })
+    assert graph.readiness("goal", set(), {"embedded"}) == 0.3
+    assert graph.readiness("goal", {"base"}, set()) == 1.0
+
+
+def test_prerequisite_graph_rejects_cycles_and_next_step_skips_unready():
+    from core.prereqs import PrerequisiteGraph
+
+    try:
+        PrerequisiteGraph({
+            "a": {"prerequisites": {"b"}, "required_skills": set()},
+            "b": {"prerequisites": {"a"}, "required_skills": set()},
+        })
+    except ValueError as error:
+        assert "cycle" in str(error)
+    else:
+        raise AssertionError("Cycle was not rejected")
+
+    graph = PrerequisiteGraph({
+        "root": {"prerequisites": set(), "required_skills": {"embedded"}},
+        "middle": {"prerequisites": {"root"}, "required_skills": {"embedded"}},
+        "goal": {"prerequisites": {"middle"}, "required_skills": set()},
+    })
+    assert graph.next_step("goal", set(), set()) == "root"
+
+
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():
     source = "Read a sensor in C and soldered a small board."
     result = resume.validate_factors(source, {
