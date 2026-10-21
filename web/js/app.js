@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   document.getElementById('star-project-search')?.addEventListener('input', renderStarProjects);
+  document.getElementById('star-project-sort')?.addEventListener('change', renderStarProjects);
 
   async function loadStarProjects() {
     if (state.starsLoaded) return renderStarProjects();
@@ -118,6 +119,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       ...(project.skills || []),
       ...(project.prerequisites || [])
     ].join(' ').toLowerCase().includes(query));
+    const sortValue = document.getElementById('star-project-sort').value;
+    const [sortField, sortDirection] = sortValue.split('_');
+    if (sortField !== 'default') {
+      const field = sortField === 'hours' ? 'build_hours' : 'cost_inr';
+      const direction = sortDirection === 'desc' ? -1 : 1;
+      projects.sort((left, right) => {
+        const leftValue = left[field];
+        const rightValue = right[field];
+        if (leftValue == null && rightValue != null) return 1;
+        if (rightValue == null && leftValue != null) return -1;
+        if (leftValue != null && rightValue != null && leftValue !== rightValue) {
+          return (leftValue - rightValue) * direction;
+        }
+        return left.name.localeCompare(right.name);
+      });
+    }
     grid.replaceChildren();
     count.textContent = `${projects.length} of ${state.starProjects.length} curated projects`;
 

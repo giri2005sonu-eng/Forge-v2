@@ -28,6 +28,11 @@ def test_static_index():
     assert 'id="btn-evaluate-swap"' in res.text
     assert "Star projects" in res.text
     assert 'id="star-project-grid"' in res.text
+    assert 'id="star-project-sort"' in res.text
+    assert 'value="hours_asc"' in res.text
+    assert 'value="hours_desc"' in res.text
+    assert 'value="cost_asc"' in res.text
+    assert 'value="cost_desc"' in res.text
     assert 'data-wiring-tab="mermaid"' in res.text
     assert 'id="btn-copy-mermaid"' in res.text
     assert 'id="btn-prepare-wokwi"' in res.text

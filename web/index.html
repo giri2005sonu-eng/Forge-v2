@@ -65,6 +65,16 @@
         <div class="stars-toolbar">
           <label class="sr-only" for="star-project-search">Search star projects</label>
           <input id="star-project-search" type="search" placeholder="Search projects, skills, and domains…">
+          <label class="star-sort-control" for="star-project-sort">
+            Sort by
+            <select id="star-project-sort">
+              <option value="default">Featured order</option>
+              <option value="hours_asc">Build hours: low to high</option>
+              <option value="hours_desc">Build hours: high to low</option>
+              <option value="cost_asc">Estimated cost: low to high</option>
+              <option value="cost_desc">Estimated cost: high to low</option>
+            </select>
+          </label>
           <p id="star-project-count" class="caption" role="status" aria-live="polite">Loading curated builds…</p>
         </div>
         <div class="grid-2 stars-grid" id="star-project-grid"></div>

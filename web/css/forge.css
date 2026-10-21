@@ -323,6 +323,19 @@ body {
   width: min(100%, 520px);
 }
 
+.star-sort-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.star-sort-control select {
+  min-width: 205px;
+}
+
 .stars-grid {
   align-items: start;
 }
@@ -942,6 +955,8 @@ select {
   .wokwi-actions .btn { width: 100%; }
   .stars-toolbar { align-items: flex-start; flex-direction: column; }
   .stars-toolbar input { width: 100%; }
+  .star-sort-control { width: 100%; align-items: flex-start; flex-direction: column; }
+  .star-sort-control select { width: 100%; }
 }
 
 @media (max-width: 360px) {
