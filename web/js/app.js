@@ -526,6 +526,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         api.saveSurveyAnswers(state.answers, state.currentStep);
       });
       container.appendChild(inp);
+    } else if (q.key === 'schedule') {
+      const schedule = state.answers.schedule || {};
+      const scheduleInputs = document.createElement('div');
+      scheduleInputs.className = 'schedule-inputs';
+
+      const hoursLabel = document.createElement('label');
+      hoursLabel.textContent = 'Hours available each week';
+      const hoursInput = document.createElement('input');
+      hoursInput.type = 'number';
+      hoursInput.min = '1';
+      hoursInput.max = '80';
+      hoursInput.step = '1';
+      hoursInput.placeholder = 'e.g. 6';
+      hoursInput.value = schedule.hours_per_week || '';
+      hoursInput.addEventListener('change', () => {
+        state.answers.schedule = {
+          ...state.answers.schedule,
+          hours_per_week: Number(hoursInput.value) || null
+        };
+        state.answers.hours_per_week = Number(hoursInput.value) || null;
+        api.saveSurveyAnswers(state.answers, state.currentStep);
+      });
+      hoursLabel.appendChild(hoursInput);
+
+      const deadlineLabel = document.createElement('label');
+      deadlineLabel.textContent = 'Target completion';
+      const deadlineSelect = document.createElement('select');
+      [
+        ['', 'No fixed deadline'],
+        ['2', 'Within 2 weeks'],
+        ['4', 'Within 1 month'],
+        ['8', 'Within 2 months'],
+        ['12', 'Within 3 months'],
+        ['24', 'Within 6 months']
+      ].forEach(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        deadlineSelect.appendChild(option);
+      });
+      deadlineSelect.value = schedule.deadline_weeks || '';
+      deadlineSelect.addEventListener('change', () => {
+        state.answers.schedule = {
+          ...state.answers.schedule,
+          deadline_weeks: Number(deadlineSelect.value) || null
+        };
+        state.answers.deadline_weeks = Number(deadlineSelect.value) || null;
+        api.saveSurveyAnswers(state.answers, state.currentStep);
+      });
+      deadlineLabel.appendChild(deadlineSelect);
+      scheduleInputs.append(hoursLabel, deadlineLabel);
+      container.appendChild(scheduleInputs);
     }
 
     // Buttons
@@ -549,6 +601,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-get-recommendations')?.addEventListener('click', triggerRecommendationRanking);
 
   const completedProjectSearch = document.getElementById('completed-project-search');
+  const completedProjectToggle = document.getElementById('has-completed-projects');
+  const completedProjectControls = document.getElementById('completed-project-controls');
+  completedProjectToggle?.addEventListener('change', () => {
+    completedProjectControls.hidden = !completedProjectToggle.checked;
+    if (!completedProjectToggle.checked) {
+      document.getElementById('completed-project-search-results').innerHTML = '';
+    }
+  });
   let projectSearchTimer;
   completedProjectSearch?.addEventListener('input', () => {
     clearTimeout(projectSearchTimer);
@@ -611,12 +671,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const status = document.getElementById('recommendation-status');
       const surveyStatus = document.getElementById('survey-rank-status');
       surveyStatus.textContent = '';
-      const hours = Number(document.getElementById('recommendation-hours').value);
-      const deadline = Number(document.getElementById('recommendation-deadline').value);
+      const schedule = state.answers.schedule || {};
+      const hours = Number(schedule.hours_per_week || state.answers.hours_per_week);
+      const deadline = Number(schedule.deadline_weeks || state.answers.deadline_weeks);
       const res = await api.rankProjects(state.answers, 5, {
         hours_per_week: hours || null,
         deadline_weeks: deadline || null,
-        completed_project_ids: state.completedProjects.map(project => project.key)
+        completed_project_ids: completedProjectToggle?.checked
+          ? state.completedProjects.map(project => project.key)
+          : []
       });
       state.recommendationResponse = res;
       if (res.needs_more_info) {

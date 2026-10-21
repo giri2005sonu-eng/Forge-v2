@@ -34,6 +34,10 @@ def test_static_index():
     assert 'value="hours_desc"' in res.text
     assert 'value="cost_asc"' in res.text
     assert 'value="cost_desc"' in res.text
+    assert 'id="has-completed-projects"' in res.text
+    assert 'id="completed-project-search"' in res.text
+    assert 'id="recommendation-hours"' not in res.text
+    assert 'class="project-search-input"' in res.text
     assert 'data-wiring-tab="mermaid"' in res.text
     assert 'id="btn-copy-mermaid"' in res.text
     assert 'id="btn-prepare-wokwi"' in res.text

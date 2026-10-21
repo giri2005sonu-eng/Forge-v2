@@ -991,7 +991,42 @@ select {
   color: var(--text-secondary);
   font-size: 0.84rem;
 }
+.completed-project-toggle {
+  display: flex !important;
+  align-items: center;
+  flex-direction: row !important;
+  gap: 9px !important;
+  color: var(--text-primary) !important;
+}
+.completed-project-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary-orange);
+}
 .completed-project-field { grid-column: 1 / -1; position: relative; }
+.completed-project-field[hidden] { display: none; }
+.project-search-input {
+  width: 100%;
+  margin-top: 7px;
+  background: #05060A !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+}
+.project-search-input::placeholder { color: #A1A1AA; }
+.schedule-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.schedule-inputs label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+.schedule-inputs input,
+.schedule-inputs select { background-color: #05060A; color: #FFFFFF; }
 .project-search-results {
   position: absolute;
   z-index: 5;
@@ -1070,4 +1105,5 @@ select {
 @media (max-width: 768px) {
   .recommendation-context-grid { grid-template-columns: 1fr; }
   .completed-project-field { grid-column: auto; }
+  .schedule-inputs { grid-template-columns: 1fr; }
 }

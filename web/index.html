@@ -112,27 +112,19 @@
 
         <section class="card recommendation-context" aria-labelledby="recommendation-context-title">
           <h4 id="recommendation-context-title">Planning context <span class="caption">(optional)</span></h4>
-          <p class="caption">Add your available time and projects you have already completed to improve readiness matching.</p>
+          <p class="caption">Tell us about projects you have already completed to improve readiness matching.</p>
           <div class="recommendation-context-grid">
-            <label for="recommendation-hours">Hours available each week
-              <input id="recommendation-hours" type="number" min="1" max="80" step="1" placeholder="e.g. 6">
+            <label class="completed-project-toggle">
+              <input id="has-completed-projects" type="checkbox">
+              I have completed one or more projects
             </label>
-            <label for="recommendation-deadline">Target completion
-              <select id="recommendation-deadline">
-                <option value="">No fixed deadline</option>
-                <option value="2">Within 2 weeks</option>
-                <option value="4">Within 1 month</option>
-                <option value="8">Within 2 months</option>
-                <option value="12">Within 3 months</option>
-                <option value="24">Within 6 months</option>
-              </select>
-            </label>
-            <label class="completed-project-field" for="completed-project-search">Projects already completed
-              <input id="completed-project-search" type="search" autocomplete="off" placeholder="Search the project catalog">
+            <div id="completed-project-controls" class="completed-project-field" hidden>
+              <label for="completed-project-search">Add a completed project</label>
+              <input id="completed-project-search" class="project-search-input" type="search" autocomplete="off" placeholder="Search the project catalog">
               <div id="completed-project-search-results" class="project-search-results" role="listbox" aria-label="Project search results"></div>
-            </label>
+              <div id="completed-project-selection" class="completed-project-selection" aria-live="polite"></div>
+            </div>
           </div>
-          <div id="completed-project-selection" class="completed-project-selection" aria-live="polite"></div>
         </section>
 
         <!-- Resume CV Box -->
