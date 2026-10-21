@@ -202,6 +202,41 @@ def test_all_catalog_prerequisites_exist_and_graph_is_acyclic():
         visit(project_key)
 
 
+def test_v2_neutral_components_and_missing_cost_are_explicit():
+    profile = {}
+    context = picker.build_recommender_context(profile)
+    result = picker.score_project_v2("qdd_robot_arm", profile, context)
+    assert result.interest == 0.5
+    assert result.learn == 0.7
+    assert result.level > 0
+    assert "low_information" in result.flags
+    assert "cost_unverified" in result.flags
+    assert not result.excluded
+
+
+def test_v2_level_penalizes_too_hard_more_than_too_easy():
+    context = {"level": 2.0, "user_skills": set()}
+    easy = picker._level_fit({"difficulty": 1, "required_skills": set()}, context)[0]
+    hard = picker._level_fit({"difficulty": 5, "required_skills": set()}, context)[0]
+    assert hard < easy
+
+
+def test_v2_feasibility_excludes_far_over_budget_but_accepts_zero_cost():
+    profile = {"budget_inr": 1000}
+    context = picker.build_recommender_context(profile)
+    expensive = picker.score_project_v2("fpv_speed_racer_drone", profile, context)
+    free = picker.score_project_v2("ros2_gazebo_sim", profile, context)
+    assert expensive.excluded
+    assert not free.excluded
+
+
+def test_v2_role_impact_uses_skill_relevance():
+    from core.role_impact import impact_for
+
+    project = {"portfolio_impact": 5, "required_skills": {"stm32", "embedded", "rtos"}}
+    assert impact_for("test-project", project, {"embedded"}) > impact_for("test-project", project, {"robotics"})
+
+
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():
     source = "Read a sensor in C and soldered a small board."
     result = resume.validate_factors(source, {

@@ -1,8 +1,236 @@
 """Recommendation helper: plain scoring (no AI). Same answers (and same resume) always give the same result."""
 import math
+from dataclasses import dataclass, field
 from . import resume as resume_mod
 from .data import PROJECTS
 from .recommendation_catalog import PROJECT_FACTOR_CATALOG, RECOMMENDATION_PROJECT_KEYS
+from .recommender_config import (
+    GENERIC_SKILLS,
+    INTEREST_SHORTFALL_PENALTY,
+    LEVEL_EASY_FLOOR,
+    LEVEL_EASY_PENALTY,
+    LEVEL_HARD_PENALTY,
+    LEVEL_STRETCH_MAX,
+    LOW_INFORMATION_NEUTRAL,
+    LEARN_SCORE_BY_NEW_SKILL_COUNT,
+    LEARN_SCORE_FOR_MANY_NEW_SKILLS,
+    LEARN_SKILL_LIMIT,
+    MAX_FACTOR_RATING,
+    MAX_MISSING_TOOLS,
+    AVAILABILITY_BASE,
+    AVAILABILITY_WEIGHT,
+    MISSING_SKILL_DIFFICULTY_PENALTY,
+    SLIGHT_BUDGET_OVERAGE,
+    TIME_COMFORT_FRACTION,
+    TIME_HARD_LIMIT,
+    TIME_MID_FIT,
+    TIME_SOFT_LIMIT,
+    TOOLS_MISSING_MULTIPLIER,
+    UNKNOWN_LEARN_NEUTRAL,
+    W_COVERAGE,
+    W_IMPACT,
+    W_INTEREST,
+    W_LEARN,
+    BUDGET_OVERAGE_FLOOR,
+)
+from .role_impact import CAREER_ROLE_MAP, impact_for
+
+
+@dataclass
+class ScoreResult:
+    key: str
+    final: float
+    interest: float
+    level: float
+    feasibility: float
+    impact: float
+    readiness: float = 1.0
+    coverage: float = LOW_INFORMATION_NEUTRAL
+    learn: float = UNKNOWN_LEARN_NEUTRAL
+    reasons: list[str] = field(default_factory=list)
+    learn_skills: list[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
+    excluded: bool = False
+
+
+def build_recommender_context(profile):
+    """Normalize profile evidence once for use by v2 score components."""
+    resume = profile.get("resume") or {}
+    user_skills = set(profile.get("experience", []))
+    user_skills.update(
+        item.get("id", "")
+        for item in resume.get("skills", [])
+        if isinstance(item, dict) and item.get("confirmed")
+    )
+    user_skills.discard("")
+    roles = {
+        CAREER_ROLE_MAP.get(tag)
+        for tag in profile.get("career", [])
+        if CAREER_ROLE_MAP.get(tag)
+    }
+    roles.update(
+        CAREER_ROLE_MAP[tag]
+        for tag in profile.get("interests", [])
+        if CAREER_ROLE_MAP.get(tag)
+    )
+    targets, focus = _targets(profile)
+    expressed = {}
+    mappings = {
+        "embedded": {"electronics": 5, "programming": 4},
+        "robotics": {"electronics": 4, "fabrication": 4, "control_math": 4},
+        "vision": {"ai_vision": 5, "programming": 4},
+        "iot": {"wireless_iot": 5, "programming": 4},
+        "sensing": {"electronics": 4, "control_math": 4},
+        "mechanics": {"fabrication": 5, "control_math": 3},
+    }
+    for tag in focus:
+        for factor, value in mappings.get(tag, {}).items():
+            expressed[factor] = max(expressed.get(factor, 0), value)
+    return {
+        "level": _student_level(profile),
+        "level_known": bool(
+            user_skills
+            or profile.get("languages")
+            or profile.get("hardware")
+        ),
+        "user_skills": user_skills,
+        "done": set(profile.get("completed_project_ids", [])),
+        "roles": roles,
+        "targets": expressed,
+        "budget": profile.get("budget_inr"),
+        "tools": set(profile.get("tools", [])),
+        "schedule": profile.get("schedule") or {},
+        "profile": profile,
+    }
+
+
+def _effective_difficulty(project, ctx):
+    missing = set(project.get("required_skills", set())) - ctx["user_skills"]
+    has_skill_evidence = bool(ctx["user_skills"])
+    penalty = len(missing) * MISSING_SKILL_DIFFICULTY_PENALTY if has_skill_evidence else 0
+    return min(float(MAX_FACTOR_RATING), project["difficulty"] + penalty)
+
+
+def _level_fit(project, ctx):
+    if not ctx.get("level_known", True):
+        return 1.0, 0.0
+    delta = _effective_difficulty(project, ctx) - ctx["level"]
+    if 0 <= delta <= LEVEL_STRETCH_MAX:
+        return 1.0, delta
+    if delta < 0:
+        return max(LEVEL_EASY_FLOOR, 1 - LEVEL_EASY_PENALTY * abs(delta)), delta
+    return max(0.0, 1 - LEVEL_HARD_PENALTY * (delta - LEVEL_STRETCH_MAX)), delta
+
+
+def _interest_fit(project, ctx):
+    targets = ctx["targets"]
+    if not targets:
+        return LOW_INFORMATION_NEUTRAL
+    weights = _factor_weights(ctx["profile"])
+    factors = ("electronics", "programming", "fabrication", "control_math", "ai_vision", "wireless_iot")
+    weighted, total_weight = 0.0, 0.0
+    for factor in factors:
+        if factor not in targets:
+            continue
+        target = targets[factor]
+        score = 1.0 if project[factor] >= target else max(
+            0.0, 1 - INTEREST_SHORTFALL_PENALTY * (target - project[factor])
+        )
+        weighted += score * weights[factor]
+        total_weight += weights[factor]
+    return weighted / total_weight if total_weight else LOW_INFORMATION_NEUTRAL
+
+
+def _feasibility(project, ctx):
+    flags, excluded = [], False
+    budget, cost = ctx["budget"], project.get("cost_inr")
+    if cost is None:
+        flags.append("cost_unverified")
+        cost_fit = 1.0
+    elif budget is None or float(budget) <= 0 or cost <= float(budget):
+        cost_fit = 1.0
+    elif cost <= float(budget) * SLIGHT_BUDGET_OVERAGE:
+        overage = (cost / float(budget) - 1) / (SLIGHT_BUDGET_OVERAGE - 1)
+        cost_fit = 1 - overage * (1 - BUDGET_OVERAGE_FLOOR)
+        flags.append("slightly_over_budget")
+    else:
+        cost_fit, excluded = 0.0, True
+
+    schedule = ctx["schedule"]
+    hours_per_week, deadline_weeks = schedule.get("hours_per_week"), schedule.get("deadline_weeks")
+    time_fit = 1.0
+    if hours_per_week and deadline_weeks:
+        available = float(hours_per_week) * float(deadline_weeks)
+        effective_level = ctx["level"] if ctx.get("level_known", True) else 2.0
+        multiplier = min(
+            2.0,
+            1 + 0.25 * max(0, _effective_difficulty(project, ctx) - effective_level)
+            + (0.3 if effective_level < 2 else 0),
+        )
+        ratio = project["build_hours"] * multiplier / available
+        if ratio <= TIME_COMFORT_FRACTION:
+            time_fit = 1.0
+        elif ratio <= TIME_SOFT_LIMIT:
+            time_fit = 1 - (ratio - TIME_COMFORT_FRACTION) / (TIME_SOFT_LIMIT - TIME_COMFORT_FRACTION) * TIME_MID_FIT
+        elif ratio <= TIME_HARD_LIMIT:
+            time_fit = TIME_MID_FIT * (1 - (ratio - TIME_SOFT_LIMIT) / (TIME_HARD_LIMIT - TIME_SOFT_LIMIT))
+        else:
+            time_fit, excluded = 0.0, True
+
+    available_tools = ctx["tools"] - {"none"}
+    required = set(project.get("tools_required", set())) - {"none"}
+    missing = required - available_tools
+    if not available_tools:
+        tools_fit = 1.0
+    else:
+        tools_fit = TOOLS_MISSING_MULTIPLIER ** len(missing)
+        flags.extend(f"needs_tool:{tool}" for tool in sorted(missing))
+        excluded = excluded or len(missing) >= MAX_MISSING_TOOLS
+
+    availability = max(1, min(5, project.get("parts_availability_india", 3)))
+    score = (cost_fit * time_fit * tools_fit) ** (1 / 3) * (
+        AVAILABILITY_BASE + AVAILABILITY_WEIGHT * availability / MAX_FACTOR_RATING
+    )
+    return score, flags, excluded
+
+
+def _learn_fit(project, ctx):
+    evidence = bool(ctx["user_skills"] or (ctx["profile"].get("resume") or {}).get("skills"))
+    project_skills = sorted(set(project.get("required_skills", set())))
+    if not evidence:
+        return UNKNOWN_LEARN_NEUTRAL, project_skills[:LEARN_SKILL_LIMIT]
+    new_skills = set(project_skills) - ctx["user_skills"] - GENERIC_SKILLS
+    count = len(new_skills)
+    learn = LEARN_SCORE_BY_NEW_SKILL_COUNT.get(count, LEARN_SCORE_FOR_MANY_NEW_SKILLS)
+    return learn, sorted(new_skills)[:LEARN_SKILL_LIMIT]
+
+
+def score_project_v2(key, profile, ctx=None):
+    """Score one candidate with separable v2 components; selection/readiness are added later."""
+    project = PROJECT_FACTOR_CATALOG[key]
+    ctx = ctx or build_recommender_context(profile)
+    flags = []
+    if not ctx["targets"]:
+        flags.append("low_information")
+    interest = _interest_fit(project, ctx)
+    level, difficulty_delta = _level_fit(project, ctx)
+    feasibility, feasibility_flags, excluded = _feasibility(project, ctx)
+    flags.extend(feasibility_flags)
+    impact = impact_for(key, project, ctx["roles"])
+    learn, learn_skills = _learn_fit(project, ctx)
+    base = W_INTEREST * interest + W_IMPACT * impact + W_COVERAGE * 0.5 + W_LEARN * learn
+    final = base * level * feasibility
+    reasons = []
+    if ctx["targets"]:
+        reasons.append("Matches your stated interests")
+    reasons.append("Right difficulty for your experience" if difficulty_delta <= 1 else "A challenging stretch")
+    reasons.append("Fits your budget" if "slightly_over_budget" not in flags else "Slightly over budget")
+    return ScoreResult(
+        key=key, final=final, interest=interest, level=level,
+        feasibility=feasibility, impact=impact, learn=learn,
+        reasons=reasons[:3], learn_skills=learn_skills,
+        flags=sorted(set(flags)), excluded=excluded,
+    )
 
 QUESTIONS = [
  ("career", "What is your career direction?", {"Embedded systems": "embedded", "Robotics": "robotics", "ML / vision": "vision", "IoT": "iot", "Undecided": "undecided"}),
