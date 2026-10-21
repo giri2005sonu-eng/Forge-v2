@@ -13,10 +13,19 @@ def _label(project_key):
 
 
 def _show_chart(chart_html, height):
+    theme_mapped = (
+        chart_html
+        .replace("#06B6D4", "#FF7A1A")
+        .replace("#67E8F9", "#FFB347")
+        .replace("#4C1D95", "#832407")
+        .replace("#0A0F1E", "#0B0D14")
+        .replace("#1E2A4A", "rgba(255,255,255,0.12)")
+        .replace("#111A30", "#161922")
+    )
     if hasattr(st, "iframe"):
-        st.iframe(chart_html, height=height)
+        st.iframe(theme_mapped, height=height)
     else:
-        components.html(chart_html, height=height)
+        components.html(theme_mapped, height=height)
 
 
 def _save_survey_field(answer_key, widget_key):
@@ -57,18 +66,18 @@ def _survey_css(n):
         for i in range(n))
     st.markdown(f"""<style>
 [class*="st-key-survey_card_"]{{min-height:unset;display:flex;flex-direction:column;justify-content:center;gap:0.75rem;padding:1.3rem clamp(1rem,3.5vw,2.5rem);
- border-radius:20px;border:1px solid rgba(6,182,212,.22);animation:.5s cubic-bezier(.2,.8,.2,1) both;
- background:radial-gradient(900px 320px at 15% 0%,rgba(124,58,237,.18),transparent 60%),radial-gradient(800px 320px at 100% 100%,rgba(6,182,212,.14),transparent 60%),rgba(13,21,40,.78);
- box-shadow:0 0 0 1px rgba(124,58,237,.08),0 20px 50px rgba(0,0,0,.4)}}
+ border-radius:20px;border:1px solid rgba(255,122,26,.3);animation:.5s cubic-bezier(.2,.8,.2,1) both;
+ background:radial-gradient(900px 320px at 15% 0%,rgba(255,122,26,.12),transparent 60%),radial-gradient(800px 320px at 100% 100%,rgba(255,179,71,.08),transparent 60%),#11141C;
+ box-shadow:0 0 0 1px rgba(255,122,26,.1),0 20px 50px rgba(0,0,0,.5)}}
 {rules}
 @keyframes qinA{{from{{opacity:0;transform:translateY(16px) scale(.99);filter:blur(4px)}}to{{opacity:1;transform:none;filter:none}}}}
 @keyframes qinB{{from{{opacity:0;transform:translateY(16px) scale(.99);filter:blur(4px)}}to{{opacity:1;transform:none;filter:none}}}}
-.sv-top{{display:flex;justify-content:space-between;font:500 .7rem 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.16em;color:#67E8F9;margin-bottom:0.15rem}}
-.sv-bar{{height:3px;background:rgba(148,163,184,.18);border-radius:3px;overflow:hidden}}
-.sv-bar i{{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,#7C3AED,#06B6D4);box-shadow:0 0 10px #06B6D4;animation:.7s cubic-bezier(.2,.8,.2,1) both}}
+.sv-top{{display:flex;justify-content:space-between;font:500 .7rem 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.16em;color:var(--accent-amber,#FFB347);margin-bottom:0.15rem}}
+.sv-bar{{height:3px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}}
+.sv-bar i{{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,#FF7A1A,#FF9F43);box-shadow:0 0 10px rgba(255,122,26,.6);animation:.7s cubic-bezier(.2,.8,.2,1) both}}
 @keyframes svbarA{{from{{width:0}}to{{width:var(--w)}}}}
 @keyframes svbarB{{from{{width:0}}to{{width:var(--w)}}}}
-.sv-q{{font:700 clamp(1.25rem,2.2vw,1.75rem)/1.25 Inter,sans-serif;letter-spacing:-.02em;margin:.15rem 0 .2rem;background:linear-gradient(90deg,#E2E8F0,#A5F3FC);-webkit-background-clip:text;background-clip:text;color:transparent}}
+.sv-q{{font:700 clamp(1.25rem,2.2vw,1.75rem)/1.25 'Space Grotesk',Inter,sans-serif;letter-spacing:-.02em;margin:.15rem 0 .2rem;background:linear-gradient(90deg,#F4F5F8,#FFB347);-webkit-background-clip:text;background-clip:text;color:transparent}}
 [class*="st-key-survey_card_"] button{{font-size:0.92rem;border-radius:999px}}
 [class*="st-key-survey_card_"] [data-testid="stPills"] button,[class*="st-key-survey_card_"] [data-testid="stButtonGroup"] button{{padding:.4rem 0.95rem;font-size:0.86rem}}
 @media (prefers-reduced-motion:reduce){{[class*="st-key-survey_card_"],.sv-bar i{{animation:none!important}}}}

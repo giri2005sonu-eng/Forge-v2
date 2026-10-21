@@ -10,7 +10,7 @@ APP = str(pathlib.Path(__file__).resolve().parent.parent / "app.py")
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     monkeypatch.setenv("FORGE_LEARNED_PATH", str(tmp_path / "learned.json"))
-    monkeypatch.delenv("TINYFISH_API_KEY", raising=False)
+    monkeypatch.setenv("TINYFISH_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "x")
     monkeypatch.setattr(tf, "cache_get", lambda k: None); monkeypatch.setattr(tf, "cache_set", lambda k, v: None)
     calls = {"n": 0}

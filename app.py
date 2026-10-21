@@ -7,322 +7,12 @@ from ui import bom, competition, recommendation, research_tools
 
 load_dotenv()
 st.set_page_config(page_title="FORGE — Project Planning & Execution Copilot", page_icon="⚡", layout="wide")
-st.markdown("""<style>
-/* ─────────────────────────────────────────────────────────────────────────
-   FORGE — Project Planning & Execution Copilot
-   Palette:  Obsidian #0A0F1E  |  Midnight #0D1528  |  Ink #111827
-             Electric Violet #7C3AED  |  Neon Cyan #06B6D4
-             Emerald #10B981  |  Amber #F59E0B  |  Rose #F43F5E
-             Slate Text #94A3B8  |  Cloud #E2E8F0
-───────────────────────────────────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
-/* ── Base ── */
-html, body, [class*="css"] {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-  background: #0A0F1E;
-  color: #E2E8F0;
-}
-
-/* ── App Shell ── */
-.stApp {
-  background: linear-gradient(135deg, #0A0F1E 0%, #0D1528 50%, #0A0F1E 100%);
-  min-height: 100vh;
-}
-
-.block-container {
-  padding: 1.2rem 2rem 2.5rem !important;
-  max-width: 1160px !important;
-}
-
-#MainMenu, footer, header { visibility: hidden !important; }
-
-/* ── Typography ── */
-h1, h2, h3 {
-  font-family: 'Inter', sans-serif !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.02em;
-}
-
-h1 { font-size: 2.4rem !important; }
-h2 { font-size: 1.7rem !important; }
-h3 { font-size: 1.2rem !important; }
-
-/* Title gradient */
-.stApp > div > div > div > div:first-child h1 {
-  background: linear-gradient(135deg, #7C3AED, #06B6D4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Buttons ── */
-.stButton > button {
-  border-radius: 10px !important;
-  padding: 0.55rem 1.4rem !important;
-  border: 1px solid rgba(124,58,237,0.4) !important;
-  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%) !important;
-  color: #fff !important;
-  font-weight: 600 !important;
-  font-size: 0.875rem !important;
-  letter-spacing: 0.01em;
-  box-shadow: 0 4px 16px rgba(124,58,237,0.3), 0 1px 0 rgba(255,255,255,0.06) inset !important;
-  transition: all 0.2s cubic-bezier(0.4,0,0.2,1) !important;
-  position: relative;
-  overflow: hidden;
-}
-
-.stButton > button:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 24px rgba(124,58,237,0.45), 0 1px 0 rgba(255,255,255,0.1) inset !important;
-  border-color: rgba(124,58,237,0.7) !important;
-}
-
-.stButton > button:active {
-  transform: translateY(0px) !important;
-  box-shadow: 0 2px 8px rgba(124,58,237,0.25) !important;
-}
-
-/* Primary button override */
-button[kind="primary"] {
-  background: linear-gradient(135deg, #06B6D4, #0891B2) !important;
-  border-color: rgba(6,182,212,0.4) !important;
-  box-shadow: 0 4px 16px rgba(6,182,212,0.3) !important;
-}
-
-button[kind="primary"]:hover {
-  box-shadow: 0 8px 24px rgba(6,182,212,0.45) !important;
-}
-
-/* Disabled buttons */
-.stButton > button:disabled {
-  background: rgba(30,41,59,0.6) !important;
-  border-color: rgba(51,65,85,0.5) !important;
-  color: #475569 !important;
-  box-shadow: none !important;
-  transform: none !important;
-}
-
-/* ── Containers & Cards ── */
-[data-testid="stVerticalBlockBorderWrapper"] {
-  border-radius: 16px !important;
-  border: 1px solid rgba(124,58,237,0.15) !important;
-  background: rgba(13,21,40,0.8) !important;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.04) inset !important;
-  transition: border-color 0.2s ease !important;
-}
-
-[data-testid="stVerticalBlockBorderWrapper"]:hover {
-  border-color: rgba(124,58,237,0.3) !important;
-}
-
-/* ── Expanders ── */
-.streamlit-expanderHeader {
-  background: rgba(15,23,42,0.6) !important;
-  border-radius: 12px !important;
-  border: 1px solid rgba(51,65,85,0.4) !important;
-  padding: 0.75rem 1rem !important;
-  font-weight: 600 !important;
-  color: #CBD5E1 !important;
-  transition: all 0.15s ease !important;
-}
-
-.streamlit-expanderHeader:hover {
-  border-color: rgba(124,58,237,0.4) !important;
-  color: #E2E8F0 !important;
-}
-
-.streamlit-expanderContent {
-  background: rgba(10,15,30,0.4) !important;
-  border: 1px solid rgba(51,65,85,0.25) !important;
-  border-top: none !important;
-  border-radius: 0 0 12px 12px !important;
-  padding: 1rem !important;
-}
-
-/* ── Inputs ── */
-.stTextInput > div > div > input,
-.stNumberInput > div > div > input {
-  background: rgba(15,23,42,0.8) !important;
-  border: 1px solid rgba(51,65,85,0.6) !important;
-  border-radius: 10px !important;
-  color: #E2E8F0 !important;
-  font-family: 'Inter', sans-serif !important;
-  padding: 0.6rem 0.9rem !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
-}
-
-.stTextInput > div > div > input:focus,
-.stNumberInput > div > div > input:focus {
-  border-color: #7C3AED !important;
-  box-shadow: 0 0 0 3px rgba(124,58,237,0.15) !important;
-  outline: none !important;
-}
-
-.stTextInput > div > div > input::placeholder { color: #475569 !important; }
-
-/* ── Selectbox ── */
-.stSelectbox > div > div {
-  background: rgba(15,23,42,0.8) !important;
-  border: 1px solid rgba(51,65,85,0.6) !important;
-  border-radius: 10px !important;
-  color: #E2E8F0 !important;
-}
-
-/* ── Toggle ── */
-.stToggle > label > div {
-  background: rgba(30,41,59,0.8) !important;
-}
-
-/* ── Metrics ── */
-[data-testid="stMetric"] {
-  background: rgba(13,21,40,0.6) !important;
-  border: 1px solid rgba(51,65,85,0.4) !important;
-  border-radius: 12px !important;
-  padding: 1rem 1.25rem !important;
-  transition: border-color 0.2s ease !important;
-}
-
-[data-testid="stMetric"]:hover {
-  border-color: rgba(124,58,237,0.35) !important;
-}
-
-[data-testid="stMetricLabel"] {
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  color: #64748B !important;
-}
-
-[data-testid="stMetricValue"] {
-  font-size: 1.5rem !important;
-  font-weight: 700 !important;
-  color: #E2E8F0 !important;
-}
-
-/* ── Status / Spinner ── */
-[data-testid="stStatus"] {
-  background: rgba(13,21,40,0.9) !important;
-  border: 1px solid rgba(6,182,212,0.25) !important;
-  border-radius: 12px !important;
-}
-
-/* ── Info / Warning / Error / Success ── */
-[data-testid="stInfo"] {
-  background: rgba(6,182,212,0.08) !important;
-  border: 1px solid rgba(6,182,212,0.25) !important;
-  border-radius: 10px !important;
-  color: #BAE6FD !important;
-}
-
-[data-testid="stWarning"] {
-  background: rgba(245,158,11,0.08) !important;
-  border: 1px solid rgba(245,158,11,0.25) !important;
-  border-radius: 10px !important;
-  color: #FDE68A !important;
-}
-
-[data-testid="stError"] {
-  background: rgba(244,63,94,0.08) !important;
-  border: 1px solid rgba(244,63,94,0.25) !important;
-  border-radius: 10px !important;
-  color: #FECDD3 !important;
-}
-
-[data-testid="stSuccess"] {
-  background: rgba(16,185,129,0.08) !important;
-  border: 1px solid rgba(16,185,129,0.25) !important;
-  border-radius: 10px !important;
-  color: #A7F3D0 !important;
-}
-
-/* ── Caption / Labels ── */
-.stCaption, [data-testid="stCaptionContainer"] {
-  color: #64748B !important;
-  font-size: 0.78rem !important;
-}
-
-label, .stWidgetLabel {
-  color: #94A3B8 !important;
-  font-weight: 500 !important;
-  font-size: 0.82rem !important;
-  letter-spacing: 0.01em;
-}
-
-/* ── Dataframe ── */
-[data-testid="stDataFrame"] {
-  border: 1px solid rgba(51,65,85,0.4) !important;
-  border-radius: 10px !important;
-  overflow: hidden;
-}
-
-/* ── Divider ── */
-hr {
-  border: none !important;
-  border-top: 1px solid rgba(51,65,85,0.4) !important;
-  margin: 1.5rem 0 !important;
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0A0F1E; }
-::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.4); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.7); }
-
-/* ── Badge System ── */
-.b {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 99px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #fff;
-}
-
-.PASS  { background: linear-gradient(135deg,#059669,#10B981); box-shadow: 0 2px 8px rgba(16,185,129,0.3); }
-.FAIL  { background: linear-gradient(135deg,#DC2626,#F43F5E); box-shadow: 0 2px 8px rgba(244,63,94,0.3); }
-.UNKNOWN { background: linear-gradient(135deg,#B45309,#F59E0B); box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
-
-/* ── Sidebar ── */
-[data-testid="stSidebar"] {
-  background: rgba(10,15,30,0.95) !important;
-  border-right: 1px solid rgba(51,65,85,0.35) !important;
-}
-
-/* ── Download Button ── */
-[data-testid="stDownloadButton"] > button {
-  background: linear-gradient(135deg, #1E3A5F, #1E40AF) !important;
-  border-color: rgba(30,64,175,0.5) !important;
-  box-shadow: 0 4px 16px rgba(30,64,175,0.25) !important;
-}
-
-/* ── Checkbox ── */
-.stCheckbox > label > div:first-child {
-  border-color: rgba(124,58,237,0.5) !important;
-  border-radius: 4px !important;
-}
-
-/* ── Spinner ── */
-.stSpinner > div { border-top-color: #7C3AED !important; }
-
-/* ── Section headers ── */
-.stMarkdown h4 {
-  color: #94A3B8 !important;
-  font-size: 0.72rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
-  margin-bottom: 0.75rem !important;
-  padding-bottom: 0.5rem !important;
-  border-bottom: 1px solid rgba(51,65,85,0.4) !important;
-}
-
-</style>""", unsafe_allow_html=True)
+# Inject Galaxy Black + Orange Theme from assets/forge.css
+css_file = os.path.join(os.path.dirname(__file__), "assets", "forge.css")
+if os.path.exists(css_file):
+    with open(css_file, "r", encoding="utf-8") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 S = st.session_state
 for k, v in dict(live={}, res=None, log=[], stage="pick", A={}, pick=None, project="line_follower", budget=3500,
@@ -331,47 +21,63 @@ for k, v in dict(live={}, res=None, log=[], stage="pick", A={}, pick=None, proje
     S.setdefault(k, v)
 tf_key, gem_key = bool(os.getenv("TINYFISH_API_KEY")), bool(os.getenv("GEMINI_API_KEY"))
 
+# Brand Header: Glowing orange bolt, FORGE product title, tagline, and Copilot Active pill
 st.markdown("""
-<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin:0 0 0.75rem;padding-bottom:0.65rem;border-bottom:1px solid rgba(51,65,85,0.4)">
-  <div style="display:flex;align-items:center;gap:14px">
-    <div style="background:linear-gradient(135deg,#7C3AED,#06B6D4);border-radius:12px;width:44px;height:44px;
-                display:flex;align-items:center;justify-content:center;font-size:22px;
-                box-shadow:0 4px 18px rgba(124,58,237,.45);flex-shrink:0">⚡</div>
+<div class="fg-header-container">
+  <div class="fg-header-brand">
+    <div class="fg-header-logo">⚡</div>
     <div>
-      <div style="background:linear-gradient(135deg,#C084FC 0%,#38BDF8 100%);-webkit-background-clip:text;
-                  -webkit-text-fill-color:transparent;background-clip:text;
-                  font-size:1.6rem;font-weight:800;letter-spacing:-.03em;line-height:1.2;font-family:Inter,sans-serif">
-        FORGE <span style="font-size:1.05rem;font-weight:600;opacity:0.95">— Project Planning &amp; Execution Copilot</span>
+      <div class="fg-header-title">
+        FORGE <span class="fg-header-subtitle">— Project Planning &amp; Execution Copilot</span>
       </div>
-      <div style="color:#94A3B8;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-top:2px">
+      <div class="fg-header-tagline">
         Autonomous Project Architecture &nbsp;·&nbsp; Live Market Sourcing &nbsp;·&nbsp; Hardware Verification &amp; Execution
       </div>
     </div>
   </div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);padding:3px 10px;border-radius:99px;font-size:10.5px;font-weight:700;color:#C084FC;letter-spacing:0.04em">
+  <div>
+    <span class="fg-copilot-badge">
       ⚡ COPILOT ACTIVE
     </span>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Visual Workflow Phase Indicator
-phases = [
-    ("pick", "1 · Discovery & Survey"),
-    ("results", "2 · Recommended Matches"),
-    ("competition", "3 · Competition Shortlist"),
-    ("bom", "4 · Planning & Execution"),
+# Step Tracker (Discovery, Recommended, Competition, Planning)
+stage_order = ["pick", "results", "competition", "bom"]
+stage_labels = [
+    ("pick", "Discovery"),
+    ("results", "Recommended"),
+    ("competition", "Competition"),
+    ("bom", "Planning"),
 ]
-phase_html = []
-for p_key, p_label in phases:
-    is_curr = (S.stage == p_key) or (p_key == "pick" and S.stage == "results")
-    if is_curr:
-        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:8px;background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(6,182,212,0.22));border:1px solid rgba(6,182,212,0.5);color:#38BDF8;font-weight:700;font-size:0.72rem;box-shadow:0 2px 8px rgba(6,182,212,0.15)">{p_label}</span>')
-    else:
-        phase_html.append(f'<span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:8px;background:rgba(15,23,42,0.45);border:1px solid rgba(51,65,85,0.4);color:#64748B;font-weight:500;font-size:0.72rem">{p_label}</span>')
+curr_idx = stage_order.index(S.stage) if S.stage in stage_order else 0
 
-st.markdown(f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 0.85rem">{"".join(phase_html)}</div>', unsafe_allow_html=True)
+pills_html = []
+for idx, (s_key, s_label) in enumerate(stage_labels):
+    if idx < curr_idx:
+        status_cls = "completed"
+        badge_sym = "✓"
+    elif idx == curr_idx:
+        status_cls = "active"
+        badge_sym = str(idx + 1)
+    else:
+        status_cls = "pending"
+        badge_sym = str(idx + 1)
+    pills_html.append(
+        f'<div class="fg-step-pill {status_cls}">'
+        f'<span class="fg-step-num">{badge_sym}</span>'
+        f'<span>{s_label}</span>'
+        f'</div>'
+    )
+
+st.markdown(
+    f'<div class="fg-tracker-wrap">'
+    f'<div class="fg-tracker-line"></div>'
+    f'{"".join(pills_html)}'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
 
 # 1. recommendation helper (skippable) -> 2. results -> optional competition shortlist -> 3. BOM agent
