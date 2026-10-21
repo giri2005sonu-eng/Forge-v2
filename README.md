@@ -25,6 +25,10 @@ Building physical robotics and embedded systems is notoriously fragmented and er
 ### 2. 🏆 Competition Strategy & Shortlisting ("Build to Compete")
 - Catalog of **18 competition-tailored builds** across **14 major robotics events** (RoboCup, Robocon, Line Maze, Combat Robotics, Formula Student, Autonomous Drone Racing, etc.).
 - Outlines event constraints, safety considerations, estimated build hours, and parts availability index for the Indian market.
+- **Direct 1-Click Planning & BOM Hand-off**:
+  - Every competition project card features a direct **`⚡ Plan & Build BOM`** action button.
+  - Instantly transitions from competition discovery to **Stage 4 (Planning & Execution)**, pre-loading the bot's complete architecture (10–15 parts), target budget, live vendor sourcing, What-If hardware optimizer, and pinout wiring diagram.
+  - Seamlessly bridges competition requirements with immediate physical BOM execution—no manual searching or re-entry required.
 
 ### 3. 🧠 Hybrid Architecture Planning & BOM Generation
 - **Pre-Verified Catalog (168 Projects)**: Comprehensive component lists across 16 robotics disciplines, drafted with engineering notes, quantities, and vendor search queries.
