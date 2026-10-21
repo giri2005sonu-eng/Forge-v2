@@ -346,6 +346,37 @@ def _mmr_select(candidates, limit=MAX_DO_NOW_PICKS):
     return selected
 
 
+def select_star_project_goal(profile, exclude_keys=()):
+    """Choose a Star Project goal and return every incomplete prerequisite step."""
+    done = set(profile.get("completed_project_ids", []))
+    excluded = set(exclude_keys)
+    goal_profile = dict(profile, budget_inr=None, schedule={})
+    goal_ctx = build_recommender_context(goal_profile)
+    candidates = []
+    for key in STAR_KEYS:
+        chain = GRAPH.unmet_chain(key, done, max_len=len(GRAPH.edges))
+        impact = score_project_v2(key, goal_profile, goal_ctx).impact
+        candidates.append((key, chain, impact))
+
+    remaining = [item for item in candidates if item[0] not in excluded]
+    reachable = [
+        item for item in remaining
+        if len(item[1]) <= STAR_GOAL_MAX_UNMET_STEPS
+    ]
+    if reachable:
+        goal_key, goal_steps, _ = max(
+            reachable, key=lambda item: (item[2], -len(item[1]), item[0])
+        )
+        eligible = True
+    else:
+        goal_key, goal_steps, _ = min(
+            remaining or candidates,
+            key=lambda item: (len(item[1]), -item[2], item[0]),
+        )
+        eligible = False
+    return {"key": goal_key, "steps": goal_steps, "eligible": eligible}
+
+
 def rank_factor_projects_v2(profile, limit=MAX_DO_NOW_PICKS):
     """Return readiness-gated do-now picks and one unconstrained Star Project goal."""
     completeness, missing = profile_completeness(profile)
@@ -413,33 +444,10 @@ def rank_factor_projects_v2(profile, limit=MAX_DO_NOW_PICKS):
             item.tier = "good_fit"
         item.unlocks = GRAPH.unlocks(item.key)[:2]
 
-    star_goal_candidates = []
-    goal_profile = dict(profile, budget_inr=None, schedule={})
-    goal_ctx = build_recommender_context(goal_profile)
-    for key in STAR_KEYS:
-        chain = GRAPH.unmet_chain(key, done)
-        result = score_project_v2(key, goal_profile, goal_ctx)
-        star_goal_candidates.append((key, chain, result.impact))
-    reachable = [
-        item for item in star_goal_candidates
-        if len(item[1]) <= STAR_GOAL_MAX_UNMET_STEPS
-        and item[0] not in selected_keys
-    ]
-    if reachable:
-        goal_key, goal_steps, _ = max(
-            reachable, key=lambda item: (item[2], -len(item[1]), item[0])
-        )
-        goal_eligible = True
-    else:
-        remaining = [item for item in star_goal_candidates if item[0] not in selected_keys]
-        goal_key, goal_steps, _ = min(
-            remaining or star_goal_candidates,
-            key=lambda item: (len(item[1]), -item[2], item[0]),
-        )
-        goal_eligible = False
+    goal = select_star_project_goal(profile, selected_keys)
     return {
         "results": selected,
-        "goal": {"key": goal_key, "steps": goal_steps, "eligible": goal_eligible},
+        "goal": goal,
         "needs_more_info": False,
         "missing": missing,
     }

@@ -753,10 +753,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderStarGoal(goal) {
     const container = document.getElementById('star-goal-card');
     if (!goal) {
-      container.innerHTML = '<p class="caption">A separate Star Project goal will appear when a profile has enough information.</p>';
+      container.innerHTML = '<p class="caption">No Star Project path could be calculated. Add your completed projects and survey details to see how many builds remain before a Star Project is recommended.</p>';
       return;
     }
     const steps = goal.step_labels || goal.steps || [];
+    const pathMessage = steps.length
+      ? `Complete ${steps.length} more prerequisite project${steps.length === 1 ? '' : 's'} first. After that, ${goal.label} can be recommended as your Star Project goal.`
+      : `You have no prerequisite projects left to complete. ${goal.label} can be recommended as your Star Project goal now.`;
     const priceLabel = goal.price_status === 'pending_verification'
       ? 'Price pending verification'
       : 'Rough estimate; not a quote';
@@ -765,11 +768,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       <h3>${escapeHtml(goal.label)}</h3>
       <p class="text-secondary">${escapeHtml(goal.desc)}</p>
       <p class="caption">Estimated cost: ₹${formatPrice(goal.cost_inr)} · ${priceLabel}</p>
-      <p class="caption">${goal.eligible ? 'Current prerequisite path is reachable.' : 'Build the foundations below before attempting this goal.'}</p>
-      <h4>Prerequisite path</h4>
+      <p class="star-goal-next-step">${escapeHtml(pathMessage)}</p>
+      <h4>${steps.length ? 'Projects to complete first' : 'Prerequisite path'}</h4>
       ${steps.length
         ? `<ol class="goal-step-list">${steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol>`
-        : '<p class="caption">No remaining prerequisite steps.</p>'}
+        : '<p class="caption">No remaining prerequisite projects.</p>'}
     `;
   }
 

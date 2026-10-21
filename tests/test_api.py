@@ -97,6 +97,8 @@ def test_survey_rank():
         assert "SCAN 12 AXES" in first["chart_svg"]
         assert len(first["fit_breakdown"]) == 12
         assert all("fit_score" in factor for factor in first["fit_breakdown"])
+        assert data["goal"]["label"]
+        assert len(data["goal"]["step_labels"]) == len(data["goal"]["steps"])
 
 
 def test_project_search_and_recommendation_feedback(tmp_path, monkeypatch):
@@ -170,6 +172,8 @@ def test_survey_rank_v2_response(monkeypatch):
     assert "goal" in data
     assert "SCAN 12 AXES" in first["chart_svg"]
     assert len(first["fit_breakdown"]) == 12
+    assert data["goal"]["label"]
+    assert len(data["goal"]["step_labels"]) == len(data["goal"]["steps"])
 
 
 def test_idea_match():

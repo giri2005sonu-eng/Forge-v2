@@ -58,6 +58,25 @@ def _factor_chart_payload(project_key, profile, overall):
     return {"fit_breakdown": fit_breakdown, "chart_svg": themed_svg}
 
 
+def _serialize_star_goal(goal):
+    if not goal:
+        return None
+    project = PROJECT_CATALOG[goal["key"]]
+    star = next((item for item in STAR_PROJECTS if item["key"] == goal["key"]), {})
+    meta = PROJECT_FACTOR_CATALOG[goal["key"]]
+    return {
+        **goal,
+        "label": project.get("label", goal["key"]),
+        "desc": project.get("desc", ""),
+        "cost_inr": star.get("cost_inr", meta.get("cost_inr")),
+        "price_status": star.get("price_status", meta.get("price_status", "unverified_estimate")),
+        "step_labels": [
+            PROJECT_CATALOG.get(key, {}).get("label", key)
+            for key in goal["steps"]
+        ],
+    }
+
+
 @router.get("/questions")
 def get_questions():
     """Return the 9-question survey structure."""
@@ -122,7 +141,6 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
 
     if RECOMMENDER_VERSION == "v2":
         ranked = picker.rank_factor_projects_v2(profile, limit=req.limit)
-        by_star_key = {project["key"]: project for project in STAR_PROJECTS}
         results = []
         for item in ranked["results"]:
             proj = PROJECT_CATALOG[item.key]
@@ -137,7 +155,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
                 "cost_inr": meta.get("cost_inr"),
                 "price_status": (
                     meta.get("price_status")
-                    or by_star_key.get(item.key, {}).get("price_status")
+                    or next((p.get("price_status") for p in STAR_PROJECTS if p["key"] == item.key), None)
                     or ("unverified_estimate" if meta.get("cost_inr") is not None else "pending_verification")
                 ),
                 "parts_availability_india": meta.get("parts_availability_india", 3),
@@ -159,22 +177,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
                 **factor_payload,
             })
 
-        goal = ranked["goal"]
-        goal_result = None
-        if goal:
-            project = PROJECT_CATALOG[goal["key"]]
-            star = by_star_key.get(goal["key"], {})
-            goal_result = {
-                **goal,
-                "label": project.get("label", goal["key"]),
-                "desc": project.get("desc", ""),
-                "cost_inr": star.get("cost_inr"),
-                "price_status": star.get("price_status", "unverified_estimate"),
-                "step_labels": [
-                    PROJECT_CATALOG.get(key, {}).get("label", key)
-                    for key in goal["steps"]
-                ],
-            }
+        goal_result = _serialize_star_goal(ranked["goal"])
         if not ranked["needs_more_info"]:
             session.stage = "results"
         return {
@@ -213,6 +216,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
             **factor_payload,
         })
 
+    goal = picker.select_star_project_goal(profile, (key for key, _ in ranked))
     excluded = []
     for key in RECOMMENDATION_PROJECT_KEYS:
         el = picker.eligibility(key, profile)
@@ -227,6 +231,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
     return {
         "recommender_version": "v1",
         "results": results,
+        "goal": _serialize_star_goal(goal),
         "excluded": excluded,
         "total_available": len(RECOMMENDATION_PROJECT_KEYS),
         "survey_answer_count": sum(bool(profile.get(k)) for k in ("career", "experience", "languages", "tools", "hardware", "goal", "interests"))

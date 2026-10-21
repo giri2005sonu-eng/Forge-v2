@@ -1104,6 +1104,14 @@ select {
 .recommendation-feedback { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .recommendation-feedback .btn { padding: 5px 8px; font-size: 0.72rem; }
 .goal-step-list { padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.7; }
+.star-goal-next-step {
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary-orange);
+  border-radius: 0 8px 8px 0;
+  background: rgba(255, 122, 26, 0.08);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
 
 @media (max-width: 768px) {
   .recommendation-context-grid { grid-template-columns: 1fr; }
