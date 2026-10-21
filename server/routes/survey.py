@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Cookie, HTTPException, Response
 from typing import Optional
 
-from core import picker, pipeline
+from core import picker, pipeline, project_store
 from core.recommendation_catalog import (
     PROJECT_CATALOG,
     PROJECT_FACTOR_CATALOG,
@@ -25,6 +25,11 @@ from server.state import store
 router = APIRouter(prefix="/api/survey", tags=["survey"])
 FEEDBACK_PATH = Path(__file__).resolve().parents[2] / "core" / "project_data" / "recommender_feedback.jsonl"
 FEEDBACK_LOCK = threading.Lock()
+
+
+def _bom_supported(project_key):
+    project = PROJECT_CATALOG.get(project_key, {})
+    return bool(project.get("bom_supported") or project_store.key_for_id(project_key))
 
 
 def _factor_chart_payload(project_key, profile, overall):
@@ -172,7 +177,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
                 },
                 "readiness": item.readiness,
                 "debug_score": item.final,
-                "bom_supported": proj.get("bom_supported", False),
+                "bom_supported": _bom_supported(item.key),
                 "is_star": item.is_star,
                 **factor_payload,
             })
@@ -206,7 +211,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
             "cost_inr": meta.get("cost_inr", 0),
             "parts_availability_india": meta.get("parts_availability_india", 3),
             "score": score,
-            "bom_supported": proj.get("bom_supported", False),
+            "bom_supported": _bom_supported(key),
             "tools_required": sorted(meta.get("tools_required", [])),
             "required_skills": sorted(meta.get("required_skills", [])),
             "prerequisites": sorted(meta.get("prerequisites", [])),

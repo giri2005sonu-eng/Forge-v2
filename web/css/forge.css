@@ -461,6 +461,25 @@ body {
   border-color: rgba(255, 122, 26, 0.25);
 }
 
+#survey-card {
+  display: grid;
+  grid-template-rows: auto 3px 3.5rem minmax(0, 1fr) auto auto;
+  height: 480px;
+}
+
+#survey-question-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+#survey-input-container {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
 /* ── Typography ── */
 h1, h2, h3, h4 {
   font-family: var(--font-heading);

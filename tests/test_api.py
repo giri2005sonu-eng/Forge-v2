@@ -182,6 +182,51 @@ def test_survey_rank_v2_response(monkeypatch):
     assert len(data["goal"]["step_labels"]) == len(data["goal"]["steps"])
 
 
+def test_survey_rank_marks_dataset_projects_bom_supported(monkeypatch):
+    from types import SimpleNamespace
+    from server.routes import survey
+
+    monkeypatch.setattr(survey, "RECOMMENDER_VERSION", "v2")
+    item = SimpleNamespace(
+        key="ldr_light_tracker",
+        final=0.8,
+        tier="baseline",
+        reasons=[],
+        flags=[],
+        learn_skills=[],
+        unlocks=[],
+        interest=0.8,
+        level=0.8,
+        feasibility=0.8,
+        impact=0.8,
+        readiness=0.8,
+        is_star=False,
+    )
+    monkeypatch.setattr(
+        survey.picker,
+        "rank_factor_projects_v2",
+        lambda profile, limit: {
+            "results": [item],
+            "goal": None,
+            "needs_more_info": False,
+            "missing": [],
+        },
+    )
+
+    response = client.post("/api/survey/rank", json={"limit": 1})
+
+    assert response.status_code == 200
+    assert response.json()["results"][0]["key"] == "ldr_light_tracker"
+    assert response.json()["results"][0]["bom_supported"] is True
+
+    bom_response = client.post(
+        "/api/bom/generate",
+        json={"project": "ldr_light_tracker", "budget": 3500},
+    )
+    assert bom_response.status_code == 200
+    assert bom_response.json()["label"] == "Light-following servo"
+
+
 def test_idea_match():
     res = client.post("/api/idea/match", json={"text": "plant watering robot"})
     assert res.status_code == 200
