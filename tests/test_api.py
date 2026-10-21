@@ -28,6 +28,8 @@ def test_static_index():
     assert 'id="btn-evaluate-swap"' in res.text
     assert "Star projects" in res.text
     assert 'id="star-project-grid"' in res.text
+    assert 'class="card star-goal-panel"' in res.text
+    assert res.text.index('id="detail-radar-chart"') < res.text.index('class="card star-goal-panel"')
     assert 'id="star-project-search"' not in res.text
     assert 'id="star-project-sort"' in res.text
     assert 'value="hours_asc"' in res.text

@@ -1105,6 +1105,9 @@ input[type="radio"] {
 .factor-ranking-table-wrap { max-height: 310px; overflow-y: auto; }
 .recommendation-radar { width: 100%; overflow-x: auto; }
 .recommendation-radar svg { display: block; min-width: 460px; max-width: 100%; margin: 0 auto 14px; }
+.star-goal-panel { margin-top: 1rem; border-color: rgba(255, 122, 26, 0.48); }
+.star-goal-panel h3 { margin: 6px 0; }
+.star-goal-panel .goal-step-list { margin-bottom: 0; }
 .score-factor-row {
   display: grid;
   grid-template-columns: 92px minmax(40px, 1fr);
