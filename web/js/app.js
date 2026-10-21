@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-back-from-competition')?.addEventListener('click', goBack);
   document.getElementById('btn-skip-discovery')?.addEventListener('click', () => switchStage('bom'));
 
-  function switchStage(stageName, { recordHistory = true } = {}) {
+  function switchStage(stageName, { recordHistory = true, bomMode = 'setup' } = {}) {
     if (stageName === 'pick') stageName = 'discovery';
     const validStages = ['home', 'discovery', 'results', 'competition', 'stars', 'bom'];
     if (!validStages.includes(stageName)) {
@@ -83,7 +83,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (stageName === 'discovery') renderSurveyStep(state.currentStep);
     if (stageName === 'competition') loadCompetitionEvents();
     if (stageName === 'stars') loadStarProjects();
-    if (stageName === 'bom' && !state.activeBom) loadInitialBom();
+    if (stageName === 'bom') {
+      document.getElementById('bom-setup-panel').hidden = bomMode === 'guided';
+      if (!state.activeBom) loadInitialBom();
+    }
+  }
+
+  async function openGuidedBom(params) {
+    const bom = await api.generateBom(params);
+    renderBomView(bom);
+    switchStage('bom', { bomMode: 'guided' });
   }
 
   function goBack() {
@@ -224,12 +233,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       action.addEventListener('click', async () => {
         action.disabled = true;
         try {
-          const bom = await api.generateBom({
+          await openGuidedBom({
             project: project.key,
             budget: project.cost_inr ?? 3500
           });
-          renderBomView(bom);
-          switchStage('bom');
         } catch (err) {
           action.disabled = false;
           document.getElementById('star-project-selection-status').textContent =
@@ -835,8 +842,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btn.onclick = async () => {
       if (!item.bom_supported) return;
       try {
-        await api.generateBom({ project: item.key, budget: item.cost_inr || 3500 });
-        switchStage('bom');
+        await openGuidedBom({ project: item.key, budget: item.cost_inr || 3500 });
       } catch (err) {
         alert('Could not open BOM: ' + err.message);
       }
@@ -854,8 +860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res.supported && res.project) {
         out.innerHTML = `<div class="alert success">Closest supported project: <b>${res.label}</b>. <button class="btn primary" id="btn-use-matched-idea" style="margin-left:10px;">Build BOM</button></div>`;
         document.getElementById('btn-use-matched-idea')?.addEventListener('click', async () => {
-          await api.generateBom({ project: res.project });
-          switchStage('bom');
+          await openGuidedBom({ project: res.project });
         });
       } else {
         out.innerHTML = `<div class="alert warn">${res.reason}</div>`;
@@ -905,8 +910,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         card.querySelector('.btn-comp-plan').onclick = async () => {
           try {
-            await api.generateBom({ project: p.key, budget: p.cost_inr || 3500 });
-            switchStage('bom');
+            await openGuidedBom({ project: p.key, budget: p.cost_inr || 3500 });
           } catch (err) {
             alert('Failed to generate competition BOM: ' + err.message);
           }
@@ -974,6 +978,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.activeBom = bom;
     state.optimizerEvaluation = null;
     document.getElementById('bom-project-heading').textContent = `${bom.label} — Architecture & Planning`;
+    document.getElementById('bill-meta-project').textContent = bom.label;
     const totCost = bom.bill?.grand_total ?? bom.bill?.parts_subtotal ?? 0;
     document.getElementById('metric-total-cost').textContent = `₹${formatPrice(totCost)}`;
     document.getElementById('metric-components-count').textContent = `${bom.parts_count || 0} parts`;
