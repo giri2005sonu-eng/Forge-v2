@@ -1,6 +1,4 @@
-"""EMI / instalment figures are never prices, and 'Generate BOM' shows the live TinyFish panel for rule-checked builds."""
-import contextlib
-
+"""EMI / instalment figures are never accepted as component prices."""
 from core import bill, pagerules as pr, pipeline, tf
 from core.data import QTY
 from core.ledger import rows
@@ -56,60 +54,3 @@ def test_a_cached_emi_read_from_before_this_fix_is_not_reused(monkeypatch):
     monkeypatch.setattr(tf, "cache_set", lambda k, v: None)
     out = pipeline.source_part(part, log=lambda m: None, gemini_max=0)
     assert out[0]["price"] == 229.0
-
-
-# ------------------------------------------------------------ live panel for "Generate BOM"
-class SS(dict):
-    __getattr__ = dict.get
-    def __setattr__(self, k, v): self[k] = v
-
-
-class FakeStatus:
-    def __init__(self, label, expanded): self.label, self.expanded, self.state = label, expanded, "running"
-    def update(self, label=None, state=None):
-        self.label = label or self.label; self.state = state or self.state
-    def __enter__(self): return self
-    def __exit__(self, *a): return False
-
-
-class FakeSt:
-    def __init__(self): self.panels, self.writes = [], []
-    def status(self, label, expanded=False):
-        self.panels.append(FakeStatus(label, expanded)); return self.panels[-1]
-    def write(self, msg): self.writes.append(msg)
-
-
-def _state():
-    return SS(live={}, res=None, log=[], custom=None, custom_error=None, suggest=None, choice={}, manual={}, project="line_follower", bom_origin=None)
-
-
-def test_generate_bom_for_a_rule_build_opens_the_live_panel_and_reprices(monkeypatch):
-    from ui import bom
-    fake = FakeSt(); monkeypatch.setattr(bom, "st", fake)
-    seen = {}
-    def source_all(parts, live, log=print, gemini_max=None, skip_done=False):
-        seen.update(n=len(parts), gemini_max=gemini_max, skip_done=skip_done)
-        for p in parts:
-            log(f"Search: 8 results for {p['name']} (4 look like shop pages)")
-            live[p["id"]] = [dict(url=f"https://robu.in/{p['id']}", price=100.0, quote="Price: ₹ 100", name=p["name"], in_stock=True)]
-    monkeypatch.setattr(bom.custom_bom, "source_all", source_all)
-    state = _state()
-    bom._open_catalog_project(state, "general:line_follower", 5000, False, True)
-    first = pipeline.select("line_follower", 5000, False, {})["best"]
-    assert len(fake.panels) == 1 and fake.panels[0].expanded is True                      # the same live panel as 'Plan new build'
-    assert "components chosen. Fetching live prices" in " ".join([fake.panels[0].label]) or fake.panels[0].state == "complete"
-    assert fake.panels[0].state == "complete" and fake.panels[0].label.startswith("Done")
-    assert any(w.startswith("Search: 8 results for") for w in fake.writes) and state.log == fake.writes   # live log lines shown and kept
-    assert seen["n"] == len(pipeline.candidate_parts("line_follower")) and seen["gemini_max"] == 0 and seen["skip_done"] is True   # every candidate is priced, not only the winner
-    assert {p["id"] for p in first["parts"].values() if not p.get("none")} <= set(state.live)
-    assert state.res and state.res["best"] and all(state.live[p["id"]] for p in first["parts"].values() if not p.get("none"))
-    assert state.res["best"]["cost"] < first["cost"]                                      # re-selected with the verified prices
-
-
-def test_generate_bom_without_a_tinyfish_key_shows_no_panel(monkeypatch):
-    from ui import bom
-    fake = FakeSt(); monkeypatch.setattr(bom, "st", fake)
-    monkeypatch.setattr(bom.custom_bom, "source_all", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not fetch without a key")))
-    state = _state()
-    bom._open_catalog_project(state, "general:line_follower", 5000, False, False)
-    assert not fake.panels and state.res and state.res["best"]

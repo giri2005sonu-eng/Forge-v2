@@ -98,7 +98,7 @@ def test_the_run_is_cached_with_what_was_applied(monkeypatch, tmp_path):
 
 # ---------------------------------------------------------------- what the cart-check panel says
 def test_cart_check_for_another_shop_succeeds_on_the_account_from_the_screenshot(monkeypatch, tmp_path):
-    from ui import cart_check
+    from core import cart_check
     _fake(monkeypatch, tmp_path, refuse(("strict", STRICT), ("steps", STEPS)))
     res = cart_check.run({}, SHOP)
     assert res["status"] == "COMPLETED" and res["method"] == "agent" and "error" not in res
@@ -109,7 +109,7 @@ def test_cart_check_for_another_shop_succeeds_on_the_account_from_the_screenshot
 
 
 def test_the_panel_does_not_claim_caps_that_were_not_applied():
-    from ui import cart_check
+    from core import cart_check
     base = dict(method="agent")
     full = cart_check.executor_line(dict(base, mode="strict", step_cap=12, time_cap=180, num_of_steps=5))
     assert "NO step cap" not in full and "default mode" not in full and "no time cap" not in full

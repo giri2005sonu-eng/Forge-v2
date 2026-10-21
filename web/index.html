@@ -22,42 +22,66 @@
           </div>
         </div>
       </div>
-      <div>
+      <div class="fg-header-actions">
+        <button class="btn ghost" id="btn-universal-back" type="button" hidden aria-label="Go back">← Back</button>
         <span class="fg-copilot-badge">⚡ COPILOT ACTIVE</span>
       </div>
     </header>
 
-    <!-- Step Tracker -->
-    <nav class="fg-tracker-wrap" id="step-tracker">
-      <div class="fg-tracker-line"></div>
-      <div class="fg-step-pill active" data-stage="pick">
-        <span class="fg-step-num">1</span>
-        <span>Discovery</span>
-      </div>
-      <div class="fg-step-pill pending" data-stage="results">
-        <span class="fg-step-num">2</span>
-        <span>Recommended</span>
-      </div>
-      <div class="fg-step-pill pending" data-stage="competition">
-        <span class="fg-step-num">3</span>
-        <span>Competition</span>
-      </div>
-      <div class="fg-step-pill pending" data-stage="bom">
-        <span class="fg-step-num">4</span>
-        <span>Planning</span>
-      </div>
-    </nav>
-
-    <!-- Main Views Container -->
+    <!-- Portal and workflows are separate view sections so each entry path can evolve independently. -->
     <main id="app-viewport">
+      <section id="view-home" class="view-panel">
+        <div class="portal-intro">
+          <p class="eyebrow">YOUR NEXT BUILD STARTS HERE</p>
+          <h1>Choose a path to build something remarkable.</h1>
+          <p class="text-secondary">Start with a personalized recommendation, prepare for a competition, or explore FORGE’s curated star projects.</p>
+        </div>
+        <div class="portal-options">
+          <button class="portal-card" type="button" data-go="discovery">
+            <span class="portal-card-index">01 / DISCOVER</span>
+            <span class="portal-card-icon" aria-hidden="true">⌕</span>
+            <span class="portal-card-title">Find the right project</span>
+            <span class="portal-card-copy">Answer a few questions and optionally upload your resume to get recommendations tailored to your skills and goals.</span>
+            <span class="portal-card-action">Questions &amp; resume <span aria-hidden="true">→</span></span>
+          </button>
+          <button class="portal-card" type="button" data-go="competition">
+            <span class="portal-card-index">02 / COMPETE</span>
+            <span class="portal-card-icon" aria-hidden="true">◇</span>
+            <span class="portal-card-title">Build for competition</span>
+            <span class="portal-card-copy">Browse competition events and projects, then move directly into build planning.</span>
+            <span class="portal-card-action">Explore competitions <span aria-hidden="true">→</span></span>
+          </button>
+          <button class="portal-card portal-card-featured" type="button" data-go="stars">
+            <span class="portal-card-index">03 / FORGE PICKS</span>
+            <span class="portal-card-icon" aria-hidden="true">✦</span>
+            <span class="portal-card-title">Star projects</span>
+            <span class="portal-card-copy">A forthcoming collection of exceptional, team-curated projects selected for their build quality and learning value.</span>
+            <span class="portal-card-action">Curated by FORGE <span aria-hidden="true">→</span></span>
+          </button>
+        </div>
+      </section>
+
+      <section id="view-stars" class="view-panel" style="display:none;">
+        <div class="portal-intro">
+          <p class="eyebrow">FORGE PICKS</p>
+          <h1>Star projects are on the way.</h1>
+          <p class="text-secondary">Our team is curating a collection of standout projects. This space is ready for the collection to be added.</p>
+        </div>
+        <div class="card stars-placeholder">
+          <span class="portal-card-icon" aria-hidden="true">✦</span>
+          <h2>Curated projects. Exceptional builds.</h2>
+          <p class="text-secondary">Project recommendations, build notes, and highlights will appear here once the FORGE team has finalized its picks.</p>
+          <span class="coming-soon">COLLECTION IN PROGRESS</span>
+        </div>
+      </section>
+
       <!-- ── 1. DISCOVERY VIEW ── -->
-      <section id="view-discovery" class="view-panel">
+      <section id="view-discovery" class="view-panel" data-feature="recommendations">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <div>
             <h2>🎯 Project Discovery &amp; Planning Copilot</h2>
-            <p class="text-secondary">Tell us what you have built, your target skills, and constraints.</p>
+            <p class="text-secondary">Answer questions and optionally add your resume to get tailored project recommendations.</p>
           </div>
-          <button class="btn" id="btn-goto-competition">Build to compete ➔</button>
         </div>
 
         <!-- 9-Question Survey Card -->
@@ -101,7 +125,7 @@
       </section>
 
       <!-- ── 2. RESULTS VIEW ── -->
-      <section id="view-results" class="view-panel" style="display:none;">
+      <section id="view-results" class="view-panel" data-feature="recommendations" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <div>
             <h2>Projects that fit you</h2>
@@ -147,13 +171,13 @@
       </section>
 
       <!-- ── 3. COMPETITION VIEW ── -->
-      <section id="view-competition" class="view-panel" style="display:none;">
+      <section id="view-competition" class="view-panel" data-feature="workflow" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <div>
             <h2>Build to compete</h2>
             <p class="caption">Choose an event, then shortlist projects verified for competition rules.</p>
           </div>
-          <button class="btn ghost" id="btn-back-from-competition">Back</button>
+          <button class="btn ghost" id="btn-back-from-competition">Back to portal</button>
         </div>
 
         <div class="card">
@@ -167,7 +191,7 @@
       </section>
 
       <!-- ── 4. PLANNING & BOM STUDIO VIEW ── -->
-      <section id="view-bom" class="view-panel" style="display:none;">
+      <section id="view-bom" class="view-panel" data-feature="workflow" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <div>
             <h2 id="bom-project-heading">Hardware Architecture &amp; Bill of Materials</h2>

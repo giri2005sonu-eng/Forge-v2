@@ -1,7 +1,7 @@
 """Project Optimizer: replace a part, recompute everything that can be computed, report the rest honestly.
 Data flow: part profiles (core.profiles) -> pair dataset (core.swap_dataset) -> system metrics (core.impact).
 Missing profiles are filled by core.profile_fill (silent) and stored, so each new swap is answered from the dataset next time.
-Pure Python (no Streamlit). The original build is never mutated: every function copies."""
+Pure Python. The original build is never mutated: every function copies."""
 import copy, hashlib, json, os
 from . import component_catalog as cat, compatibility_engine as ce, engineering_calculations as calc, impact, profile_fill, profiles, swap_dataset
 from .data import CATALOG, QTY

@@ -15,6 +15,22 @@ from server.state import store
 router = APIRouter(prefix="/api/bom", tags=["bom"])
 
 
+def _normalize_project_key(key):
+    if key is None:
+        return "general:line_follower"
+    key = str(key).strip()
+    if not key:
+        return "general:line_follower"
+    if key.startswith(("general:", "competition:")):
+        return key
+    if key in PROJECTS:
+        return f"general:{key}"
+    dataset_key = project_store.key_for_id(key)
+    if dataset_key:
+        return dataset_key
+    return key
+
+
 @router.get("/catalog")
 def get_catalog():
     options = project_store.options()
@@ -71,7 +87,7 @@ def generate_bom(req: BomGenerateRequest, forge_session: Optional[str] = Cookie(
         return _build_response_payload(session)
 
     # Catalog project selection flow
-    key = req.project or "general:line_follower"
+    key = _normalize_project_key(req.project or "general:line_follower")
     session.custom_error, session.suggest = None, None
 
     if key.startswith("general:") and key.split(":", 1)[1] in PROJECTS:

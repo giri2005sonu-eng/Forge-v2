@@ -100,12 +100,15 @@ Building physical robotics and embedded systems is notoriously fragmented and er
 
 ```
 forge/
-├── app.py                      # Main Streamlit router & Copilot application shell
+├── app.py                      # Local development launcher for the web application
+├── server/                     # FastAPI backend and API routes
+├── web/                        # Vanilla HTML, CSS, and JavaScript frontend
 │
 ├── core/                       # Core engine & deterministic logic
 │   ├── auto_fix.py             # 1-Click auto-fix engine for budget & compatibility violations
 │   ├── bill.py                 # Invoice calculation, tax rules, and PDF generator
 │   ├── browser_cart.py         # Dual-engine cart verification (Playwright Cloud Browser + Agent)
+│   ├── cart_check.py           # Verified cart comparison utilities
 │   ├── combination_store.py    # Evaluated hardware combinations cache
 │   ├── compatibility_engine.py # Hardware rule validation (PASS / FAIL / UNKNOWN)
 │   ├── component_catalog.py    # Curated component database
@@ -136,16 +139,6 @@ forge/
 │   ├── tf.py                   # TinyFish SDK wrapper (Search, Fetch, Cache)
 │   ├── wiring.py               # Pinout mapping & logic-level checking engine
 │   └── project_data/           # Catalogs (168 projects, 14 competition events)
-│
-├── ui/                         # Streamlit presentation panels
-│   ├── bom.py                  # Planning & BOM interface, vendor cards, and live bill
-│   ├── cart_check.py           # Dual-engine cart validation status panel
-│   ├── competition.py          # Competition event shortlisting panel
-│   ├── delivery_panel.py       # Vendor consolidation and delivery view
-│   ├── optimizer.py            # Component swap & impact comparison studio
-│   ├── recommendation.py       # Survey, resume upload, and fit profile view
-│   ├── research_tools.py       # Sourcing research & spec validation panel
-│   └── wiring_panel.py         # Wiring diagram & starter firmware interface
 │
 ├── scripts/                    # Offline dataset builders & validation tools
 ├── tests/                      # 300+ offline pytest test suite
@@ -203,8 +196,10 @@ forge/
 
 6. **Launch the application**:
    ```bash
-   streamlit run app.py
+   python app.py
    ```
+   FORGE serves its vanilla HTML/CSS/JavaScript interface and FastAPI endpoints at
+   `http://127.0.0.1:8000`. For development, run `uvicorn server.main:app --reload`.
 
 ---
 

@@ -5,7 +5,7 @@ function formatPrice(val) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const state = {
-    stage: 'pick',
+    stage: 'home',
     questions: [],
     currentStep: 0,
     answers: {},
@@ -15,11 +15,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     activeBom: null,
     wiringData: null
   };
+  const stageHistory = [];
 
   // ── 1. Init & Sync State ──
   try {
     const s = await api.getState();
-    state.stage = s.stage || 'pick';
     state.currentStep = s.survey_step || 0;
     state.answers = s.survey_answers || {};
   } catch (err) {
@@ -39,52 +39,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Set initial view
   switchStage(state.stage);
 
-  // ── Step Tracker Click Handlers ──
-  document.querySelectorAll('.fg-step-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      const targetStage = pill.dataset.stage;
-      switchStage(targetStage);
-    });
+  // ── Navigation ──
+  document.querySelectorAll('[data-go]').forEach(button => {
+    button.addEventListener('click', () => switchStage(button.dataset.go));
   });
-
-  // ── Navigation Buttons ──
-  document.getElementById('btn-goto-competition')?.addEventListener('click', () => switchStage('competition'));
-  document.getElementById('btn-back-to-questions')?.addEventListener('click', () => switchStage('pick'));
-  document.getElementById('btn-back-from-competition')?.addEventListener('click', () => switchStage('pick'));
+  document.getElementById('btn-universal-back')?.addEventListener('click', goBack);
+  document.getElementById('btn-back-to-questions')?.addEventListener('click', goBack);
+  document.getElementById('btn-back-from-competition')?.addEventListener('click', goBack);
   document.getElementById('btn-skip-discovery')?.addEventListener('click', () => switchStage('bom'));
 
-  function switchStage(stageName) {
+  function switchStage(stageName, { recordHistory = true } = {}) {
+    if (stageName === 'pick') stageName = 'discovery';
+    const validStages = ['home', 'discovery', 'results', 'competition', 'stars', 'bom'];
+    if (!validStages.includes(stageName)) {
+      console.error(`Unknown FORGE view: ${stageName}`);
+      return;
+    }
+    if (recordHistory && stageName !== state.stage) stageHistory.push(state.stage);
     state.stage = stageName;
-    const stages = ['pick', 'results', 'competition', 'bom'];
-    const currIdx = stages.indexOf(stageName);
-
-    // Update Tracker Pills
-    document.querySelectorAll('.fg-step-pill').forEach((pill, idx) => {
-      const pStage = pill.dataset.stage;
-      const numSpan = pill.querySelector('.fg-step-num');
-      pill.classList.remove('active', 'completed', 'pending');
-
-      if (idx < currIdx) {
-        pill.classList.add('completed');
-        if (numSpan) numSpan.textContent = '✓';
-      } else if (idx === currIdx) {
-        pill.classList.add('active');
-        if (numSpan) numSpan.textContent = String(idx + 1);
-      } else {
-        pill.classList.add('pending');
-        if (numSpan) numSpan.textContent = String(idx + 1);
-      }
+    document.getElementById('btn-universal-back').hidden = stageName === 'home';
+    document.querySelectorAll('#app-viewport > .view-panel').forEach(view => {
+      view.style.display = 'none';
     });
+    document.getElementById(`view-${stageName}`).style.display = 'block';
 
-    // Toggle Views
-    document.getElementById('view-discovery').style.display = (stageName === 'pick') ? 'block' : 'none';
-    document.getElementById('view-results').style.display = (stageName === 'results') ? 'block' : 'none';
-    document.getElementById('view-competition').style.display = (stageName === 'competition') ? 'block' : 'none';
-    document.getElementById('view-bom').style.display = (stageName === 'bom') ? 'block' : 'none';
-
-    if (stageName === 'pick') renderSurveyStep(state.currentStep);
+    if (stageName === 'discovery') renderSurveyStep(state.currentStep);
     if (stageName === 'competition') loadCompetitionEvents();
     if (stageName === 'bom' && !state.activeBom) loadInitialBom();
+  }
+
+  function goBack() {
+    const previousStage = stageHistory.pop() || 'home';
+    switchStage(previousStage, { recordHistory: false });
   }
 
   // ── 2. Survey Engine ──

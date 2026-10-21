@@ -1,6 +1,6 @@
 """Swap-impact engine. Given the original build and a build with one part replaced, work out what changes:
 connectivity, processing, I/O, power, runtime, speed, torque, efficiency, weight (+ the plain-language 'what changes' list).
-Inputs are part PROFILES (core/profiles). Pure functions: no Streamlit, no network, never mutates its inputs.
+Inputs are part PROFILES (core/profiles). Pure functions: no UI framework, no network, never mutates its inputs.
 Anything the profiles cannot support is reported as unknown (with what is missing), never filled with a guess.
 
 First-order physics used (stated in each row's reason):

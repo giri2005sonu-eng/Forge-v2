@@ -2,7 +2,7 @@
 
 verified = read from a shop page; the quote is a verbatim slice of that page, with URL, time and method.
 seed     = typed in by the team (typical datasheet value or rough estimate), NOT checked against any page.
-Pure functions (no Streamlit), so everything is testable offline.
+Pure functions, so everything is testable offline.
 """
 import csv, io
 from . import part_specs

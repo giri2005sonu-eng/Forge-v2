@@ -192,7 +192,7 @@ def test_item_that_never_reaches_the_cart_is_unknown_stock_not_in_stock():
 
 # ---------- end to end: out-of-stock main product, as seen on robu.in ----------
 def test_out_of_stock_product_is_settled_by_the_browser_without_spending_agent_credits(monkeypatch, tmp_path):
-    from ui import cart_check
+    from core import cart_check
     monkeypatch.setattr(tf, "CACHE", tmp_path); calls = []
     out, steps = run_on_fake_shop(MAIN_OUT_WITH_RELATED, WOO_CART)
     monkeypatch.setattr(bc, "run_browser", lambda url, timeout=None: dict(status="COMPLETED", num_of_steps=len(steps), method="browser", steps=steps, result=out))
@@ -204,6 +204,6 @@ def test_out_of_stock_product_is_settled_by_the_browser_without_spending_agent_c
 
 
 def test_not_added_without_a_stock_reason_keeps_the_neutral_message():
-    from ui import cart_check
+    from core import cart_check
     status, msg = cart_check.compare(149.0, dict(status="COMPLETED", result=dict(added_to_cart=False, in_stock=None), num_of_steps=3))
     assert status == "not added" and "out of stock" not in msg and "variant" in msg

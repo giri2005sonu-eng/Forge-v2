@@ -11,7 +11,29 @@ def test_static_index():
     res = client.get("/")
     assert res.status_code == 200
     assert "FORGE" in res.text
-    assert "Discovery" in res.text
+    assert 'id="view-home"' in res.text
+    assert 'data-go="discovery"' in res.text
+    assert 'data-go="competition"' in res.text
+    assert 'data-go="stars"' in res.text
+    assert 'data-feature="recommendations"' in res.text
+    assert 'data-feature="workflow"' in res.text
+    assert 'id="btn-universal-back"' in res.text
+    assert "Star projects" in res.text
+    assert "/css/forge.css" in res.text
+    assert "/js/app.js" in res.text
+
+
+def test_static_frontend_assets_use_the_black_and_orange_theme():
+    css = client.get("/css/forge.css")
+    js = client.get("/js/app.js")
+
+    assert css.status_code == 200
+    assert "--bg-space-dark: #05060A" in css.text
+    assert "--primary-orange: #FF7A1A" in css.text
+    assert js.status_code == 200
+    assert "DOMContentLoaded" in js.text
+    assert "function goBack()" in js.text
+    assert "stageHistory.pop()" in js.text
 
 
 def test_get_state():

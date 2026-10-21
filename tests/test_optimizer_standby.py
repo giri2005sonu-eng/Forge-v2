@@ -40,7 +40,7 @@ def test_standby_fix_staging_and_commit():
     assert S["opt_kept"] == {}
     assert pid in S["opt_standby_fixes"]
 
-    # Step 3: Streamlit rerun: Candidate is re-evaluated with standby fix
+    # Step 3: The candidate is re-evaluated with the standby fix
     proposed2 = opt.replace(base, role, nano)
     staged_fixes = S["opt_standby_fixes"].get(pid, {})
     changed_roles = {role}

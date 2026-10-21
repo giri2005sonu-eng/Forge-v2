@@ -160,7 +160,7 @@ def parts_map(plan):
 def source_all(parts, live, log=print, gemini_max=None, skip_done=False, workers=None):
     """Give every component to TinyFish (Search + Fetch + quote-checked price). One failure never stops the rest.
     Parts are looked up a few at a time (FORGE_SOURCE_WORKERS, default 4) and every call has a time limit, so a slow or unreachable
-    TinyFish can no longer freeze the screen. `log` is only ever called from the calling thread (Streamlit requires that).
+    TinyFish calls run in parallel while log updates stay on the calling thread.
     gemini_max: Gemini price-reading backups per part (None = env default, 0 = never). skip_done: keep parts that already have offers."""
     todo = [p for p in parts if not (skip_done and live.get(p["id"]))]
     if not todo:

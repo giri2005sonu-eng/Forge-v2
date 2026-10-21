@@ -1,6 +1,6 @@
 """Procurement bill: per-part vendor choice (cheapest verified listing by default), totals, on-screen invoice and PDF.
 
-Pure functions only (no Streamlit), so everything here is testable offline.
+Pure functions only, so everything here is testable offline.
 Prices come from verified live offers (quote found on the page) or, failing that, the seed estimate. Nothing is invented:
 no tax, shipping or discount is added, because shop pages decide those at checkout.
 """
