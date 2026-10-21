@@ -117,6 +117,10 @@ body {
   border-bottom: 1px solid var(--card-border);
 }
 
+#btn-universal-back[hidden] {
+  display: none;
+}
+
 .fg-header-actions {
   display: flex;
   align-items: center;

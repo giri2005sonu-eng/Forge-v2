@@ -21,6 +21,9 @@ def test_static_index():
     assert 'data-feature="recommendations"' in res.text
     assert 'data-feature="workflow"' in res.text
     assert 'id="btn-universal-back"' in res.text
+    assert 'class="fg-copilot-badge"' not in res.text
+    assert 'class="fg-header-subtitle"' not in res.text
+    assert 'class="fg-header-tagline"' not in res.text
     assert 'id="project-optimizer-card"' in res.text
     assert 'id="btn-evaluate-swap"' in res.text
     assert "Star projects" in res.text
