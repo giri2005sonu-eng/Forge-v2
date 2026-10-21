@@ -367,7 +367,7 @@ def select_star_project_goal(profile, exclude_keys=()):
         goal_key, goal_steps, _ = max(
             reachable, key=lambda item: (item[2], -len(item[1]), item[0])
         )
-        eligible = True
+        eligible = not goal_steps
     else:
         goal_key, goal_steps, _ = min(
             remaining or candidates,

@@ -758,8 +758,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const steps = goal.step_labels || goal.steps || [];
     const pathMessage = steps.length
-      ? `Complete ${steps.length} more prerequisite project${steps.length === 1 ? '' : 's'} first. After that, ${goal.label} can be recommended as your Star Project goal.`
-      : `You have no prerequisite projects left to complete. ${goal.label} can be recommended as your Star Project goal now.`;
+      ? `Build ${steps.length} more prerequisite project${steps.length === 1 ? '' : 's'} before ${goal.label} is ready to start as your Star Project goal.`
+      : `Your listed prerequisites are complete. ${goal.label} is ready to start as your Star Project goal.`;
     const priceLabel = goal.price_status === 'pending_verification'
       ? 'Price pending verification'
       : 'Rough estimate; not a quote';

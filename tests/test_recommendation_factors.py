@@ -249,6 +249,27 @@ def test_prerequisite_graph_orders_chains_and_reports_unlocks():
     assert graph.unlocks("base") == ["middle"]
 
 
+def test_star_goal_requires_catalog_prerequisites_before_ready():
+    from core.recommendation_catalog import STAR_KEYS
+    from core.picker import select_star_project_goal
+    from core.prereqs import GRAPH
+
+    buildroot_steps = GRAPH.unmet_chain("buildroot_linux_driver", set())
+    assert buildroot_steps == ["freertos_multitask_hub", "stm32_bringup"]
+
+    goal = select_star_project_goal({"career": ["embedded"], "interests": ["embedded"]})
+    assert goal["steps"]
+    assert not goal["eligible"]
+
+    completed_goal = select_star_project_goal(
+        {"completed_project_ids": buildroot_steps},
+        exclude_keys=STAR_KEYS - {"buildroot_linux_driver"},
+    )
+    assert completed_goal["key"] == "buildroot_linux_driver"
+    assert completed_goal["eligible"]
+    assert completed_goal["steps"] == []
+
+
 def test_prerequisite_graph_readiness_uses_partial_skill_coverage():
     from core.prereqs import PrerequisiteGraph
 
