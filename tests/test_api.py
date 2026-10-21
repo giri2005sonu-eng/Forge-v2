@@ -94,6 +94,9 @@ def test_survey_rank():
         assert "score" in first
         assert "chart_svg" in first
         assert "<svg" in first["chart_svg"]
+        assert "SCAN 12 AXES" in first["chart_svg"]
+        assert len(first["fit_breakdown"]) == 12
+        assert all("fit_score" in factor for factor in first["fit_breakdown"])
 
 
 def test_project_search_and_recommendation_feedback(tmp_path, monkeypatch):
@@ -165,6 +168,8 @@ def test_survey_rank_v2_response(monkeypatch):
     assert "score" not in first
     assert set(first["breakdown"]) == {"interest", "level", "feasibility", "impact"}
     assert "goal" in data
+    assert "SCAN 12 AXES" in first["chart_svg"]
+    assert len(first["fit_breakdown"]) == 12
 
 
 def test_idea_match():

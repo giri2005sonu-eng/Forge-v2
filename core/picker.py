@@ -458,6 +458,13 @@ QUESTIONS = [
 AXES = [("Difficulty", "difficulty"), ("Electronics", "electronics"), ("Programming", "programming"),
     ("Fabrication", "fabrication"), ("Control math", "control_math"), ("AI / vision", "ai_vision"),
     ("Wireless / IoT", "wireless_iot"), ("Portfolio impact", "portfolio_impact")]
+RADAR_AXES = [
+    *AXES,
+    ("Build hours", "build_hours"),
+    ("Budget fit", "cost_inr"),
+    ("Parts availability", "parts_availability_india"),
+    ("Tools fit", "tools_required"),
+]
 OPTION_MAP = {key: options for key, _, options in QUESTIONS if options}
 
 
@@ -701,10 +708,11 @@ def _tone(v):
     return ("#34D399", "#059669") if v >= 70 else ("#FBBF24", "#B45309") if v >= 45 else ("#FB7185", "#BE123C")
 
 
-def chart_html(f, overall=None, title="FIT PROFILE"):
+def chart_html(f, overall=None, title="FIT PROFILE", axes=None):
     """Radial 'scanner' chart. One wedge per attribute built from 10 glowing segments (each lit segment = 10% fit), a dashed radar outline across
     the wedges, a rotating scan line and HUD text. f = {axis key: 0-100}. Pure SVG + CSS (no external files); animations respect reduced-motion."""
-    C, R0, R1, SEG, n = 230, 50, 170, 10, len(AXES)
+    axes = axes or AXES
+    C, R0, R1, SEG, n = 230, 50, 170, 10, len(axes)
     span, gap, th = 2 * math.pi / n, math.radians(3.5), (R1 - R0) / SEG
     s = (f'<svg viewBox="-110 0 680 460" width="100%" role="img" aria-label="{title}"><defs>'
          '<filter id="gl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
@@ -718,7 +726,7 @@ def chart_html(f, overall=None, title="FIT PROFILE"):
         s += (f'<line x1="{C + (R1 + 10) * math.cos(a):.1f}" y1="{C + (R1 + 10) * math.sin(a):.1f}" x2="{C + (R1 + 10 + ln) * math.cos(a):.1f}" '
               f'y2="{C + (R1 + 10 + ln) * math.sin(a):.1f}" stroke="{"#06B6D4" if d % 30 == 0 else "#1E2A4A"}" stroke-width="1"/>')
     pts, lab = [], ""
-    for i, (name, k) in enumerate(AXES):
+    for i, (name, k) in enumerate(axes):
         v = f[k]; a0 = -math.pi / 2 + i * span - span / 2 + gap / 2; a1 = a0 + span - gap; am = (a0 + a1) / 2
         lit, (c1, c2) = round(v / 100 * SEG), _tone(v)
         s += '<g class="ax">'
@@ -739,7 +747,7 @@ def chart_html(f, overall=None, title="FIT PROFILE"):
     sx, sy = C + (R1 + 10) * math.sin(math.radians(28)), C - (R1 + 10) * math.cos(math.radians(28))
     s += (f'<g class="sweep"><path d="M{C} {C} L{C} {C - R1 - 10} A{R1 + 10} {R1 + 10} 0 0 1 {sx:.1f} {sy:.1f}Z" fill="url(#sw)"/>'
           f'<line x1="{C}" y1="{C}" x2="{C}" y2="{C - R1 - 10}" stroke="#67E8F9" stroke-width="1.2" opacity=".7"/></g>')
-    mid = overall if overall is not None else round(sum(f[k] for _, k in AXES) / n)
+    mid = overall if overall is not None else round(sum(f[k] for _, k in axes) / n)
     s += (f'<circle cx="{C}" cy="{C}" r="{R0 - 8}" fill="url(#core)" stroke="#06B6D4" stroke-width="1.2" filter="url(#gl)"/>'
           f'<text x="{C}" y="{C + 4}" text-anchor="middle" class="big">{mid}</text><text x="{C}" y="{C + 17}" text-anchor="middle" class="sm">MATCH</text>'
           f'{lab}<text x="-100" y="18" class="hud">// {title}</text><text x="-100" y="31" class="hud dim">SCAN {n} AXES · OK</text>'

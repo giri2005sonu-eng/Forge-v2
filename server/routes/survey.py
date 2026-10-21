@@ -27,6 +27,37 @@ FEEDBACK_PATH = Path(__file__).resolve().parents[2] / "core" / "project_data" / 
 FEEDBACK_LOCK = threading.Lock()
 
 
+def _factor_chart_payload(project_key, profile, overall):
+    meta = PROJECT_FACTOR_CATALOG[project_key]
+    fit = picker.factor_breakdown(project_key, profile)
+    chart_svg = picker.chart_html(
+        fit,
+        overall=round(overall * 100) if overall <= 1 else overall,
+        title="12-FACTOR FIT PROFILE",
+        axes=picker.RADAR_AXES,
+    )
+    themed_svg = (
+        chart_svg
+        .replace("#06B6D4", "#FF7A1A")
+        .replace("#67E8F9", "#FFB347")
+        .replace("#4C1D95", "#832407")
+        .replace("#0A0F1E", "#0B0D14")
+        .replace("#1E2A4A", "rgba(255,255,255,0.12)")
+        .replace("#111A30", "#161922")
+    )
+    rated_keys = {key for _, key in picker.AXES}
+    fit_breakdown = [
+        {
+            "factor": label,
+            "rating": f"{meta.get(key, 3)}/5" if key in rated_keys else "—",
+            "fit": f"{fit[key]}%",
+            "fit_score": fit[key],
+        }
+        for label, key in picker.RADAR_AXES
+    ]
+    return {"fit_breakdown": fit_breakdown, "chart_svg": themed_svg}
+
+
 @router.get("/questions")
 def get_questions():
     """Return the 9-question survey structure."""
@@ -96,6 +127,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
         for item in ranked["results"]:
             proj = PROJECT_CATALOG[item.key]
             meta = PROJECT_FACTOR_CATALOG[item.key]
+            factor_payload = _factor_chart_payload(item.key, profile, item.final)
             results.append({
                 "key": item.key,
                 "label": proj.get("label", item.key),
@@ -124,6 +156,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
                 "debug_score": item.final,
                 "bom_supported": proj.get("bom_supported", False),
                 "is_star": item.is_star,
+                **factor_payload,
             })
 
         goal = ranked["goal"]
@@ -159,18 +192,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
     for key, score in ranked:
         proj = PROJECT_CATALOG.get(key, {})
         meta = PROJECT_FACTOR_CATALOG.get(key, {})
-        fit = picker.factor_breakdown(key, profile)
-        chart_svg = picker.chart_html(fit, overall=score, title="FIT PROFILE")
-        # Map chart SVG colors to galaxy orange/amber palette
-        theme_svg = (
-            chart_svg
-            .replace("#06B6D4", "#FF7A1A")
-            .replace("#67E8F9", "#FFB347")
-            .replace("#4C1D95", "#832407")
-            .replace("#0A0F1E", "#0B0D14")
-            .replace("#1E2A4A", "rgba(255,255,255,0.12)")
-            .replace("#111A30", "#161922")
-        )
+        factor_payload = _factor_chart_payload(key, profile, score)
 
         results.append({
             "key": key,
@@ -188,8 +210,7 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
             "safety": sorted(meta.get("safety", [])) if meta.get("safety") else [],
             "constraints": meta.get("constraints", ""),
             "competition_event": meta.get("competition_event", ""),
-            "fit_breakdown": [{"factor": label, "rating": f"{meta.get(k, 3)}/5", "fit": f"{fit.get(k, 0)}%"} for label, k in picker.AXES],
-            "chart_svg": theme_svg,
+            **factor_payload,
         })
 
     excluded = []

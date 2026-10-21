@@ -174,14 +174,21 @@
               <div id="detail-learn-skills" class="recommendation-chips"></div>
               <h4 style="margin-top:14px;">Projects this can unlock</h4>
               <div id="detail-unlocks" class="recommendation-chips"></div>
-              <h4 style="margin-top:14px;">Score factors</h4>
-              <div id="detail-score-factors" class="score-factor-bars"></div>
+              <h4 style="margin-top:14px;">12-factor match ranking</h4>
+              <div class="factor-ranking-table-wrap">
+                <table class="fg-t" id="detail-fit-table">
+                  <thead><tr><th>Rank</th><th>Factor</th><th>Fit</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
               <p id="detail-flags" class="caption"></p>
               <div style="margin-top:14px;">
                 <button class="btn primary" id="btn-build-bom-for-pick">⚡ Build the BOM for this project</button>
               </div>
             </div>
             <div class="card" id="detail-card-right">
+              <h4>12-factor radial fit</h4>
+              <div id="detail-radar-chart" class="recommendation-radar"></div>
               <div id="star-goal-card"></div>
             </div>
           </div>

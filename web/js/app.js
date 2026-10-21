@@ -801,21 +801,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       .map(key => `<span class="recommendation-chip">${escapeHtml(key.replaceAll('_', ' '))}</span>`).join('')
       || '<span class="caption">No specific next projects are listed.</span>';
 
-    const factorLabels = [
-      ['interest', 'Interest'],
-      ['level', 'Level fit'],
-      ['feasibility', 'Feasibility'],
-      ['impact', 'Role impact']
-    ];
-    const factorBars = document.getElementById('detail-score-factors');
-    if (item.breakdown) {
-      factorBars.innerHTML = factorLabels.map(([key, label]) => {
-        const value = Math.max(0, Math.min(1, Number(item.breakdown[key]) || 0));
-        return `<div class="score-factor-row"><span>${label}</span><div class="score-factor-track" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="1" aria-valuenow="${value}"><div class="score-factor-fill" style="width:${value * 100}%"></div></div></div>`;
-      }).join('');
-    } else {
-      factorBars.innerHTML = '<p class="caption">Component explanations are available for the v2 scorer.</p>';
-    }
+    const factorRows = [...(item.fit_breakdown || [])]
+      .sort((left, right) => (right.fit_score ?? 0) - (left.fit_score ?? 0));
+    const factorTableBody = document.querySelector('#detail-fit-table tbody');
+    factorTableBody.replaceChildren();
+    factorRows.forEach((row, index) => {
+      const tableRow = document.createElement('tr');
+      [String(index + 1), row.factor, row.fit].forEach(value => {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        tableRow.appendChild(cell);
+      });
+      factorTableBody.appendChild(tableRow);
+    });
+    document.getElementById('detail-radar-chart').innerHTML = item.chart_svg || '';
     const flagLabels = {
       cost_unverified: 'Cost has not been verified',
       slightly_over_budget: 'Slightly above the stated budget',
