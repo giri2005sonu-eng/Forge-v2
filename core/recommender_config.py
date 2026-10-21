@@ -53,3 +53,11 @@ STAR_DO_NOW_READINESS_MIN = 0.8
 STAR_DO_NOW_LEVEL_MIN = 0.9
 STAR_GOAL_MAX_UNMET_STEPS = 2
 GREAT_FIT_LEVEL_MIN = 0.9
+MIN_COMPLETENESS = 0.4
+PROFILE_COMPLETENESS_WEIGHTS = {
+    "focus": 0.25,
+    "experience": 0.25,
+    "budget": 0.2,
+    "tools": 0.15,
+    "schedule": 0.15,
+}

@@ -40,6 +40,8 @@ from .recommender_config import (
     MMR_FACTOR_WEIGHT,
     MMR_LAMBDA,
     MMR_SKILL_WEIGHT,
+    MIN_COMPLETENESS,
+    PROFILE_COMPLETENESS_WEIGHTS,
     STAR_DO_NOW_LEVEL_MIN,
     STAR_DO_NOW_READINESS_MIN,
     STAR_GOAL_MAX_UNMET_STEPS,
@@ -120,6 +122,40 @@ def build_recommender_context(profile):
         "schedule": profile.get("schedule") or {},
         "profile": profile,
     }
+
+
+def profile_completeness(profile):
+    """Return weighted profile completeness and the groups still missing."""
+    resume = profile.get("resume") or {}
+    checks = {
+        "focus": bool(profile.get("career") or profile.get("interests")),
+        "experience": bool(
+            profile.get("experience")
+            or resume.get("skills")
+            or profile.get("completed_project_ids")
+        ),
+        "budget": profile.get("budget_inr") is not None,
+        "tools": bool(profile.get("tools")),
+        "schedule": bool(
+            (profile.get("schedule") or {}).get("hours_per_week")
+            and (profile.get("schedule") or {}).get("deadline_weeks")
+        ),
+    }
+    total = sum(PROFILE_COMPLETENESS_WEIGHTS.values())
+    score = sum(
+        PROFILE_COMPLETENESS_WEIGHTS[key]
+        for key, is_present in checks.items()
+        if is_present
+    ) / total
+    labels = {
+        "focus": "career direction or interests",
+        "experience": "experience, resume skills, or completed projects",
+        "budget": "budget",
+        "tools": "available tools",
+        "schedule": "weekly hours and deadline",
+    }
+    missing = [labels[key] for key, is_present in checks.items() if not is_present]
+    return score, missing
 
 
 def _effective_difficulty(project, ctx):
@@ -312,6 +348,14 @@ def _mmr_select(candidates, limit=MAX_DO_NOW_PICKS):
 
 def rank_factor_projects_v2(profile, limit=MAX_DO_NOW_PICKS):
     """Return readiness-gated do-now picks and one unconstrained Star Project goal."""
+    completeness, missing = profile_completeness(profile)
+    if completeness < MIN_COMPLETENESS:
+        return {
+            "results": [],
+            "goal": None,
+            "needs_more_info": True,
+            "missing": missing,
+        }
     ctx = build_recommender_context(profile)
     done, user_skills = ctx["done"], ctx["user_skills"]
     scored = []
@@ -396,6 +440,8 @@ def rank_factor_projects_v2(profile, limit=MAX_DO_NOW_PICKS):
     return {
         "results": selected,
         "goal": {"key": goal_key, "steps": goal_steps, "eligible": goal_eligible},
+        "needs_more_info": False,
+        "missing": missing,
     }
 
 QUESTIONS = [

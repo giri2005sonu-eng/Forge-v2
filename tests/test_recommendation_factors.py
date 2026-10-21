@@ -315,6 +315,30 @@ def test_v2_selection_caps_results_and_blocks_unready_projects():
     )
 
 
+def test_profile_completeness_cold_start_requires_minimum_context():
+    from core.picker import profile_completeness, rank_factor_projects_v2
+
+    score, missing = profile_completeness({})
+    result = rank_factor_projects_v2({})
+    assert score == 0
+    assert "career direction or interests" in missing
+    assert result["needs_more_info"]
+    assert result["results"] == []
+    assert result["goal"] is None
+
+
+def test_profile_completeness_accepts_focus_and_experience():
+    from core.picker import profile_completeness
+
+    score, missing = profile_completeness({
+        "interests": ["embedded"],
+        "experience": ["sensor_read"],
+    })
+    assert score >= 0.4
+    assert "career direction or interests" not in missing
+    assert "experience, resume skills, or completed projects" not in missing
+
+
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():
     source = "Read a sensor in C and soldered a small board."
     result = resume.validate_factors(source, {
