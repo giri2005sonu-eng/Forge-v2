@@ -38,6 +38,9 @@ app.add_middleware(
 )
 
 
+from starlette.datastructures import MutableHeaders
+
+
 @app.middleware("http")
 async def session_cookie_middleware(request: Request, call_next):
     session_id = request.cookies.get("forge_session")
@@ -45,6 +48,9 @@ async def session_cookie_middleware(request: Request, call_next):
     if not session_id:
         session_id = uuid.uuid4().hex
         new_session = True
+        headers = MutableHeaders(scope=request.scope)
+        existing_cookie = headers.get("cookie", "")
+        headers["cookie"] = f"forge_session={session_id}; {existing_cookie}" if existing_cookie else f"forge_session={session_id}"
 
     # Ensure session exists in store
     store.get_or_create(session_id)

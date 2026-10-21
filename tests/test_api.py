@@ -430,3 +430,55 @@ def test_project_optimizer_requires_a_bom_and_rejects_wrong_role():
         isolated_client.post("/api/bom/generate", json={"project": "general:line_follower"})
         wrong_role = isolated_client.get("/api/optimizer/candidates?role=not-a-component")
         assert wrong_role.status_code == 404
+
+
+def test_project_optimizer_auto_resolve_flow():
+    with TestClient(app) as test_client:
+        # Generate build with Bluetooth requirement
+        bom_res = test_client.post("/api/bom/generate", json={"project": "general:line_follower", "bluetooth": True})
+        assert bom_res.status_code == 200
+
+        # Evaluate swap controller to Arduino Nano
+        eval_res1 = test_client.post("/api/optimizer/evaluate", json={
+            "role": "controller",
+            "swap_part_id": "ctrl_nano",
+        })
+        assert eval_res1.status_code == 200
+        data1 = eval_res1.json()
+        assert data1["summary"]["ready"] is False
+        assert data1["summary"]["fail"] > 0
+
+        # Check failing rule and auto-resolve actions
+        failed_rules = [r for r in data1["evaluation"]["compat_proposed"] if r["status"] == "FAIL"]
+        bt_fail = next((r for r in failed_rules if r["rule_id"] == "bluetooth"), None)
+        assert bt_fail is not None
+        assert "auto_fixes" in bt_fail
+        fix_ids = [f["id"] for f in bt_fail["auto_fixes"]]
+        assert "add_hc05_bluetooth" in fix_ids
+
+        # Evaluate swap with staged 1-click auto-resolve action
+        eval_res2 = test_client.post("/api/optimizer/evaluate", json={
+            "role": "controller",
+            "swap_part_id": "ctrl_nano",
+            "staged_fixes": ["add_hc05_bluetooth"]
+        })
+        assert eval_res2.status_code == 200
+        data2 = eval_res2.json()
+        assert data2["summary"]["ready"] is True
+        assert data2["summary"]["fail"] == 0
+        assert len(data2["evaluation"]["resolved_failures"]) > 0
+
+        # Apply swap with staged auto-resolve fix
+        apply_res = test_client.post("/api/optimizer/apply", json={
+            "role": "controller",
+            "swap_part_id": "ctrl_nano",
+            "staged_fixes": ["add_hc05_bluetooth"]
+        })
+        assert apply_res.status_code == 200
+
+        # Verify active BOM now has Arduino Nano and HC-05
+        bom_updated = test_client.get("/api/bom").json()
+        part_names = [p["name"] for p in bom_updated["parts"].values()]
+        assert "Arduino Nano" in part_names
+        assert "HC-05 Bluetooth Serial Module" in part_names
+

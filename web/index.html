@@ -337,12 +337,19 @@
 
         <!-- Delivery Optimizer Panel -->
         <div class="card" id="delivery-optimizer-card" style="margin-top:1.5rem;">
-          <h4>Multi-Store Delivery Optimizer</h4>
-          <p class="caption">Compare cheapest part-by-part splitting vs consolidated single-store ordering.</p>
-          <div class="grid-3" id="delivery-strategies-grid" style="margin-top:12px;"></div>
-          <div style="margin-top:12px;text-align:right;">
-            <a id="btn-download-cart-csv" class="btn" href="/api/delivery/cart-csv" target="_blank">Download Cart CSV</a>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h4 style="margin:0;display:flex;align-items:center;gap:8px;">🚚 Multi-Store Cart &amp; Delivery Optimizer</h4>
+              <p class="caption" style="margin:4px 0 0 0;">Compare cheapest part-by-part splitting vs consolidated single-store ordering &amp; package lineups.</p>
+            </div>
+            <div id="delivery-cart-actions" class="delivery-actions-bar">
+              <a id="btn-download-cart-csv" class="btn" href="/api/delivery/cart-csv" target="_blank" title="Download standardized cart spreadsheet">📥 Download Cart CSV</a>
+              <button id="btn-open-all-links" class="btn btn-open-tabs" type="button" title="Open all verified store URLs in tabs">🚀 Open All Store Tabs</button>
+            </div>
           </div>
+          <div class="grid-3" id="delivery-strategies-grid" style="margin-top:14px;"></div>
+          <div id="delivery-packages-section" style="margin-top:1.25rem;"></div>
+          <div id="delivery-links-section" style="margin-top:0.75rem;"></div>
         </div>
 
         <!-- Hardware Wiring & Starter Firmware Studio -->
@@ -396,27 +403,13 @@
           </div>
         </div>
 
-        <!-- Invoice Bill Table Sheet -->
-        <div class="fg-sheet" style="margin-top:1.5rem;">
-          <div class="fg-head">
-            <div class="fg-brand">FORGE INVOICE &amp; BILL</div>
-            <div class="caption" id="bill-ref-label">REF: FG-000000</div>
-          </div>
-          <div class="fg-meta">
-            <span>Project: <b id="bill-meta-project">Line Follower</b></span>
-            <span>Date: <b id="bill-meta-date">Today</b></span>
-          </div>
-          <table class="fg-t" id="bill-table-view">
-            <thead>
-              <tr><th>Item</th><th>Role</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem;">
-            <a class="btn primary" href="/api/bom/bill.pdf" target="_blank">Download bill as PDF</a>
-            <a class="btn" href="/api/bom/ledger.csv" target="_blank">Download evidence ledger (CSV)</a>
-          </div>
+        <!-- Professional Invoice & Bill of Materials Sheet -->
+        <div id="bill-invoice-container" style="margin-top:1.5rem;"></div>
+        <div class="bill-download-actions" style="display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem;gap:12px;flex-wrap:wrap;">
+          <a class="btn primary" href="/api/bom/bill.pdf" target="_blank">Download bill as PDF</a>
+          <a class="btn" href="/api/bom/ledger.csv" target="_blank">Download evidence ledger (CSV)</a>
         </div>
+        <div id="evidence-ledger-container" style="margin-top:1rem;"></div>
       </section>
     </main>
   </div>

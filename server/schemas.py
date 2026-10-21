@@ -64,6 +64,8 @@ class DeliveryOptimizeRequest(BaseModel):
 class OptimizerSwapRequest(BaseModel):
     role: str
     swap_part_id: str
+    staged_fixes: Optional[List[str]] = None
+
 
 
 class GuidesResearchRequest(BaseModel):

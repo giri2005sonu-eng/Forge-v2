@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     optimizerEvaluation: null,
     optimizerNotice: '',
     optimizerLoadId: 0,
+    optimizerStagedFixes: new Set(),
+    optimizerViewMode: 'cards',
     wiringData: null
   };
   const stageHistory = [];
@@ -277,6 +279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.optimizerRole = event.target.value;
     state.optimizerEvaluation = null;
     state.optimizerNotice = '';
+    state.optimizerStagedFixes.clear();
     document.getElementById('optimizer-result').hidden = true;
     document.getElementById('optimizer-actions').hidden = true;
     await loadOptimizerCandidates();
@@ -285,6 +288,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.optimizerCandidate = event.target.value;
     state.optimizerEvaluation = null;
     state.optimizerNotice = '';
+    state.optimizerStagedFixes.clear();
     document.getElementById('optimizer-result').hidden = true;
     document.getElementById('optimizer-actions').hidden = true;
   });
@@ -295,8 +299,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const button = document.getElementById('btn-keep-swap');
     button.disabled = true;
     try {
-      await api.applySwap(state.optimizerRole, state.optimizerCandidate);
+      const stagedList = Array.from(state.optimizerStagedFixes || []);
+      await api.applySwap(state.optimizerRole, state.optimizerCandidate, stagedList);
       state.optimizerNotice = 'Replacement applied. The BOM, bill, wiring, and compatibility data now use the updated build.';
+      state.optimizerStagedFixes.clear();
       renderBomView(await api.getBom());
     } catch (err) {
       state.optimizerNotice = '';
@@ -312,6 +318,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await api.resetSwaps();
       state.optimizerNotice = 'All optimizer replacements were undone.';
+      state.optimizerStagedFixes.clear();
       renderBomView(await api.getBom());
     } catch (err) {
       state.optimizerNotice = '';
@@ -384,7 +391,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.optimizerNotice = '';
     document.getElementById('optimizer-message').textContent = 'Calculating component and system impact…';
     try {
-      state.optimizerEvaluation = await api.evaluateSwap(state.optimizerRole, state.optimizerCandidate);
+      const stagedList = Array.from(state.optimizerStagedFixes || []);
+      state.optimizerEvaluation = await api.evaluateSwap(state.optimizerRole, state.optimizerCandidate, stagedList);
       renderOptimizerEvaluation(state.optimizerEvaluation);
     } catch (err) {
       document.getElementById('optimizer-message').textContent = `Could not compare this replacement: ${err.message}`;
@@ -402,14 +410,151 @@ document.addEventListener('DOMContentLoaded', async () => {
     const summary = payload.summary || {};
     result.replaceChildren();
 
+    // 1. Comparison Header
+    const currentPart = state.activeBom?.parts?.[state.optimizerRole];
+    const currentName = currentPart?.name || state.optimizerRole;
+    const candSelect = document.getElementById('optimizer-part-select');
+    const candName = candSelect?.selectedOptions?.[0]?.text?.split('·')?.[0]?.trim() || state.optimizerCandidate;
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'optimizer-eval-header';
+    headerDiv.innerHTML = `<h4>${escapeHtml(currentName)} &rarr; ${escapeHtml(candName)}</h4>`;
+    result.appendChild(headerDiv);
+
+    // 2. Status Badge & Counts Row
+    const badgeRow = document.createElement('div');
+    badgeRow.className = 'optimizer-badge-row';
+    const isReady = Boolean(summary.ready);
+    const badgeStatus = !isReady ? 'FAIL' : (summary.warn > 0 || summary.unknown > 0 ? 'WARN' : 'PASS');
+    const badgeLabel = !isReady ? 'INCOMPATIBLE' : (summary.warn > 0 || summary.unknown > 0 ? 'CAUTION' : 'COMPATIBLE');
+    badgeRow.innerHTML = `
+      <span class="b ${badgeStatus}">${badgeLabel}</span>
+      <span class="caption text-muted" style="margin-left: 8px;">${summary.fail || 0} fail &middot; ${summary.warn || 0} warning &middot; ${summary.unknown || 0} unknown &middot; ${summary.passed || 0} pass</span>
+    `;
+    result.appendChild(badgeRow);
+
+    // 3. Status Alert Banner
     const status = document.createElement('div');
-    status.className = `alert ${summary.ready ? 'success' : 'warn'}`;
-    status.textContent = summary.ready
+    status.className = `alert ${isReady ? 'success' : 'error'}`;
+    status.textContent = isReady
       ? `Proposed build has no failed compatibility rules (${summary.warn || 0} warnings, ${summary.unknown || 0} unknown).`
-      : `Proposed build has ${summary.fail || 0} failed compatibility rule(s). Review the results before applying.`;
+      : 'This is NOT a ready to build configuration: a compatibility rule fails. You can still inspect the numbers below.';
     result.appendChild(status);
 
+    // 4. Failure Details & 1-Click Auto-Resolve Actions
+    const failedRules = (evaluation.compat_proposed || []).filter(r => r.status === 'FAIL');
+    const resolvedRules = evaluation.resolved_failures || [];
+
+    if (failedRules.length > 0 || resolvedRules.length > 0) {
+      const details = document.createElement('details');
+      details.className = 'optimizer-failure-details';
+      details.open = true;
+
+      const summaryElem = document.createElement('summary');
+      summaryElem.className = 'optimizer-failure-summary';
+      summaryElem.textContent = 'Why did this build fail? (Click to view failure details)';
+      details.appendChild(summaryElem);
+
+      failedRules.forEach(rule => {
+        const item = document.createElement('div');
+        item.className = 'optimizer-failure-item';
+        item.innerHTML = `
+          <div class="failure-title">❌ <b>${escapeHtml(rule.title)}</b> ( <span class="text-secondary">${escapeHtml(rule.components || '')}</span> )</div>
+          <div class="failure-reason"><b>Reason:</b> ${escapeHtml(rule.explanation || 'Rule check failed.')}</div>
+          ${rule.action ? `<div class="failure-fix">💡 <b>Suggested Fix:</b> ${escapeHtml(rule.action)}</div>` : ''}
+        `;
+
+        if (rule.auto_fixes && rule.auto_fixes.length > 0) {
+          const autoResolveDiv = document.createElement('div');
+          autoResolveDiv.className = 'auto-resolve-section';
+          autoResolveDiv.innerHTML = `<div class="auto-resolve-heading">🛠️ <b>1-Click Auto-Resolve Actions:</b></div>`;
+          const btnRow = document.createElement('div');
+          btnRow.className = 'auto-resolve-buttons';
+
+          rule.auto_fixes.forEach(fix => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const isStaged = state.optimizerStagedFixes.has(fix.id);
+            btn.className = `btn auto-resolve-btn ${isStaged ? 'staged' : ''}`;
+            btn.innerHTML = `${isStaged ? '✓ ' + escapeHtml(fix.label) + ' (Staged)' : (fix.icon ? fix.icon + ' ' : '') + escapeHtml(fix.label)}`;
+            btn.title = fix.description || '';
+            btn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (state.optimizerStagedFixes.has(fix.id)) {
+                state.optimizerStagedFixes.delete(fix.id);
+              } else {
+                state.optimizerStagedFixes.add(fix.id);
+              }
+              await evaluateOptimizerSwap();
+            });
+            btnRow.appendChild(btn);
+          });
+          autoResolveDiv.appendChild(btnRow);
+          item.appendChild(autoResolveDiv);
+        }
+        details.appendChild(item);
+      });
+
+      resolvedRules.forEach(rule => {
+        const item = document.createElement('div');
+        item.className = 'optimizer-failure-item resolved';
+        item.innerHTML = `
+          <div class="failure-title">✅ <b>${escapeHtml(rule.title)}</b> ( <span class="text-secondary">${escapeHtml(rule.components || '')}</span> ) <span class="b PASS">Resolved</span></div>
+          <div class="failure-reason"><b>Status:</b> Issue resolved by staged auto-fix.</div>
+        `;
+
+        if (rule.auto_fixes && rule.auto_fixes.length > 0) {
+          const autoResolveDiv = document.createElement('div');
+          autoResolveDiv.className = 'auto-resolve-section';
+          autoResolveDiv.innerHTML = `<div class="auto-resolve-heading">🛠️ <b>1-Click Auto-Resolve Actions:</b></div>`;
+          const btnRow = document.createElement('div');
+          btnRow.className = 'auto-resolve-buttons';
+
+          rule.auto_fixes.forEach(fix => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const isStaged = state.optimizerStagedFixes.has(fix.id);
+            btn.className = `btn auto-resolve-btn ${isStaged ? 'staged' : ''}`;
+            btn.innerHTML = `${isStaged ? '✓ ' + escapeHtml(fix.label) + ' (Staged)' : (fix.icon ? fix.icon + ' ' : '') + escapeHtml(fix.label)}`;
+            btn.title = fix.description || '';
+            btn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (state.optimizerStagedFixes.has(fix.id)) {
+                state.optimizerStagedFixes.delete(fix.id);
+              } else {
+                state.optimizerStagedFixes.add(fix.id);
+              }
+              await evaluateOptimizerSwap();
+            });
+            btnRow.appendChild(btn);
+          });
+          autoResolveDiv.appendChild(btnRow);
+          item.appendChild(autoResolveDiv);
+        }
+        details.appendChild(item);
+      });
+
+      result.appendChild(details);
+    }
+
+    // 5. Catalog Corrections
+    if (evaluation.catalog_corrections && evaluation.catalog_corrections.length > 0) {
+      evaluation.catalog_corrections.forEach(c => {
+        const corrDiv = document.createElement('div');
+        corrDiv.className = 'catalog-correction-box';
+        corrDiv.innerHTML = `<span>${escapeHtml(c.message)}</span>`;
+        result.appendChild(corrDiv);
+      });
+    }
+
+    // 6. What Changes (Chips)
     if (evaluation.chips?.length) {
+      const whatChangesTitle = document.createElement('div');
+      whatChangesTitle.className = 'optimizer-section-heading';
+      whatChangesTitle.innerHTML = '<b>What changes</b>';
+      result.appendChild(whatChangesTitle);
+
       const chips = document.createElement('div');
       chips.className = 'optimizer-chips';
       evaluation.chips.forEach(item => {
@@ -421,45 +566,218 @@ document.addEventListener('DOMContentLoaded', async () => {
       result.appendChild(chips);
     }
 
+    if (evaluation.data_gaps?.length) {
+      const gapDiv = document.createElement('div');
+      gapDiv.className = 'caption text-muted';
+      gapDiv.style.margin = '0.5rem 0 0.8rem';
+      gapDiv.textContent = `Some figures for ${evaluation.data_gaps.join(', ')} are not available yet, so those rows show what is missing.`;
+      result.appendChild(gapDiv);
+    }
+
+    // 7. System Impact & Metrics (Cards & Table Toggle)
+    const labelMap = {
+      improved: 'Improved',
+      reduced: 'Worse',
+      unchanged: 'Unchanged',
+      incompatible: 'Incompatible',
+      caution: 'Caution',
+      unknown: 'Insufficient data',
+      not_affected: 'Not affected'
+    };
+
+    const qualityMap = {
+      typical: 'Typical data',
+      estimated: 'Estimated',
+      rules: 'Rule check',
+      unavailable: 'No data yet',
+      unverified: 'Unverified',
+      verified: 'Verified live'
+    };
+
+    const formatMetricVal = (row, val) => {
+      if (val === null || val === undefined) return '—';
+      if (row.key === 'bluetooth' || row.key === 'wifi') return val ? 'Yes' : 'No';
+      if (row.key === 'cost' && typeof val === 'number') return `₹${formatPrice(val)}`;
+      if (typeof val === 'number') {
+        const numStr = Number(val).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        return row.unit ? `${numStr} ${row.unit}` : numStr;
+      }
+      return String(val);
+    };
+
+    const formatDiffVal = (row) => {
+      if (row.diff === null || row.diff === undefined) return '—';
+      if (row.key === 'bluetooth' || row.key === 'wifi') {
+        if (row.diff === 0) return 'No change';
+        return row.diff > 0 ? '+ Added' : '- Removed';
+      }
+      let diffStr = '';
+      if (row.key === 'cost') {
+        const sign = row.diff > 0 ? '+' : (row.diff < 0 ? '-' : '');
+        diffStr = `${sign}₹${formatPrice(Math.abs(row.diff))}`;
+      } else {
+        const sign = row.diff > 0 ? '+' : '';
+        const numStr = Number(row.diff).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        diffStr = `${sign}${numStr}${row.unit ? ` ${row.unit}` : ''}`;
+      }
+      if (row.pct != null && row.pct !== undefined) {
+        const pctSign = row.pct > 0 ? '+' : '';
+        diffStr += ` (${pctSign}${Number(row.pct).toFixed(1)}%)`;
+      }
+      return diffStr;
+    };
+
+    const sectionHeader = document.createElement('div');
+    sectionHeader.className = 'optimizer-section-header';
+    sectionHeader.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <h5 style="margin: 0; font-weight: 700; color: var(--text-primary);">System Impact &amp; Metrics</h5>
+        <span class="caption text-muted">(${evaluation.rows?.length || 0} metrics compared)</span>
+      </div>
+      <div class="optimizer-view-toggle">
+        <button type="button" class="view-toggle-btn ${state.optimizerViewMode === 'cards' ? 'active' : ''}" data-mode="cards">🗂️ Cards</button>
+        <button type="button" class="view-toggle-btn ${state.optimizerViewMode === 'table' ? 'active' : ''}" data-mode="table">📊 Table</button>
+      </div>
+    `;
+    result.appendChild(sectionHeader);
+
+    // Cards Container
+    const cardsContainer = document.createElement('div');
+    cardsContainer.className = 'optimizer-metric-cards';
+    cardsContainer.style.display = state.optimizerViewMode === 'cards' ? 'flex' : 'none';
+
+    // Table Container
+    const tableContainer = document.createElement('div');
+    tableContainer.className = 'optimizer-table-container';
+    tableContainer.style.display = state.optimizerViewMode === 'table' ? 'block' : 'none';
+
     const table = document.createElement('table');
     table.className = 'fg-t optimizer-results-table';
-    table.innerHTML = '<thead><tr><th>Impact</th><th>Current</th><th>Proposed</th><th>Change</th><th>Status</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>Impact</th><th>Current</th><th>Proposed</th><th>Difference</th><th>Status</th></tr></thead>';
     const tbody = document.createElement('tbody');
+
     (evaluation.rows || []).forEach(row => {
+      const statusClass = row.status || 'unchanged';
+      const statusText = labelMap[statusClass] || statusClass.toUpperCase();
+      const origText = formatMetricVal(row, row.original);
+      const propText = formatMetricVal(row, row.proposed);
+      const diffText = formatDiffVal(row);
+
+      let diffTone = 'diff-neutral';
+      if (statusClass === 'improved') diffTone = 'diff-good';
+      else if (statusClass === 'reduced') diffTone = 'diff-bad';
+
+      const qualityText = qualityMap[row.quality] || (row.quality && row.quality !== 'n/a' ? row.quality : '');
+
+      // Build Card
+      const card = document.createElement('div');
+      card.className = `optimizer-metric-card ${statusClass}-card`;
+      card.innerHTML = `
+        <div class="metric-card-top">
+          <div class="metric-card-title">
+            <span>${escapeHtml(row.metric)}</span>
+          </div>
+          <span class="pill ${statusClass}">${escapeHtml(statusText)}</span>
+        </div>
+        <div class="metric-card-grid">
+          <div class="metric-card-col">
+            <span class="metric-card-label">Original</span>
+            <span class="metric-card-val">${escapeHtml(origText)}</span>
+          </div>
+          <div class="metric-card-col">
+            <span class="metric-card-label">Proposed</span>
+            <span class="metric-card-val">${escapeHtml(propText)}</span>
+          </div>
+          <div class="metric-card-col">
+            <span class="metric-card-label">Difference</span>
+            <span class="metric-card-val metric-diff ${diffTone}">${escapeHtml(diffText)}</span>
+          </div>
+        </div>
+        <div class="metric-card-footer">
+          <span class="metric-card-reason">${escapeHtml(row.reason || '')}</span>
+          ${qualityText ? `<span class="q-badge" title="Data confidence">${escapeHtml(qualityText)}</span>` : ''}
+        </div>
+      `;
+      cardsContainer.appendChild(card);
+
+      // Build Table Row
       const tr = document.createElement('tr');
-      const changed = row.diff == null ? '—' : `${row.diff > 0 ? '+' : ''}${Number(row.diff).toLocaleString(undefined, { maximumFractionDigits: 2 })}${row.unit ? ` ${row.unit}` : ''}${row.pct == null ? '' : ` (${row.pct > 0 ? '+' : ''}${Number(row.pct).toFixed(1)}%)`}`;
-      const formatValue = value => {
-        if (value == null) return '—';
-        if (row.key === 'cost' && typeof value === 'number') return `₹${formatPrice(value)}`;
-        return typeof value === 'number' ? `${formatPrice(value)}${row.unit ? ` ${row.unit}` : ''}` : String(value);
-      };
-      [row.metric, formatValue(row.original), formatValue(row.proposed), changed, row.status || '—'].forEach(value => {
-        const td = document.createElement('td');
-        td.textContent = value;
-        tr.appendChild(td);
-      });
-      tr.title = row.reason || '';
+      tr.innerHTML = `
+        <td><b>${escapeHtml(row.metric)}</b></td>
+        <td>${escapeHtml(origText)}</td>
+        <td>${escapeHtml(propText)}</td>
+        <td><span class="metric-diff ${diffTone}">${escapeHtml(diffText)}</span></td>
+        <td><span class="pill ${statusClass}">${escapeHtml(statusText)}</span></td>
+      `;
+      tr.title = `${row.reason || ''}${qualityText ? ` · ${qualityText}` : ''}`;
       tbody.appendChild(tr);
     });
-    table.appendChild(tbody);
-    result.appendChild(table);
 
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+
+    result.appendChild(cardsContainer);
+    result.appendChild(tableContainer);
+
+    // Setup View Mode Toggle Listener
+    sectionHeader.querySelectorAll('.view-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        state.optimizerViewMode = mode;
+        sectionHeader.querySelectorAll('.view-toggle-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.mode === mode);
+        });
+        cardsContainer.style.display = mode === 'cards' ? 'flex' : 'none';
+        tableContainer.style.display = mode === 'table' ? 'block' : 'none';
+      });
+    });
+
+    // 8. Explanation of Trade-offs (Accordion)
+    if (evaluation.plain_explanation) {
+      const tradeoffsDetails = document.createElement('details');
+      tradeoffsDetails.className = 'optimizer-tradeoffs-details';
+      tradeoffsDetails.open = true;
+      tradeoffsDetails.innerHTML = `
+        <summary class="optimizer-tradeoffs-summary">💡 Explanation of Trade-offs</summary>
+        <div class="optimizer-tradeoffs-content">
+          <p style="margin: 0; white-space: pre-line; line-height: 1.6; color: var(--text-secondary);">${escapeHtml(evaluation.plain_explanation)}</p>
+        </div>
+      `;
+      result.appendChild(tradeoffsDetails);
+    }
+
+    // 9. All Rules List (collapsible expander)
     if (evaluation.compat_proposed?.length) {
+      const rulesExpander = document.createElement('details');
+      rulesExpander.className = 'optimizer-all-rules-details';
+      const rulesSummary = document.createElement('summary');
+      rulesSummary.className = 'caption text-muted';
+      rulesSummary.style.cursor = 'pointer';
+      rulesSummary.style.fontWeight = '600';
+      rulesSummary.style.padding = '4px 0';
+      rulesSummary.textContent = `📋 Compatibility Rules & Datasheet Checks (${evaluation.compat_proposed.length} verified)`;
+      rulesExpander.appendChild(rulesSummary);
+
       const rules = document.createElement('div');
       rules.className = 'optimizer-rule-list';
       evaluation.compat_proposed.forEach(rule => {
-        const item = document.createElement('p');
+        const item = document.createElement('div');
+        item.className = `optimizer-rule-item ${rule.status || ''}`;
+        
         const badge = document.createElement('span');
-        badge.className = `b ${rule.status}`;
+        badge.className = `pill ${rule.status}`;
         badge.textContent = rule.status;
-        item.append(badge, ' ');
-        const title = document.createElement('b');
-        title.textContent = rule.title;
-        item.append(title, ` · ${rule.explanation || ''}`);
-        if (rule.action) item.append(` Suggested action: ${rule.action}`);
+        item.appendChild(badge);
+
+        const textSpan = document.createElement('span');
+        textSpan.style.flex = '1';
+        textSpan.innerHTML = `<b>${escapeHtml(rule.title)}</b>${rule.components ? ` <span class="text-secondary">(${escapeHtml(rule.components)})</span>` : ''} &middot; ${escapeHtml(rule.explanation || '')}${rule.action ? ` <b style="color: var(--primary-orange);">Do this:</b> ${escapeHtml(rule.action)}` : ''}`;
+        item.appendChild(textSpan);
+
         rules.appendChild(item);
       });
-      result.appendChild(rules);
+      rulesExpander.appendChild(rules);
+      result.appendChild(rulesExpander);
     }
 
     result.hidden = false;
@@ -975,14 +1293,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderBomView(bom) {
+    if (!bom) return;
     state.activeBom = bom;
     state.optimizerEvaluation = null;
-    document.getElementById('bom-project-heading').textContent = `${bom.label} — Architecture & Planning`;
-    document.getElementById('bill-meta-project').textContent = bom.label;
+
+    const heading = document.getElementById('bom-project-heading');
+    if (heading) heading.textContent = `${bom.label || 'Project'} — Architecture & Planning`;
+
+    const billMetaProject = document.getElementById('bill-meta-project');
+    if (billMetaProject) billMetaProject.textContent = bom.label || '';
+
     const totCost = bom.bill?.grand_total ?? bom.bill?.parts_subtotal ?? 0;
-    document.getElementById('metric-total-cost').textContent = `₹${formatPrice(totCost)}`;
-    document.getElementById('metric-components-count').textContent = `${bom.parts_count || 0} parts`;
-    document.getElementById('metric-live-priced').textContent = `${bom.bill?.live_priced_count || 0} / ${bom.parts_count || 0} live`;
+    const costElem = document.getElementById('metric-total-cost');
+    if (costElem) costElem.textContent = `₹${formatPrice(totCost)}`;
+
+    const partsCountElem = document.getElementById('metric-components-count');
+    if (partsCountElem) partsCountElem.textContent = `${bom.parts_count || 0} parts`;
+
+    const liveCountElem = document.getElementById('metric-live-priced');
+    if (liveCountElem) liveCountElem.textContent = `${bom.bill?.live_priced_count || 0} / ${bom.parts_count || 0} live`;
 
     // Render Origin Banner
     const originMap = {
@@ -991,15 +1320,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       learned: 'Reused a plan Gemini made earlier for this idea. No new Gemini call.',
       gemini: 'Gemini planned this build.'
     };
-    document.getElementById('bom-origin-banner').innerHTML = `<div class="alert success">${originMap[bom.origin] || 'Verified architecture.'}</div>`;
+    const banner = document.getElementById('bom-origin-banner');
+    if (banner) {
+      banner.innerHTML = `<div class="alert success">${originMap[bom.origin] || 'Verified architecture.'}</div>`;
+    }
 
     renderComponentCards(bom.parts || {}, bom.bill?.lines || [], bom.parts_offers || {}, bom.choice || {}, bom.manual || {});
     renderOptimizerRoles();
-    document.getElementById('optimizer-content').hidden = !state.optimizerOpen;
-    document.getElementById('btn-toggle-optimizer').setAttribute('aria-expanded', String(state.optimizerOpen));
-    document.getElementById('btn-toggle-optimizer').textContent = state.optimizerOpen ? 'Close optimizer' : 'Open optimizer';
-    document.getElementById('optimizer-result').hidden = true;
-    document.getElementById('optimizer-actions').hidden = true;
+
+    const optContent = document.getElementById('optimizer-content');
+    if (optContent) optContent.hidden = !state.optimizerOpen;
+
+    const optToggleBtn = document.getElementById('btn-toggle-optimizer');
+    if (optToggleBtn) {
+      optToggleBtn.setAttribute('aria-expanded', String(state.optimizerOpen));
+      optToggleBtn.textContent = state.optimizerOpen ? 'Close optimizer' : 'Open optimizer';
+    }
+
+    const optRes = document.getElementById('optimizer-result');
+    if (optRes) optRes.hidden = true;
+
+    const optActions = document.getElementById('optimizer-actions');
+    if (optActions) optActions.hidden = true;
+
     if (state.optimizerOpen) loadOptimizerCandidates();
     renderChecks(bom.checks || []);
     renderBillTable(bom.bill);
@@ -1172,33 +1515,126 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderBillTable(billData) {
     if (!billData) return;
-    document.getElementById('bill-ref-label').textContent = `REF: ${billData.ref || 'FG-001'}`;
-    document.getElementById('bill-meta-date').textContent = billData.date || new Date().toISOString().slice(0, 10);
-    const tbody = document.querySelector('#bill-table-view tbody');
-    tbody.innerHTML = '';
+    const container = document.getElementById('bill-invoice-container');
+    if (!container) return;
 
-    (billData.lines || []).forEach(l => {
-      const tr = document.createElement('tr');
+    if (billData.html) {
+      container.innerHTML = billData.html;
+      return;
+    }
+
+    const e = escapeHtml;
+    const lines = billData.lines || [];
+    const tot = billData.tot || {};
+    const ref = billData.ref || 'FG-001';
+    const day = billData.date || new Date().toISOString().slice(0, 10);
+    const subtotal = billData.grand_total ?? billData.total ?? billData.parts_subtotal ?? tot.subtotal ?? 0;
+    const budget = tot.budget ?? state.activeBom?.budget ?? 0;
+    const left = budget - subtotal;
+    const isOver = left < -0.005;
+
+    const rowsHtml = lines.map(l => {
+      let kind = 'est';
+      let statusText = 'Estimated catalog price';
+      if (l.source === 'live') {
+        kind = 'best';
+        statusText = 'Cheapest online price';
+      } else if (l.source === 'manual') {
+        const prem = Math.max(0, (l.total || 0) - (l.cheapest_total || l.total || 0));
+        kind = 'pick';
+        statusText = `Your pick, +₹${formatPrice(prem)}`;
+      }
+      const shopLink = l.url
+        ? `<a href="${e(l.url)}" target="_blank" rel="noopener noreferrer">${e(l.vendor || 'Shop')}</a>`
+        : `<span class="rl">No shop page verified</span>`;
+      const listingText = l.listing ? `<div class="rl">${e(l.listing.slice(0, 70))}</div>` : '';
       const unitText = (l.unit !== null && l.unit !== undefined) ? `₹${formatPrice(l.unit)}` : '—';
-      const totText = (l.unit !== null && l.unit !== undefined) ? `₹${formatPrice(l.unit * l.qty)}` : (l.total !== null && l.total !== undefined ? `₹${formatPrice(l.total)}` : '—');
-      tr.innerHTML = `
-        <td><b>${l.name}</b></td>
-        <td>${l.role}</td>
-        <td>${l.qty}</td>
-        <td>${unitText}</td>
-        <td><b>${totText}</b></td>
-      `;
-      tbody.appendChild(tr);
-    });
+      const totText = (l.total !== null && l.total !== undefined) ? `₹${formatPrice(l.total)}` : '—';
 
-    const totalTr = document.createElement('tr');
-    totalTr.className = 'fg-total-row';
-    const grandTot = billData.grand_total ?? billData.total ?? billData.parts_subtotal ?? 0;
-    totalTr.innerHTML = `
-      <td colspan="4">GRAND TOTAL</td>
-      <td>₹${formatPrice(grandTot)}</td>
+      return `
+        <tr>
+          <td>
+            <div class="nm">${e(l.name)}</div>
+            <div class="rl">${e((l.role || '').toUpperCase())}</div>
+          </td>
+          <td>
+            ${shopLink}
+            ${listingText}
+            <div><span class="fg-c ${kind}">${e(statusText)}</span></div>
+          </td>
+          <td class="n">${l.qty}</td>
+          <td class="n">${unitText}</td>
+          <td class="n amt">${totText}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const nLive = tot.n_live ?? lines.filter(l => l.source === 'live').length;
+    const pricesText = nLive === lines.length
+      ? `All ${lines.length} live from shops`
+      : (nLive ? `${nLive} of ${lines.length} live from shops` : 'Estimated catalog seed prices');
+
+    let extraHtml = '';
+    if (tot.premium && tot.premium > 0.005) {
+      extraHtml += `
+        <div class="fg-row"><span>Cheapest possible total</span><b>₹${formatPrice(tot.cheapest)}</b></div>
+        <div class="fg-row"><span>Extra for your picks</span><b>+₹${formatPrice(tot.premium)}</b></div>
+      `;
+    }
+    if (tot.n_missing) {
+      extraHtml += `<div class="fg-row"><span>Parts without a verified price</span><b>${tot.n_missing} not in total</b></div>`;
+    }
+
+    container.innerHTML = `
+      <div class="fg-sheet">
+        <div class="fg-head">
+          <div>
+            <div class="fg-brand">FORGE</div>
+            <div class="fg-sub">Estimated bill of materials</div>
+          </div>
+          <div class="fg-ref">
+            Reference <b>${e(ref)}</b><br>
+            ${tot.n_items || lines.reduce((a, b) => a + (b.qty || 1), 0)} items across ${lines.length} parts
+          </div>
+        </div>
+        <div class="fg-meta">
+          <div><span>Project</span><b>${e(state.activeBom?.label || state.activeProject || 'Robot Build')}</b></div>
+          <div><span>Prepared on</span><b>${e(day)}</b></div>
+          <div><span>Budget</span><b>₹${formatPrice(budget)}</b></div>
+          <div><span>Prices</span><b>${e(pricesText)}</b></div>
+        </div>
+        <div class="fg-wrap">
+          <table class="fg-t">
+            <thead>
+              <tr>
+                <th>Part</th>
+                <th>Shop</th>
+                <th class="n">Qty</th>
+                <th class="n">Unit price</th>
+                <th class="n">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+        <div class="fg-tot">
+          <div>
+            ${extraHtml}
+            <div class="fg-row ${isOver ? 'bad' : 'ok'}">
+              <span>${isOver ? 'Over budget by' : 'Under budget by'}</span>
+              <b>₹${formatPrice(Math.abs(left))}</b>
+            </div>
+            <div class="fg-grand">
+              <span>Estimated total</span>
+              <b>₹${formatPrice(subtotal)}</b>
+            </div>
+          </div>
+        </div>
+        <div class="fg-note">Estimate only; verify price, delivery and stock with each vendor before purchasing.</div>
+      </div>
     `;
-    tbody.appendChild(totalTr);
   }
 
   // ── 6. Live Sourcing SSE Stream ──
@@ -1309,36 +1745,279 @@ document.addEventListener('DOMContentLoaded', async () => {
       'The starter bundle is downloading and Wokwi is opening. Import diagram.json and sketch.ino there, then start the simulation.';
   });
 
-  // ── 8. Delivery Optimizer ──
+  // ── 8. Delivery Optimizer & Packages Lineup ──
   async function loadDeliveryOptimizer() {
     try {
       const opt = await api.optimizeDelivery();
       const grid = document.getElementById('delivery-strategies-grid');
+      if (!grid) return;
       grid.innerHTML = '';
 
-      ['split', 'consolidated', 'smart'].forEach(key => {
-        const s = opt[key];
-        if (!s) return;
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.padding = '1rem';
-        const isSmart = (key === 'smart');
-        card.innerHTML = `
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:${isSmart ? 'var(--status-pass)' : 'var(--text-secondary)'};">
-            ${isSmart ? '⚡ SMART LANDING COST' : (key === 'consolidated' ? '🏢 CONSOLIDATED' : '🏪 SPLIT STORES')}
+      const split = opt.split || {};
+      const cons = opt.consolidated;
+      const smart = opt.smart || {};
+      const current = opt.current || {};
+      const currentPkg = current.packages_info || smart.packages_info || split.packages_info || { packages: [] };
+      const currentChoice = current.choice || {};
+
+      // Determine active strategy
+      const isSplitActive = Object.keys(currentChoice).length > 0 &&
+        JSON.stringify(currentChoice) === JSON.stringify(split.choice);
+      const isConsActive = Boolean(cons && Object.keys(currentChoice).length > 0 &&
+        JSON.stringify(currentChoice) === JSON.stringify(cons.choice));
+      const isSmartActive = Object.keys(currentChoice).length > 0 &&
+        JSON.stringify(currentChoice) === JSON.stringify(smart.choice);
+
+      // Strategy Card 1: SPLIT STORES
+      const splitCard = document.createElement('div');
+      splitCard.className = `delivery-card ${isSplitActive ? 'active-strategy' : ''}`;
+      splitCard.innerHTML = `
+        <div>
+          <div class="delivery-tag" style="color: #94A3B8;">
+            <span>🏪 Split Store</span>
           </div>
-          <div style="font-size:1.15rem;font-weight:700;margin:4px 0;">₹${formatPrice(s.packages_info?.total_landing_cost ?? s.landing_cost ?? 0)}</div>
-          <div class="caption">Parts: ₹${formatPrice(s.packages_info?.total_parts ?? s.parts_cost ?? 0)}</div>
-          <div class="caption">Shipping: ₹${formatPrice(s.packages_info?.total_shipping ?? s.shipping_cost ?? 0)}</div>
-          <button class="btn ${isSmart ? 'primary' : ''}" style="width:100%;margin-top:10px;">Apply Strategy</button>
+          <div class="delivery-subheading">Cheapest Item Prices</div>
+          <div class="delivery-price">₹${formatPrice(split.packages_info?.total_landing_cost ?? 0)}</div>
+          <div class="delivery-cost-breakdown">
+            <div class="delivery-cost-row">
+              <span>Parts Subtotal:</span>
+              <b>₹${formatPrice(split.packages_info?.total_parts ?? 0)}</b>
+            </div>
+            <div class="delivery-cost-row">
+              <span>Est. Delivery:</span>
+              <b>₹${formatPrice(split.packages_info?.total_shipping ?? 0)} (${split.packages_info?.n_packages ?? 0} stores)</b>
+            </div>
+          </div>
+          <div class="delivery-badge-pill">
+            <span>📦 ${split.packages_info?.n_packages ?? 0} separate packages</span>
+          </div>
+        </div>
+        <button type="button" class="btn" style="width: 100%; margin-top: 8px;">
+          ${isSplitActive ? '✓ Currently Active' : 'Apply Strategy'}
+        </button>
+      `;
+      splitCard.querySelector('button').onclick = async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'Applying...';
+        try {
+          await api.applyDeliveryStrategy('split');
+          const updated = await api.getBom();
+          renderBomView(updated);
+        } catch (err) {
+          console.error('Failed to apply split sourcing:', err);
+          btn.disabled = false;
+          btn.textContent = 'Apply Strategy';
+        }
+      };
+      grid.appendChild(splitCard);
+
+      // Strategy Card 2: CONSOLIDATED STORE
+      const consCard = document.createElement('div');
+      consCard.className = `delivery-card ${isConsActive ? 'active-strategy' : ''}`;
+      if (cons) {
+        const isFreeShip = cons.shipping_cost === 0;
+        const shipLabel = isFreeShip ? '<span class="free-ship-tag">Free Delivery 🎉</span>' : `₹${formatPrice(cons.shipping_cost)}`;
+        consCard.innerHTML = `
+          <div>
+            <div class="delivery-tag" style="color: #38BDF8;">
+              <span>🏢 Consolidated (${escapeHtml(cons.vendor)})</span>
+            </div>
+            <div class="delivery-subheading">Coverage: ${cons.coverage}/${cons.total_parts} parts (${Math.round(cons.coverage_pct)}% in 1 box)</div>
+            <div class="delivery-price">₹${formatPrice(cons.landing_cost ?? 0)}</div>
+            <div class="delivery-cost-breakdown">
+              <div class="delivery-cost-row">
+                <span>Parts Subtotal:</span>
+                <b>₹${formatPrice(cons.parts_cost ?? 0)}</b>
+              </div>
+              <div class="delivery-cost-row">
+                <span>Est. Delivery:</span>
+                <b>${shipLabel}</b>
+              </div>
+            </div>
+            <div class="delivery-badge-pill">
+              <span>📦 ${cons.n_packages ?? 1} package(s)</span>
+            </div>
+          </div>
+          <button type="button" class="btn" style="width: 100%; margin-top: 8px;">
+            ${isConsActive ? '✓ Currently Active' : `Consolidate at ${escapeHtml(cons.vendor)}`}
+          </button>
         `;
-        card.querySelector('button').onclick = async () => {
-          await api.applyDeliveryStrategy(key);
-          const updated = await api.getBill();
-          renderBillTable(updated);
+        consCard.querySelector('button').onclick = async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          btn.textContent = 'Applying...';
+          try {
+            await api.applyDeliveryStrategy('consolidated');
+            const updated = await api.getBom();
+            renderBomView(updated);
+          } catch (err) {
+            console.error('Failed to apply consolidated sourcing:', err);
+            btn.disabled = false;
+            btn.textContent = 'Apply Strategy';
+          }
         };
-        grid.appendChild(card);
-      });
+      } else {
+        consCard.innerHTML = `
+          <div>
+            <div class="delivery-tag" style="color: #38BDF8;">
+              <span>🏢 Consolidated Store</span>
+            </div>
+            <div class="delivery-subheading">Single Store Coverage</div>
+            <p class="caption text-muted" style="margin: 16px 0;">No single dominant vendor identified across verified offers.</p>
+          </div>
+          <button type="button" class="btn" disabled style="width: 100%; margin-top: 8px;">Unavailable</button>
+        `;
+      }
+      grid.appendChild(consCard);
+
+      // Strategy Card 3: SMART LANDING COST
+      const smartCard = document.createElement('div');
+      smartCard.className = `delivery-card smart ${isSmartActive ? 'active-strategy' : ''}`;
+      const smartFreeShip = smart.packages_info?.total_shipping === 0;
+      const smartShipLabel = smartFreeShip ? '<span class="free-ship-tag">Free Delivery 🎉</span>' : `₹${formatPrice(smart.packages_info?.total_shipping ?? 0)}`;
+      const hasSavings = (smart.savings_vs_split || 0) > 0;
+      smartCard.innerHTML = `
+        <div>
+          <div class="delivery-tag" style="color: #10B981;">
+            <span>⚡ Smart Landing Cost</span>
+          </div>
+          <div class="delivery-subheading" style="color: #A7F3D0;">${escapeHtml(smart.name || 'Optimized Sourcing')}</div>
+          <div class="delivery-price" style="color: var(--primary-orange-light);">₹${formatPrice(smart.packages_info?.total_landing_cost ?? 0)}</div>
+          <div class="delivery-cost-breakdown">
+            <div class="delivery-cost-row">
+              <span>Parts Subtotal:</span>
+              <b>₹${formatPrice(smart.packages_info?.total_parts ?? 0)}</b>
+            </div>
+            <div class="delivery-cost-row">
+              <span>Est. Delivery:</span>
+              <b>${smartShipLabel}</b>
+            </div>
+          </div>
+          <div class="delivery-badge-pill ${hasSavings ? 'savings' : ''}">
+            <span>${hasSavings ? `💰 Saves ₹${formatPrice(smart.savings_vs_split)} in delivery fees!` : 'Lowest overall out-of-pocket landing cost'}</span>
+          </div>
+        </div>
+        <button type="button" class="btn primary" style="width: 100%; margin-top: 8px; font-weight: 700;">
+          ${isSmartActive ? '✓ Currently Active' : '👉 Apply Strategy'}
+        </button>
+      `;
+      smartCard.querySelector('button').onclick = async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'Applying...';
+        try {
+          await api.applyDeliveryStrategy('smart');
+          const updated = await api.getBom();
+          renderBomView(updated);
+        } catch (err) {
+          console.error('Failed to apply smart sourcing:', err);
+          btn.disabled = false;
+          btn.textContent = 'Apply Strategy';
+        }
+      };
+      grid.appendChild(smartCard);
+
+      // 1-Click Multi-Store Cart Actions (Open Tabs)
+      const allLines = current.lines || [];
+      const liveUrls = allLines.map(l => l.url).filter(Boolean);
+      const openAllBtn = document.getElementById('btn-open-all-links');
+      if (openAllBtn) {
+        openAllBtn.textContent = `🚀 Open All Store Tabs (${liveUrls.length})`;
+        openAllBtn.onclick = () => {
+          if (!liveUrls.length) {
+            alert('No verified store URLs found in this configuration.');
+            return;
+          }
+          let opened = 0;
+          liveUrls.forEach(u => {
+            const w = window.open(u, '_blank');
+            if (w) opened++;
+          });
+          if (opened === 0) {
+            alert('Please allow popups in your browser to open all store tabs at once!');
+          }
+        };
+      }
+
+      // Grouped Vendor Packages Lineup (Breakdown)
+      const pkgSection = document.getElementById('delivery-packages-section');
+      if (pkgSection) {
+        pkgSection.innerHTML = `
+          <details class="packages-lineup-details" open>
+            <summary class="packages-lineup-summary">
+              <span>📦 Vendor Packages Lineup (${currentPkg.n_packages || 0} Shipments · ₹${formatPrice(currentPkg.total_landing_cost || 0)} Landing Cost)</span>
+              <span class="caption text-muted" style="font-weight: 500;">Click to collapse/expand</span>
+            </summary>
+            <div class="package-cards-grid" id="packages-cards-list"></div>
+          </details>
+        `;
+
+        const cardsList = document.getElementById('packages-cards-list');
+        (currentPkg.packages || []).forEach((pkg, idx) => {
+          const isPkgFreeShip = pkg.free_shipping;
+          const pkgShipText = isPkgFreeShip ? '<span class="free-ship-tag">Free Delivery 🎉</span>' : `₹${formatPrice(pkg.shipping)}`;
+          const box = document.createElement('div');
+          box.className = 'package-box';
+          box.innerHTML = `
+            <div class="package-box-header">
+              <div class="package-vendor-title">
+                <span>📦 Package ${idx + 1}:</span>
+                <span class="package-vendor-badge">${escapeHtml(pkg.vendor)}</span>
+                <span class="caption text-muted">(${pkg.item_count} item${pkg.item_count > 1 ? 's' : ''})</span>
+              </div>
+              <div class="package-meta">
+                <span>Subtotal: <b>₹${formatPrice(pkg.subtotal)}</b></span>
+                <span>Delivery: <b>${pkgShipText}</b></span>
+              </div>
+            </div>
+            <div class="package-items-table"></div>
+          `;
+
+          const itemsContainer = box.querySelector('.package-items-table');
+          (pkg.items || []).forEach(it => {
+            const itemRow = document.createElement('div');
+            itemRow.className = 'package-item-row';
+            itemRow.innerHTML = `
+              <div class="package-item-left">
+                <span class="package-item-dot">•</span>
+                <span class="package-item-name">${escapeHtml(it.name)}</span>
+                <span class="package-item-qty">× ${it.qty}</span>
+              </div>
+              <div class="package-item-right">
+                <span class="package-item-price">₹${formatPrice(it.total)}</span>
+                ${it.url ? `<a href="${escapeHtml(it.url)}" target="_blank" rel="noopener noreferrer" class="package-item-link">Shop Listing ↗</a>` : '<span class="caption text-muted">*(Seed estimate)*</span>'}
+              </div>
+            `;
+            itemsContainer.appendChild(itemRow);
+          });
+          cardsList.appendChild(box);
+        });
+      }
+
+      // Verified Store URLs List
+      const linksSection = document.getElementById('delivery-links-section');
+      if (linksSection) {
+        if (liveUrls.length > 0) {
+          linksSection.innerHTML = `
+            <details class="verified-urls-details">
+              <summary class="caption text-muted" style="cursor: pointer; font-weight: 600;">
+                🔗 All Verified Store URLs (${liveUrls.length} direct purchase links)
+              </summary>
+              <div class="verified-urls-list">
+                ${allLines.filter(l => l.url).map((l, i) => `
+                  <div class="verified-url-item">
+                    <span><b>${i + 1}. ${escapeHtml(l.name)}</b> <span class="caption text-muted">(${escapeHtml(l.vendor || '')})</span></span>
+                    <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" class="package-item-link">${escapeHtml(l.url)} ↗</a>
+                  </div>
+                `).join('')}
+              </div>
+            </details>
+          `;
+        } else {
+          linksSection.innerHTML = '';
+        }
+      }
     } catch (err) {
       console.warn('Delivery optimizer:', err);
     }

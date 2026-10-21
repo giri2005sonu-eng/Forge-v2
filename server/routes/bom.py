@@ -211,6 +211,7 @@ def _build_response_payload(session):
             "total_items": tot["n_items"],
             "grand_total": tot["subtotal"],
             "tot": tot,
+            "html": b["html"],
         },
     }
 

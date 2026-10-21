@@ -168,19 +168,19 @@ const api = {
     });
   },
 
-  async evaluateSwap(role, swap_part_id) {
+  async evaluateSwap(role, swap_part_id, staged_fixes = []) {
     return this.req('/api/optimizer/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, swap_part_id })
+      body: JSON.stringify({ role, swap_part_id, staged_fixes })
     });
   },
 
-  async applySwap(role, swap_part_id) {
+  async applySwap(role, swap_part_id, staged_fixes = []) {
     return this.req('/api/optimizer/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, swap_part_id })
+      body: JSON.stringify({ role, swap_part_id, staged_fixes })
     });
   },
 
