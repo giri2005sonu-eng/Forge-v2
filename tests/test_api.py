@@ -53,6 +53,10 @@ def test_static_frontend_assets_use_the_black_and_orange_theme():
     assert css.status_code == 200
     assert "--bg-space-dark: #05060A" in css.text
     assert "--primary-orange: #FF7A1A" in css.text
+    assert "html {" in css.text
+    assert "background-color: #05060A !important" in css.text
+    assert "--toggle-orange: #FFC078" in css.text
+    assert "color-scheme: dark" in css.text
     assert js.status_code == 200
     assert "DOMContentLoaded" in js.text
     assert "function goBack()" in js.text

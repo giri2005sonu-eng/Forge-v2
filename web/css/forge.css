@@ -7,24 +7,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
+  color-scheme: dark;
   /* Space Background Palette */
   --bg-space-dark: #05060A;
   --bg-space-mid: #080A10;
-  --bg-space-light: #0B0D14;
-  --bg-space-elevated: #11141C;
-  --bg-surface: #161A24;
-  --bg-surface-elevated: #1C2230;
+  --bg-space-light: #080D18;
+  --bg-space-elevated: #0C1220;
+  --bg-surface: #101827;
+  --bg-surface-elevated: #152033;
 
   /* Card & Surface Surfaces */
-  --card-bg: #11141C;
-  --card-bg-elevated: #161A24;
-  --card-border: rgba(255, 255, 255, 0.08);
-  --card-border-hover: rgba(255, 122, 26, 0.4);
-  --card-border-subtle: rgba(255, 255, 255, 0.05);
+  --card-bg: #0B101B;
+  --card-bg-elevated: #101827;
+  --card-border: rgba(255, 122, 26, 0.32);
+  --card-border-hover: rgba(255, 122, 26, 0.72);
+  --card-border-subtle: rgba(255, 122, 26, 0.18);
 
   /* Primary Orange Accents */
   --primary-orange: #FF7A1A;
   --primary-orange-light: #FF9F43;
+  --toggle-orange: #FFC078;
   --primary-orange-dark: #D95D00;
   --primary-orange-glow: rgba(255, 122, 26, 0.35);
   --primary-orange-glow-sm: rgba(255, 122, 26, 0.18);
@@ -68,6 +70,11 @@
 }
 
 /* ── Reset & Base ── */
+html {
+  min-height: 100%;
+  background: #05060A;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -76,7 +83,7 @@
 
 body {
   font-family: var(--font-body);
-  background-color: var(--bg-space-dark);
+  background-color: #05060A !important;
   background-image: 
     radial-gradient(circle at 50% 0%, rgba(255, 122, 26, 0.08) 0%, transparent 50%),
     radial-gradient(circle at 92% 85%, var(--nebula-glow) 0%, transparent 45%),
@@ -93,10 +100,15 @@ body {
     radial-gradient(1.5px 1.5px at 990px 120px, rgba(255, 122, 26, 0.45), transparent),
     radial-gradient(1px 1px at 1060px 260px, rgba(255, 255, 255, 0.35), transparent);
   background-size: 100% 100%, 100% 100%, 100% 100%, 420px 420px, 420px 420px, 420px 420px, 420px 420px, 420px 420px, 420px 420px, 420px 420px, 420px 420px, 420px 420px, 420px 420px, 420px 420px;
-  background-attachment: fixed;
+  background-attachment: scroll;
   color: var(--text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+html,
+body {
+  color-scheme: dark;
 }
 
 .container {
@@ -474,8 +486,8 @@ button, .btn {
   gap: 8px;
   border-radius: var(--radius-md);
   padding: 0.55rem 1.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: var(--card-bg-elevated);
+  border: 1px solid var(--primary-orange);
+  background: #0B101B;
   color: var(--text-primary);
   font-family: var(--font-body);
   font-weight: 600;
@@ -520,21 +532,21 @@ button:disabled, .btn:disabled {
 }
 
 button.ghost, .btn.ghost {
-  background: transparent;
-  border-color: transparent;
+  background: #0B101B;
+  border-color: var(--primary-orange);
 }
 button.ghost:hover, .btn.ghost:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--card-border);
+  background: rgba(255, 122, 26, 0.14);
+  border-color: var(--toggle-orange);
 }
 
 /* ── Form Controls ── */
-input[type="text"], input[type="number"], select {
+input[type="text"], input[type="number"], input[type="search"], select {
   width: 100%;
-  background: var(--card-bg-elevated);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #05060A;
+  border: 1px solid rgba(255, 122, 26, 0.55);
   border-radius: 10px;
-  color: var(--text-primary);
+  color: #FFFFFF;
   font-family: var(--font-body);
   font-size: 0.875rem;
   padding: 0.6rem 0.95rem;
@@ -556,6 +568,11 @@ select {
   padding-right: 2.5rem;
 }
 
+select option {
+  background: #0B101B;
+  color: #FFFFFF;
+}
+
 /* ── Pills Selector ── */
 .pills-group {
   display: flex;
@@ -565,8 +582,8 @@ select {
 }
 
 .pill-opt {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--card-border);
+  background: #0B101B;
+  border: 1px solid rgba(255, 122, 26, 0.4);
   color: var(--text-secondary);
   border-radius: var(--radius-full);
   padding: 0.4rem 0.95rem;
@@ -583,11 +600,17 @@ select {
 }
 
 .pill-opt.selected {
-  background: linear-gradient(135deg, rgba(255, 122, 26, 0.25), rgba(255, 159, 67, 0.2));
+  background: linear-gradient(135deg, var(--toggle-orange), #FFD8A8);
   border-color: var(--primary-orange);
-  color: #FFFFFF;
+  color: #10131A;
   font-weight: 600;
   box-shadow: 0 2px 10px var(--primary-orange-glow-sm);
+}
+
+.toggle-control,
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--toggle-orange);
 }
 
 /* ── Badges ── */
