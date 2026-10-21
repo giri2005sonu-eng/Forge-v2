@@ -1,6 +1,8 @@
-/**
- * FORGE Main SPA Controller (Vanilla JS)
- */
+function formatPrice(val) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  return Number(val).toLocaleString();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const state = {
     stage: 'pick',
@@ -194,7 +196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div style="font-size:1.05rem;font-weight:700;margin:4px 0;">${item.label}</div>
         <p class="caption">${item.desc}</p>
         <div style="margin:10px 0;font-size:0.8rem;color:var(--text-secondary);">
-          ${item.domain} · ${item.build_hours} hrs · ₹${item.cost_inr.toLocaleString()}
+          ${item.domain} · ${item.build_hours} hrs · ₹${formatPrice(item.cost_inr)}
         </div>
         <button class="btn primary" style="width:100%;margin-top:6px;">Choose</button>
       `;
@@ -215,7 +217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('detail-meta-list').innerHTML = `
       <div><b>Domain:</b> ${item.domain}</div>
       <div><b>Estimated build time:</b> ${item.build_hours} hours</div>
-      <div><b>Estimated cost:</b> ₹${item.cost_inr.toLocaleString()}</div>
+      <div><b>Estimated cost:</b> ₹${formatPrice(item.cost_inr)}</div>
       <div><b>Parts availability in India:</b> ${item.parts_availability_india}/5</div>
       <div><b>Tools required:</b> ${item.tools_required.join(', ') || 'Standard hand tools'}</div>
       <div><b>Required skills:</b> ${item.required_skills.join(', ') || 'Beginner friendly'}</div>
@@ -300,7 +302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
           <p class="caption">${p.desc}</p>
           <div style="margin:10px 0;font-size:0.82rem;color:var(--text-secondary);">
-            Estimated ${p.build_hours} hours · ₹${p.cost_inr.toLocaleString()} · Availability ${p.parts_availability_india}/5
+            Estimated ${p.build_hours} hours · ₹${formatPrice(p.cost_inr)} · Availability ${p.parts_availability_india}/5
           </div>
           <div class="caption"><b>Constraints:</b> ${p.constraints || 'Standard competition constraints'}</div>
         `;
@@ -373,8 +375,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderBomView(bom) {
     state.activeBom = bom;
-    document.getElementById('bom-project-heading').textContent = `${bom.label} — Architecture &amp; Planning`;
-    document.getElementById('metric-total-cost').textContent = `₹${(bom.bill?.grand_total || 0).toLocaleString()}`;
+    document.getElementById('bom-project-heading').textContent = `${bom.label} — Architecture & Planning`;
+    const totCost = bom.bill?.grand_total ?? bom.bill?.parts_subtotal ?? 0;
+    document.getElementById('metric-total-cost').textContent = `₹${formatPrice(totCost)}`;
     document.getElementById('metric-components-count').textContent = `${bom.parts_count || 0} parts`;
     document.getElementById('metric-live-priced').textContent = `${bom.bill?.live_priced_count || 0} / ${bom.parts_count || 0} live`;
 
@@ -402,9 +405,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     Object.entries(parts).forEach(([role, part]) => {
       if (part.none) return;
-      const line = lineMap[part.id] || { qty: 1, unit: part.seed_price || 0, source: 'estimate' };
+      const line = lineMap[part.id] || { qty: 1, unit: part.seed_price ?? null, source: 'estimate' };
       const statusLabel = line.source === 'live' ? 'LIVE PRICE' : (line.source === 'manual' ? 'YOUR PICK' : 'ESTIMATED');
       const badgeCls = line.source === 'live' ? 'PASS' : (line.source === 'manual' ? 'WARN' : 'UNKNOWN');
+      const priceText = (line.unit !== null && line.unit !== undefined) ? `₹${formatPrice(line.unit * line.qty)}` : '—';
 
       const card = document.createElement('div');
       card.className = 'component-card';
@@ -416,12 +420,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             <span class="caption" style="text-transform:uppercase;">${role} × ${line.qty}</span>
             <span class="b ${badgeCls}">${statusLabel}</span>
           </div>
-          <div style="font-weight:700;">₹${(line.unit * line.qty).toLocaleString()}</div>
+          <div style="font-weight:700;">${priceText}</div>
         </div>
         <div class="component-card-body">
           <p class="caption">${part.note || part.why || 'Engineering component'}</p>
           <div class="offer-list" style="margin-top:10px;">
-            <p class="caption">No external shop offers loaded. Click <b>⚡ Find live prices</b> above to scan vendors.</p>
+            <p class="caption">Click <b>⚡ Find live prices</b> above to scan Indian electronic shops.</p>
           </div>
         </div>
       `;
@@ -458,21 +462,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     (billData.lines || []).forEach(l => {
       const tr = document.createElement('tr');
+      const unitText = (l.unit !== null && l.unit !== undefined) ? `₹${formatPrice(l.unit)}` : '—';
+      const totText = (l.unit !== null && l.unit !== undefined) ? `₹${formatPrice(l.unit * l.qty)}` : (l.total !== null && l.total !== undefined ? `₹${formatPrice(l.total)}` : '—');
       tr.innerHTML = `
         <td><b>${l.name}</b></td>
         <td>${l.role}</td>
         <td>${l.qty}</td>
-        <td>₹${l.unit.toLocaleString()}</td>
-        <td><b>₹${(l.unit * l.qty).toLocaleString()}</b></td>
+        <td>${unitText}</td>
+        <td><b>${totText}</b></td>
       `;
       tbody.appendChild(tr);
     });
 
     const totalTr = document.createElement('tr');
     totalTr.className = 'fg-total-row';
+    const grandTot = billData.grand_total ?? billData.total ?? billData.parts_subtotal ?? 0;
     totalTr.innerHTML = `
       <td colspan="4">GRAND TOTAL</td>
-      <td>₹${(billData.grand_total || 0).toLocaleString()}</td>
+      <td>₹${formatPrice(grandTot)}</td>
     `;
     tbody.appendChild(totalTr);
   }
@@ -492,7 +499,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         box.textContent += 'Done! Re-computing verified bill...\n';
         const updatedBill = await api.getBill();
         renderBillTable(updatedBill);
-        document.getElementById('metric-total-cost').textContent = `₹${(updatedBill.total || 0).toLocaleString()}`;
+        document.getElementById('metric-total-cost').textContent = `₹${formatPrice(updatedBill.total ?? updatedBill.grand_total ?? 0)}`;
         document.getElementById('metric-live-priced').textContent = `${updatedBill.live_priced_count || 0} live`;
       }
     );
@@ -549,9 +556,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:${isSmart ? 'var(--status-pass)' : 'var(--text-secondary)'};">
             ${isSmart ? '⚡ SMART LANDING COST' : (key === 'consolidated' ? '🏢 CONSOLIDATED' : '🏪 SPLIT STORES')}
           </div>
-          <div style="font-size:1.15rem;font-weight:700;margin:4px 0;">₹${(s.packages_info?.total_landing_cost || s.landing_cost || 0).toLocaleString()}</div>
-          <div class="caption">Parts: ₹${(s.packages_info?.total_parts || s.parts_cost || 0).toLocaleString()}</div>
-          <div class="caption">Shipping: ₹${(s.packages_info?.total_shipping || s.shipping_cost || 0).toLocaleString()}</div>
+          <div style="font-size:1.15rem;font-weight:700;margin:4px 0;">₹${formatPrice(s.packages_info?.total_landing_cost ?? s.landing_cost ?? 0)}</div>
+          <div class="caption">Parts: ₹${formatPrice(s.packages_info?.total_parts ?? s.parts_cost ?? 0)}</div>
+          <div class="caption">Shipping: ₹${formatPrice(s.packages_info?.total_shipping ?? s.shipping_cost ?? 0)}</div>
           <button class="btn ${isSmart ? 'primary' : ''}" style="width:100%;margin-top:10px;">Apply Strategy</button>
         `;
         card.querySelector('button').onclick = async () => {
