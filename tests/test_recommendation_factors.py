@@ -281,6 +281,15 @@ def test_prerequisite_graph_rejects_cycles_and_next_step_skips_unready():
     assert graph.next_step("goal", set(), set()) == "root"
 
 
+def test_portfolio_coverage_rewards_new_embedded_evidence():
+    from core.coverage import coverage_gain
+
+    done = {"led_chaser", "traffic_light", "digital_dice"}
+    rtos, _ = coverage_gain("tiny_rtos_scheduler", {"embedded"}, done, set())
+    basic, _ = coverage_gain("led_chaser", {"embedded"}, done, set())
+    assert rtos > basic
+
+
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():
     source = "Read a sensor in C and soldered a small board."
     result = resume.validate_factors(source, {

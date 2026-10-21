@@ -35,6 +35,7 @@ from .recommender_config import (
 )
 from .role_impact import CAREER_ROLE_MAP, impact_for
 from .prereqs import GRAPH
+from .coverage import coverage_gain
 
 
 @dataclass
@@ -218,8 +219,12 @@ def score_project_v2(key, profile, ctx=None):
     feasibility, feasibility_flags, excluded = _feasibility(project, ctx)
     flags.extend(feasibility_flags)
     impact = impact_for(key, project, ctx["roles"])
+    coverage, coverage_flags = coverage_gain(
+        key, ctx["roles"], ctx["done"], ctx["user_skills"]
+    )
+    flags.extend(coverage_flags)
     learn, learn_skills = _learn_fit(project, ctx)
-    base = W_INTEREST * interest + W_IMPACT * impact + W_COVERAGE * 0.5 + W_LEARN * learn
+    base = W_INTEREST * interest + W_IMPACT * impact + W_COVERAGE * coverage + W_LEARN * learn
     readiness = ctx.get(
         "readiness_by_project", {}
     ).get(key, GRAPH.readiness(key, ctx["done"], ctx["user_skills"]))
@@ -232,7 +237,7 @@ def score_project_v2(key, profile, ctx=None):
     return ScoreResult(
         key=key, final=final, interest=interest, level=level,
         feasibility=feasibility, impact=impact, learn=learn,
-        readiness=readiness,
+        readiness=readiness, coverage=coverage,
         reasons=reasons[:3], learn_skills=learn_skills,
         flags=sorted(set(flags)), excluded=excluded,
     )
