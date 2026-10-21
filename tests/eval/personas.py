@@ -2,14 +2,14 @@
 
 PERSONAS = [
     {"name": "blank cold start", "profile": {}, "expect": {}},
-    {"name": "embedded beginner low budget", "profile": {"career": ["embedded"], "interests": ["embedded"], "budget_inr": 2000}, "expect": {"max_cost_inr": 2000, "max_difficulty": 3}},
+    {"name": "embedded beginner low budget", "profile": {"career": ["embedded"], "interests": ["embedded"], "languages": ["none"], "budget_inr": 2000}, "expect": {"max_cost_inr": 2000, "max_difficulty": 3}},
     {"name": "robotics maker", "profile": {"career": ["robotics"], "interests": ["robotics", "mechanics"], "experience": ["motor_driver", "soldering"], "tools": ["soldering_iron", "multimeter"], "budget_inr": 15000}, "expect": {"max_cost_inr": 15000}},
     {"name": "advanced firmware", "profile": {"career": ["embedded"], "interests": ["embedded"], "experience": ["sensor_read", "soldering", "motor_driver", "breadboard", "raspberry_pi", "trained_model"], "languages": ["python", "c_cpp"], "hardware": ["stm32"], "budget_inr": 50000}, "expect": {"must_include_one_of": ["tiny_rtos_scheduler", "stm32_bringup", "buildroot_linux_driver"]}},
     {"name": "resume-only skills", "profile": {"experience": ["sensor_read", "motor_driver"], "languages": ["python"]}, "expect": {}},
     {"name": "three Arduino projects", "profile": {"career": ["embedded"], "interests": ["embedded"], "experience": ["sensor_read", "soldering", "motor_driver", "breadboard", "raspberry_pi"], "languages": ["c_cpp"], "hardware": ["arduino"], "budget_inr": 20000}, "expect": {"not_only_tags": ["arduino"]}},
     {"name": "vision learner", "profile": {"career": ["vision"], "interests": ["vision"], "languages": ["python"], "goal": ["learn"], "budget_inr": 12000}, "expect": {}},
     {"name": "IoT intern portfolio", "profile": {"career": ["iot"], "interests": ["iot", "embedded"], "languages": ["python"], "goal": ["internship", "portfolio"], "budget_inr": 10000}, "expect": {}},
-    {"name": "sensing beginner", "profile": {"career": ["undecided"], "interests": ["sensing"], "budget_inr": 3000}, "expect": {"max_cost_inr": 3000, "max_difficulty": 3}},
+    {"name": "sensing beginner", "profile": {"career": ["undecided"], "interests": ["sensing"], "languages": ["none"], "budget_inr": 3000}, "expect": {"max_cost_inr": 3000, "max_difficulty": 3}},
     {"name": "mechanics lab access", "profile": {"career": ["robotics"], "interests": ["mechanics"], "tools": ["college_lab"], "budget_inr": 25000}, "expect": {}},
     {"name": "no tools laptop", "profile": {"career": ["embedded"], "interests": ["embedded"], "tools": ["laptop_only"], "budget_inr": 10000}, "expect": {}},
     {"name": "tight schedule", "profile": {"career": ["robotics"], "interests": ["robotics"], "budget_inr": 12000, "schedule": {"hours_per_week": 3, "deadline_weeks": 4}}, "expect": {}},

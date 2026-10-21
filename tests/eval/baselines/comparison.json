@@ -1,0 +1,1949 @@
+{
+  "v1": {
+    "all_equal_top5_percent": 0.91,
+    "baseline_note": "Recalculated after phase 1 preserved raw 0-5 ratings; any score shifts from v1_pre_data_layer are due to zero-valued ratings no longer being clamped to 1.",
+    "budget_perturbation_mean_jaccard": 0.89,
+    "candidate_count": 165,
+    "coverage_percent": 46.06,
+    "deterministic": true,
+    "level_violation_percent": 12.07,
+    "mean_distinct_top5_scores": 3.204,
+    "mean_top1_top5_gap": 2.726,
+    "never_appearing": [
+      "acrobatic_freestyle_drone",
+      "air_quality_monitor",
+      "arduino_clone_board",
+      "autonomous_mapping_drone",
+      "balloon_tracker",
+      "battery_monitor",
+      "battery_power_board",
+      "bldc_esc_scratch",
+      "bms_2s_pack",
+      "buildroot_linux_driver",
+      "camera_slider",
+      "color_sorter",
+      "digital_dice",
+      "door_window_sensors",
+      "drowsiness_detector",
+      "ekf_robot_localization",
+      "energy_meter_ct",
+      "esp32_usbc_board",
+      "esp_now_mesh",
+      "firmware_ci_hil",
+      "first_kicad_pcb",
+      "fm_radio_digital",
+      "fpga_blink_counter",
+      "fpga_camera_edge",
+      "fpga_dds_synth",
+      "fpga_fir_filter",
+      "fpga_logic_analyzer",
+      "fpga_riscv_core",
+      "fpga_uart_txrx",
+      "fpga_vga_pong",
+      "fpv_speed_racer_drone",
+      "gps_tracker",
+      "indoor_obstacle_avoidance_drone",
+      "ir_remote_hub",
+      "led_chaser",
+      "lifi_link",
+      "lora_weather_node",
+      "lqr_balancing_robot",
+      "maze_solver",
+      "maze_solving_micro_mouse",
+      "mppt_charge_controller",
+      "music_visualizer",
+      "nrf24_long_range_rc",
+      "payload_delivery_drone",
+      "pov_display",
+      "printed_robot_chassis",
+      "pulse_monitor_display",
+      "quadcopter_fc",
+      "ros2_moveit_arm",
+      "ros2_nav2_autonomy",
+      "ros2_slam_lidar",
+      "ros2_vision_pick_place",
+      "rtc_clock_alarm",
+      "rtos_priority_inversion_lab",
+      "rtos_robot_controller",
+      "self_balancing_robot",
+      "servo_robotic_arm",
+      "smart_cane",
+      "smart_curtain",
+      "smart_helmet_alert",
+      "smart_parking",
+      "smart_watch_esp32",
+      "solar_phone_charger",
+      "solar_tracker",
+      "sound_localizer",
+      "step_counter_band",
+      "stm32_adc_dma_logger",
+      "stm32_audio_dsp",
+      "stm32_bldc_foc",
+      "stm32_bootloader",
+      "stm32_bringup",
+      "stm32_can_network",
+      "stm32_low_power_node",
+      "stm32_lvgl_gui",
+      "stm32_sd_logger",
+      "stm32_timers_encoder",
+      "stm32_usb_hid",
+      "sumo_bot",
+      "swarm_coordination_drone",
+      "teg_generator_demo",
+      "temp_humidity_lcd",
+      "temperature_gate",
+      "theremin",
+      "thrust_stand",
+      "tiny_rtos_scheduler",
+      "traffic_light",
+      "ultra_fast_pid_line_follower",
+      "ultrasonic_meter",
+      "zephyr_ble_sensor"
+    ],
+    "persona_count": 28,
+    "persona_expectation_failures": [
+      {
+        "expectation": "must_include_one_of",
+        "persona": "advanced firmware"
+      }
+    ],
+    "persona_results": [
+      {
+        "name": "blank cold start",
+        "results": [
+          {
+            "key": "ldr_light_tracker",
+            "score": 84
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 84
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 84
+          },
+          {
+            "key": "water_level_controller",
+            "score": 84
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 83
+          }
+        ]
+      },
+      {
+        "name": "embedded beginner low budget",
+        "results": [
+          {
+            "key": "smart_dustbin",
+            "score": 81
+          },
+          {
+            "key": "water_level_controller",
+            "score": 81
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 80
+          },
+          {
+            "key": "posture_corrector",
+            "score": 80
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 79
+          }
+        ]
+      },
+      {
+        "name": "robotics maker",
+        "results": [
+          {
+            "key": "stepper_turntable",
+            "score": 77
+          },
+          {
+            "key": "gimbal_stabilizer",
+            "score": 76
+          },
+          {
+            "key": "rc_plane_stabilizer",
+            "score": 76
+          },
+          {
+            "key": "dc_motor_speed_pid",
+            "score": 73
+          },
+          {
+            "key": "ldr_light_tracker",
+            "score": 72
+          }
+        ]
+      },
+      {
+        "name": "advanced firmware",
+        "results": [
+          {
+            "key": "stepper_turntable",
+            "score": 80
+          },
+          {
+            "key": "emg_controlled_claw",
+            "score": 79
+          },
+          {
+            "key": "payload_dropper",
+            "score": 79
+          },
+          {
+            "key": "ros2_teleop_sensors",
+            "score": 79
+          },
+          {
+            "key": "flex_sensor_glove",
+            "score": 78
+          }
+        ]
+      },
+      {
+        "name": "resume-only skills",
+        "results": [
+          {
+            "key": "payload_dropper",
+            "score": 81
+          },
+          {
+            "key": "stepper_turntable",
+            "score": 81
+          },
+          {
+            "key": "ldr_light_tracker",
+            "score": 80
+          },
+          {
+            "key": "water_level_controller",
+            "score": 80
+          },
+          {
+            "key": "reaction_game",
+            "score": 79
+          }
+        ]
+      },
+      {
+        "name": "three Arduino projects",
+        "results": [
+          {
+            "key": "payload_dropper",
+            "score": 79
+          },
+          {
+            "key": "ros2_teleop_sensors",
+            "score": 79
+          },
+          {
+            "key": "stepper_turntable",
+            "score": 79
+          },
+          {
+            "key": "emg_controlled_claw",
+            "score": 78
+          },
+          {
+            "key": "greenhouse_controller",
+            "score": 78
+          }
+        ]
+      },
+      {
+        "name": "vision learner",
+        "results": [
+          {
+            "key": "opencv_color_tracker",
+            "score": 81
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 80
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 80
+          },
+          {
+            "key": "water_level_controller",
+            "score": 80
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 79
+          }
+        ]
+      },
+      {
+        "name": "IoT intern portfolio",
+        "results": [
+          {
+            "key": "gesture_car",
+            "score": 80
+          },
+          {
+            "key": "wifi_rc_car",
+            "score": 80
+          },
+          {
+            "key": "camera_doorbell",
+            "score": 79
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 78
+          },
+          {
+            "key": "water_rocket_altimeter",
+            "score": 78
+          }
+        ]
+      },
+      {
+        "name": "sensing beginner",
+        "results": [
+          {
+            "key": "water_level_controller",
+            "score": 82
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 81
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 81
+          },
+          {
+            "key": "ldr_light_tracker",
+            "score": 80
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 80
+          }
+        ]
+      },
+      {
+        "name": "mechanics lab access",
+        "results": [
+          {
+            "key": "ldr_light_tracker",
+            "score": 76
+          },
+          {
+            "key": "stepper_turntable",
+            "score": 76
+          },
+          {
+            "key": "wall_follower",
+            "score": 76
+          },
+          {
+            "key": "water_level_controller",
+            "score": 76
+          },
+          {
+            "key": "dc_motor_speed_pid",
+            "score": 75
+          }
+        ]
+      },
+      {
+        "name": "no tools laptop",
+        "results": [
+          {
+            "key": "water_level_controller",
+            "score": 82
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 81
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 81
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 79
+          },
+          {
+            "key": "esp32cam_stream",
+            "score": 78
+          }
+        ]
+      },
+      {
+        "name": "tight schedule",
+        "results": [
+          {
+            "key": "pan_tilt_mount",
+            "score": 81
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 81
+          },
+          {
+            "key": "ldr_light_tracker",
+            "score": 80
+          },
+          {
+            "key": "water_level_controller",
+            "score": 80
+          },
+          {
+            "key": "gripper_force_sensing",
+            "score": 79
+          }
+        ]
+      },
+      {
+        "name": "long schedule",
+        "results": [
+          {
+            "key": "smart_dustbin",
+            "score": 83
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 82
+          },
+          {
+            "key": "gripper_force_sensing",
+            "score": 81
+          },
+          {
+            "key": "water_level_controller",
+            "score": 81
+          },
+          {
+            "key": "ldr_light_tracker",
+            "score": 80
+          }
+        ]
+      },
+      {
+        "name": "competition team",
+        "results": [
+          {
+            "key": "pan_tilt_mount",
+            "score": 82
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 81
+          },
+          {
+            "key": "gripper_force_sensing",
+            "score": 80
+          },
+          {
+            "key": "ldr_light_tracker",
+            "score": 80
+          },
+          {
+            "key": "wall_follower",
+            "score": 80
+          }
+        ]
+      },
+      {
+        "name": "ESP32 owner",
+        "results": [
+          {
+            "key": "esp32cam_stream",
+            "score": 84
+          },
+          {
+            "key": "smart_light_wifi",
+            "score": 84
+          },
+          {
+            "key": "gesture_car",
+            "score": 83
+          },
+          {
+            "key": "wifi_rc_car",
+            "score": 83
+          },
+          {
+            "key": "camera_doorbell",
+            "score": 82
+          }
+        ]
+      },
+      {
+        "name": "STM32 owner advanced",
+        "results": [
+          {
+            "key": "stepper_turntable",
+            "score": 80
+          },
+          {
+            "key": "payload_dropper",
+            "score": 79
+          },
+          {
+            "key": "ros2_teleop_sensors",
+            "score": 79
+          },
+          {
+            "key": "emg_controlled_claw",
+            "score": 78
+          },
+          {
+            "key": "greenhouse_controller",
+            "score": 78
+          }
+        ]
+      },
+      {
+        "name": "ML with fabrication tools",
+        "results": [
+          {
+            "key": "dc_motor_speed_pid",
+            "score": 76
+          },
+          {
+            "key": "rc_plane_stabilizer",
+            "score": 74
+          },
+          {
+            "key": "stepper_turntable",
+            "score": 74
+          },
+          {
+            "key": "wall_follower",
+            "score": 74
+          },
+          {
+            "key": "water_level_controller",
+            "score": 74
+          }
+        ]
+      },
+      {
+        "name": "wireless interest",
+        "results": [
+          {
+            "key": "gesture_car",
+            "score": 78
+          },
+          {
+            "key": "wifi_rc_car",
+            "score": 78
+          },
+          {
+            "key": "camera_doorbell",
+            "score": 77
+          },
+          {
+            "key": "gsm_sms_alert",
+            "score": 77
+          },
+          {
+            "key": "payload_dropper",
+            "score": 77
+          }
+        ]
+      },
+      {
+        "name": "experienced robotics",
+        "results": [
+          {
+            "key": "rc_plane_stabilizer",
+            "score": 77
+          },
+          {
+            "key": "stepper_turntable",
+            "score": 77
+          },
+          {
+            "key": "gimbal_stabilizer",
+            "score": 76
+          },
+          {
+            "key": "dc_motor_speed_pid",
+            "score": 73
+          },
+          {
+            "key": "ldr_light_tracker",
+            "score": 72
+          }
+        ]
+      },
+      {
+        "name": "power electronics",
+        "results": [
+          {
+            "key": "water_level_controller",
+            "score": 83
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 82
+          },
+          {
+            "key": "posture_corrector",
+            "score": 82
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 82
+          },
+          {
+            "key": "ros2_teleop_sensors",
+            "score": 81
+          }
+        ]
+      },
+      {
+        "name": "FPGA learner",
+        "results": [
+          {
+            "key": "smart_dustbin",
+            "score": 82
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 79
+          },
+          {
+            "key": "water_level_controller",
+            "score": 79
+          },
+          {
+            "key": "water_rocket_altimeter",
+            "score": 79
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 78
+          }
+        ]
+      },
+      {
+        "name": "aerospace enthusiast",
+        "results": [
+          {
+            "key": "defensive_goalie_bot",
+            "score": 79
+          },
+          {
+            "key": "aggressive_overtaking_rc_bot",
+            "score": 76
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 76
+          },
+          {
+            "key": "dc_motor_speed_pid",
+            "score": 75
+          },
+          {
+            "key": "esp32cam_stream",
+            "score": 75
+          }
+        ]
+      },
+      {
+        "name": "budget constrained maker",
+        "results": [
+          {
+            "key": "ldr_light_tracker",
+            "score": 80
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 80
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 79
+          },
+          {
+            "key": "keypad_lock",
+            "score": 77
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 76
+          }
+        ]
+      },
+      {
+        "name": "high budget final year",
+        "results": [
+          {
+            "key": "object_tracking_pan_tilt",
+            "score": 80
+          },
+          {
+            "key": "complex_track_drag_line_tracer",
+            "score": 78
+          },
+          {
+            "key": "esp_mini_drone",
+            "score": 78
+          },
+          {
+            "key": "vision_based_racing_car",
+            "score": 78
+          },
+          {
+            "key": "rc_hovercraft",
+            "score": 77
+          }
+        ]
+      },
+      {
+        "name": "career undecided with IoT interest",
+        "results": [
+          {
+            "key": "esp32cam_stream",
+            "score": 83
+          },
+          {
+            "key": "smart_light_wifi",
+            "score": 83
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 81
+          },
+          {
+            "key": "gesture_car",
+            "score": 80
+          },
+          {
+            "key": "water_level_controller",
+            "score": 80
+          }
+        ]
+      },
+      {
+        "name": "beginner no budget limit",
+        "results": [
+          {
+            "key": "water_level_controller",
+            "score": 80
+          },
+          {
+            "key": "motion_alarm_notify",
+            "score": 79
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 79
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 77
+          },
+          {
+            "key": "esp32cam_stream",
+            "score": 76
+          }
+        ]
+      },
+      {
+        "name": "robotics moderate budget and time",
+        "results": [
+          {
+            "key": "stepper_turntable",
+            "score": 80
+          },
+          {
+            "key": "payload_dropper",
+            "score": 79
+          },
+          {
+            "key": "rc_plane_stabilizer",
+            "score": 79
+          },
+          {
+            "key": "dc_motor_speed_pid",
+            "score": 78
+          },
+          {
+            "key": "gripper_force_sensing",
+            "score": 78
+          }
+        ]
+      },
+      {
+        "name": "vision portfolio with lab",
+        "results": [
+          {
+            "key": "flex_sensor_glove",
+            "score": 79
+          },
+          {
+            "key": "water_rocket_altimeter",
+            "score": 77
+          },
+          {
+            "key": "face_recognition_lock",
+            "score": 76
+          },
+          {
+            "key": "fall_detector",
+            "score": 76
+          },
+          {
+            "key": "gesture_car",
+            "score": 76
+          }
+        ]
+      }
+    ],
+    "synthetic_profile_count": 300,
+    "version": "v1"
+  },
+  "v2": {
+    "all_equal_top_picks_percent": 0.0,
+    "budget_perturbation_mean_jaccard": 0.865,
+    "budget_perturbation_profiles": 283,
+    "candidate_count": 165,
+    "cold_start_percent": 3.05,
+    "coverage_percent": 32.73,
+    "deterministic": true,
+    "level_violation_percent": 7.0,
+    "mean_distinct_top_pick_scores": 3.799,
+    "mean_top1_top_pick_gap": 0.091842,
+    "never_appearing": [
+      "acrobatic_freestyle_drone",
+      "aggressive_overtaking_rc_bot",
+      "arduino_clone_board",
+      "autonomous_mapping_drone",
+      "ball_and_beam",
+      "balloon_tracker",
+      "battery_monitor",
+      "battery_power_board",
+      "bldc_esc_scratch",
+      "bms_2s_pack",
+      "cnc_pen_plotter",
+      "color_sorter",
+      "complex_track_drag_line_tracer",
+      "defensive_goalie_bot",
+      "digital_dice",
+      "door_window_sensors",
+      "drowsiness_detector",
+      "eink_dashboard",
+      "ekf_robot_localization",
+      "emg_controlled_claw",
+      "energy_meter_ct",
+      "esp32_ota_rollback",
+      "esp32_usbc_board",
+      "esp_now_mesh",
+      "fall_detector",
+      "first_kicad_pcb",
+      "flex_sensor_glove",
+      "fm_radio_digital",
+      "fpga_blink_counter",
+      "fpga_camera_edge",
+      "fpga_dds_synth",
+      "fpga_fir_filter",
+      "fpga_logic_analyzer",
+      "fpga_pwm_motor",
+      "fpga_riscv_core",
+      "fpga_uart_txrx",
+      "fpga_vga_pong",
+      "fpv_speed_racer_drone",
+      "freertos_queue_logger",
+      "gesture_car",
+      "gimbal_stabilizer",
+      "gps_tracker",
+      "greenhouse_controller",
+      "heavyweight_tactical_soccer_bot",
+      "hexapod_walker",
+      "high_speed_time_trial_rover",
+      "indoor_obstacle_avoidance_drone",
+      "inverted_pendulum",
+      "jetson_obstacle_ai",
+      "led_chaser",
+      "long_range_surveillance_drone",
+      "lora_weather_node",
+      "lqr_balancing_robot",
+      "maze_solver",
+      "maze_solving_micro_mouse",
+      "mecanum_robot",
+      "microros_diff_drive",
+      "motion_alarm_notify",
+      "mppt_charge_controller",
+      "mqtt_sensor_dashboard",
+      "object_tracking_pan_tilt",
+      "omnidirectional_striker_bot",
+      "passing_assisting_bot",
+      "payload_delivery_drone",
+      "posture_corrector",
+      "printed_robot_chassis",
+      "pulse_monitor_display",
+      "pwm_fan_controller",
+      "quadcopter_fc",
+      "rc_plane_stabilizer",
+      "reaction_game",
+      "ros2_moveit_arm",
+      "ros2_nav2_autonomy",
+      "ros2_slam_lidar",
+      "ros2_teleop_sensors",
+      "ros2_vision_pick_place",
+      "rtc_clock_alarm",
+      "rtos_priority_inversion_lab",
+      "rtos_robot_controller",
+      "search_rescue_thermal_drone",
+      "self_balancing_robot",
+      "smart_helmet_alert",
+      "smart_parking",
+      "smart_watch_esp32",
+      "step_counter_band",
+      "stm32_adc_dma_logger",
+      "stm32_audio_dsp",
+      "stm32_bldc_foc",
+      "stm32_bootloader",
+      "stm32_can_network",
+      "stm32_low_power_node",
+      "stm32_lvgl_gui",
+      "stm32_sd_logger",
+      "stm32_timers_encoder",
+      "stm32_usb_hid",
+      "sumo_bot",
+      "swarm_coordination_drone",
+      "system_id_pid_rig",
+      "teg_generator_demo",
+      "temp_humidity_lcd",
+      "temperature_gate",
+      "thrust_stand",
+      "tiny_rtos_scheduler",
+      "traffic_light",
+      "ultra_fast_pid_line_follower",
+      "ultrasonic_meter",
+      "vision_based_racing_car",
+      "vision_line_follower",
+      "wall_follower",
+      "wifi_rc_car",
+      "zephyr_ble_sensor"
+    ],
+    "persona_count": 28,
+    "persona_expectation_failures": [],
+    "persona_results": [
+      {
+        "goal": null,
+        "missing": [
+          "career direction or interests",
+          "experience, resume skills, or completed projects",
+          "budget",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "blank cold start",
+        "needs_more_info": true,
+        "results": []
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "buildroot_linux_driver",
+          "steps": []
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "embedded beginner low budget",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "rf_remote_switch",
+            "score": 0.556667,
+            "tier": "great_fit"
+          },
+          {
+            "key": "water_level_controller",
+            "score": 0.504167,
+            "tier": "good_fit"
+          },
+          {
+            "key": "stm32_bringup",
+            "score": 0.525617,
+            "tier": "great_fit"
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.456667,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "weekly hours and deadline"
+        ],
+        "name": "robotics maker",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "smart_dustbin",
+            "score": 0.447665,
+            "tier": "great_fit"
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 0.381959,
+            "tier": "good_fit"
+          },
+          {
+            "key": "parametric_enclosure",
+            "score": 0.386289,
+            "tier": "good_fit"
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 0.418354,
+            "tier": "great_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "tiny_rtos_scheduler",
+          "steps": [
+            "freertos_multitask_hub",
+            "stm32_bringup"
+          ]
+        },
+        "missing": [
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "advanced firmware",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "buildroot_linux_driver",
+            "score": 0.679398,
+            "tier": "stretch"
+          },
+          {
+            "key": "lifi_link",
+            "score": 0.633135,
+            "tier": "great_fit"
+          },
+          {
+            "key": "esp_mini_drone",
+            "score": 0.553123,
+            "tier": "good_fit"
+          },
+          {
+            "key": "sound_localizer",
+            "score": 0.57569,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": null,
+        "missing": [
+          "career direction or interests",
+          "budget",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "resume-only skills",
+        "needs_more_info": true,
+        "results": []
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "buildroot_linux_driver",
+          "steps": []
+        },
+        "missing": [
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "three Arduino projects",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "lifi_link",
+            "score": 0.633135,
+            "tier": "great_fit"
+          },
+          {
+            "key": "freertos_multitask_hub",
+            "score": 0.60172,
+            "tier": "good_fit"
+          },
+          {
+            "key": "led_matrix_display",
+            "score": 0.61362,
+            "tier": "great_fit"
+          },
+          {
+            "key": "solar_tracker",
+            "score": 0.518289,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "imitation_learning_arm",
+          "steps": [
+            "ros2_gazebo_sim",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "vision learner",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.66125,
+            "tier": "great_fit"
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 0.5025,
+            "tier": "great_fit"
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 0.40875,
+            "tier": "good_fit"
+          },
+          {
+            "key": "stm32_bringup",
+            "score": 0.356025,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "buildroot_linux_driver",
+          "steps": []
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "IoT intern portfolio",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "smart_light_wifi",
+            "score": 0.5925,
+            "tier": "great_fit"
+          },
+          {
+            "key": "stm32_bringup",
+            "score": 0.447004,
+            "tier": "good_fit"
+          },
+          {
+            "key": "water_level_controller",
+            "score": 0.455357,
+            "tier": "good_fit"
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 0.542679,
+            "tier": "great_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "sensing beginner",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "smart_dustbin",
+            "score": 0.516146,
+            "tier": "great_fit"
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 0.432188,
+            "tier": "great_fit"
+          },
+          {
+            "key": "solar_phone_charger",
+            "score": 0.383344,
+            "tier": "good_fit"
+          },
+          {
+            "key": "parametric_enclosure",
+            "score": 0.367481,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "weekly hours and deadline"
+        ],
+        "name": "mechanics lab access",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "servo_robotic_arm",
+            "score": 0.56736,
+            "tier": "great_fit"
+          },
+          {
+            "key": "imu_kalman_fusion",
+            "score": 0.536266,
+            "tier": "great_fit"
+          },
+          {
+            "key": "solar_tracker",
+            "score": 0.533319,
+            "tier": "good_fit"
+          },
+          {
+            "key": "esp_mini_drone",
+            "score": 0.457272,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "tiny_rtos_scheduler",
+          "steps": [
+            "freertos_multitask_hub",
+            "stm32_bringup"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "weekly hours and deadline"
+        ],
+        "name": "no tools laptop",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "buildroot_linux_driver",
+            "score": 0.671733,
+            "tier": "stretch"
+          },
+          {
+            "key": "led_matrix_display",
+            "score": 0.643333,
+            "tier": "great_fit"
+          },
+          {
+            "key": "imu_kalman_fusion",
+            "score": 0.5828,
+            "tier": "good_fit"
+          },
+          {
+            "key": "camera_doorbell",
+            "score": 0.538933,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools"
+        ],
+        "name": "tight schedule",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "smart_dustbin",
+            "score": 0.548106,
+            "tier": "great_fit"
+          },
+          {
+            "key": "parametric_enclosure",
+            "score": 0.476438,
+            "tier": "good_fit"
+          },
+          {
+            "key": "dc_motor_speed_pid",
+            "score": 0.453784,
+            "tier": "good_fit"
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 0.516591,
+            "tier": "great_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools"
+        ],
+        "name": "long schedule",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "servo_robotic_arm",
+            "score": 0.705758,
+            "tier": "great_fit"
+          },
+          {
+            "key": "esp_mini_drone",
+            "score": 0.690067,
+            "tier": "great_fit"
+          },
+          {
+            "key": "solar_tracker",
+            "score": 0.663412,
+            "tier": "good_fit"
+          },
+          {
+            "key": "imu_kalman_fusion",
+            "score": 0.563288,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "competition team",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "servo_robotic_arm",
+            "score": 0.705758,
+            "tier": "great_fit"
+          },
+          {
+            "key": "esp_mini_drone",
+            "score": 0.690067,
+            "tier": "great_fit"
+          },
+          {
+            "key": "solar_tracker",
+            "score": 0.663412,
+            "tier": "good_fit"
+          },
+          {
+            "key": "imu_kalman_fusion",
+            "score": 0.563288,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "esp32_usbc_board",
+          "steps": [
+            "arduino_clone_board",
+            "first_kicad_pcb"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "ESP32 owner",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "smart_light_wifi",
+            "score": 0.6675,
+            "tier": "great_fit"
+          },
+          {
+            "key": "esp32cam_stream",
+            "score": 0.59455,
+            "tier": "great_fit"
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 0.441,
+            "tier": "good_fit"
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 0.5565,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "buildroot_linux_driver",
+          "steps": []
+        },
+        "missing": [
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "STM32 owner advanced",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "led_matrix_display",
+            "score": 0.637527,
+            "tier": "great_fit"
+          },
+          {
+            "key": "freertos_multitask_hub",
+            "score": 0.60172,
+            "tier": "good_fit"
+          },
+          {
+            "key": "gsm_sms_alert",
+            "score": 0.617469,
+            "tier": "great_fit"
+          },
+          {
+            "key": "solar_tracker",
+            "score": 0.518289,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "imitation_learning_arm",
+          "steps": [
+            "ros2_gazebo_sim",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "weekly hours and deadline"
+        ],
+        "name": "ML with fabrication tools",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.54589,
+            "tier": "great_fit"
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 0.445185,
+            "tier": "good_fit"
+          },
+          {
+            "key": "parametric_enclosure",
+            "score": 0.406988,
+            "tier": "good_fit"
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 0.445297,
+            "tier": "great_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "esp32_usbc_board",
+          "steps": [
+            "arduino_clone_board",
+            "first_kicad_pcb"
+          ]
+        },
+        "missing": [
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "wireless interest",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "rf_remote_switch",
+            "score": 0.568299,
+            "tier": "stretch"
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.43747,
+            "tier": "stretch"
+          },
+          {
+            "key": "water_level_controller",
+            "score": 0.427285,
+            "tier": "stretch"
+          },
+          {
+            "key": "smart_light_wifi",
+            "score": 0.531975,
+            "tier": "stretch"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "weekly hours and deadline"
+        ],
+        "name": "experienced robotics",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "esp_mini_drone",
+            "score": 0.594396,
+            "tier": "great_fit"
+          },
+          {
+            "key": "servo_robotic_arm",
+            "score": 0.530226,
+            "tier": "great_fit"
+          },
+          {
+            "key": "imu_kalman_fusion",
+            "score": 0.526866,
+            "tier": "good_fit"
+          },
+          {
+            "key": "solar_tracker",
+            "score": 0.467497,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "buildroot_linux_driver",
+          "steps": []
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "weekly hours and deadline"
+        ],
+        "name": "power electronics",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "rf_remote_switch",
+            "score": 0.556667,
+            "tier": "great_fit"
+          },
+          {
+            "key": "water_level_controller",
+            "score": 0.504167,
+            "tier": "good_fit"
+          },
+          {
+            "key": "stm32_bringup",
+            "score": 0.525617,
+            "tier": "great_fit"
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.456667,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "tiny_rtos_scheduler",
+          "steps": [
+            "freertos_multitask_hub",
+            "stm32_bringup"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "FPGA learner",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "buildroot_linux_driver",
+            "score": 0.671733,
+            "tier": "stretch"
+          },
+          {
+            "key": "lifi_link",
+            "score": 0.6627,
+            "tier": "great_fit"
+          },
+          {
+            "key": "esp_mini_drone",
+            "score": 0.6204,
+            "tier": "good_fit"
+          },
+          {
+            "key": "led_matrix_display",
+            "score": 0.643333,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "aerospace enthusiast",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "esp_mini_drone",
+            "score": 0.659911,
+            "tier": "great_fit"
+          },
+          {
+            "key": "servo_robotic_arm",
+            "score": 0.63158,
+            "tier": "great_fit"
+          },
+          {
+            "key": "solar_tracker",
+            "score": 0.593686,
+            "tier": "good_fit"
+          },
+          {
+            "key": "smart_irrigation",
+            "score": 0.57773,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "weekly hours and deadline"
+        ],
+        "name": "budget constrained maker",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "ldr_light_tracker",
+            "score": 0.450937,
+            "tier": "great_fit"
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 0.432188,
+            "tier": "great_fit"
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 0.407813,
+            "tier": "good_fit"
+          },
+          {
+            "key": "buck_converter_diy",
+            "score": 0.412191,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "imitation_learning_arm",
+          "steps": [
+            "ros2_gazebo_sim",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "high budget final year",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.54589,
+            "tier": "great_fit"
+          },
+          {
+            "key": "smart_dustbin",
+            "score": 0.527825,
+            "tier": "great_fit"
+          },
+          {
+            "key": "parametric_enclosure",
+            "score": 0.406988,
+            "tier": "good_fit"
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 0.493305,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "esp32_usbc_board",
+          "steps": [
+            "arduino_clone_board",
+            "first_kicad_pcb"
+          ]
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "available tools",
+          "weekly hours and deadline"
+        ],
+        "name": "career undecided with IoT interest",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "nrf24_long_range_rc",
+            "score": 0.692467,
+            "tier": "great_fit"
+          },
+          {
+            "key": "weather_station",
+            "score": 0.626353,
+            "tier": "good_fit"
+          },
+          {
+            "key": "camera_doorbell",
+            "score": 0.681343,
+            "tier": "great_fit"
+          },
+          {
+            "key": "rc_hovercraft",
+            "score": 0.556793,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "buildroot_linux_driver",
+          "steps": []
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "budget",
+          "weekly hours and deadline"
+        ],
+        "name": "beginner no budget limit",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "rf_remote_switch",
+            "score": 0.556667,
+            "tier": "great_fit"
+          },
+          {
+            "key": "water_level_controller",
+            "score": 0.504167,
+            "tier": "good_fit"
+          },
+          {
+            "key": "stm32_bringup",
+            "score": 0.525617,
+            "tier": "great_fit"
+          },
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.456667,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "delta_robot_vision_sorter",
+          "steps": [
+            "opencv_color_tracker",
+            "servo_robotic_arm"
+          ]
+        },
+        "missing": [
+          "available tools"
+        ],
+        "name": "robotics moderate budget and time",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "smart_dustbin",
+            "score": 0.561491,
+            "tier": "great_fit"
+          },
+          {
+            "key": "parametric_enclosure",
+            "score": 0.459425,
+            "tier": "good_fit"
+          },
+          {
+            "key": "pan_tilt_mount",
+            "score": 0.523618,
+            "tier": "great_fit"
+          },
+          {
+            "key": "drone_sim_pid",
+            "score": 0.396842,
+            "tier": "good_fit"
+          }
+        ]
+      },
+      {
+        "goal": {
+          "eligible": true,
+          "key": "buildroot_linux_driver",
+          "steps": []
+        },
+        "missing": [
+          "experience, resume skills, or completed projects",
+          "weekly hours and deadline"
+        ],
+        "name": "vision portfolio with lab",
+        "needs_more_info": false,
+        "results": [
+          {
+            "key": "opencv_color_tracker",
+            "score": 0.581453,
+            "tier": "great_fit"
+          },
+          {
+            "key": "rf_remote_switch",
+            "score": 0.476337,
+            "tier": "great_fit"
+          },
+          {
+            "key": "water_level_controller",
+            "score": 0.423837,
+            "tier": "good_fit"
+          },
+          {
+            "key": "stm32_bringup",
+            "score": 0.450107,
+            "tier": "good_fit"
+          }
+        ]
+      }
+    ],
+    "profile_count": 328,
+    "readiness_violation_percent": 0.0,
+    "result_count": 1272,
+    "synthetic_profile_count": 300,
+    "version": "v2"
+  }
+}
