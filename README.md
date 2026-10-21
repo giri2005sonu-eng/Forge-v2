@@ -1,6 +1,6 @@
 # FORGE — Project Planning & Execution Copilot
 
-**Azinhack 2026 · AI Engineering Track · Team FORGE: Aditya Raj, Jai Prakash, Sidhant**
+**AI Engineering Track · Team FORGE: Aditya Raj, Jai Prakash, Sidhant**
 
 > **AI reads. Rules decide. Physics validates. Every number has verifiable proof.**
 
