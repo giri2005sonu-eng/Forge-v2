@@ -3,6 +3,12 @@ function formatPrice(val) {
   return Number(val).toLocaleString();
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const state = {
     stage: 'home',
@@ -15,6 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     starProjects: [],
     starsLoaded: false,
     activeBom: null,
+    completedProjects: [],
+    recommendationResponse: null,
     optimizerOpen: false,
     optimizerRole: null,
     optimizerCandidate: null,
@@ -465,9 +473,82 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btn-get-recommendations')?.addEventListener('click', triggerRecommendationRanking);
 
+  const completedProjectSearch = document.getElementById('completed-project-search');
+  let projectSearchTimer;
+  completedProjectSearch?.addEventListener('input', () => {
+    clearTimeout(projectSearchTimer);
+    projectSearchTimer = setTimeout(async () => {
+      const query = completedProjectSearch.value.trim();
+      const results = document.getElementById('completed-project-search-results');
+      if (query.length < 2) {
+        results.innerHTML = '';
+        return;
+      }
+      try {
+        const response = await api.searchProjects(query);
+        const selectedIds = new Set(state.completedProjects.map(project => project.key));
+        results.innerHTML = response.projects
+          .filter(project => !selectedIds.has(project.key))
+          .map(project => `
+            <button class="project-search-option" type="button" role="option"
+              data-project-key="${escapeHtml(project.key)}"
+              data-project-label="${escapeHtml(project.label)}">
+              ${escapeHtml(project.label)} <span class="caption">${escapeHtml(project.domain)}</span>
+            </button>
+          `).join('');
+        results.querySelectorAll('[data-project-key]').forEach(button => {
+          button.addEventListener('click', () => {
+            state.completedProjects.push({
+              key: button.dataset.projectKey,
+              label: button.dataset.projectLabel
+            });
+            completedProjectSearch.value = '';
+            results.innerHTML = '';
+            renderCompletedProjectSelection();
+          });
+        });
+      } catch (err) {
+        results.innerHTML = `<div class="caption" style="padding:9px;">${escapeHtml(err.message)}</div>`;
+      }
+    }, 180);
+  });
+
+  function renderCompletedProjectSelection() {
+    const container = document.getElementById('completed-project-selection');
+    container.innerHTML = state.completedProjects.map(project => `
+      <span class="completed-project-chip">
+        ${escapeHtml(project.label)}
+        <button type="button" data-remove-project="${escapeHtml(project.key)}" aria-label="Remove ${escapeHtml(project.label)}">×</button>
+      </span>
+    `).join('');
+    container.querySelectorAll('[data-remove-project]').forEach(button => {
+      button.addEventListener('click', () => {
+        state.completedProjects = state.completedProjects.filter(
+          project => project.key !== button.dataset.removeProject
+        );
+        renderCompletedProjectSelection();
+      });
+    });
+  }
+
   async function triggerRecommendationRanking() {
     try {
-      const res = await api.rankProjects(state.answers, 5);
+      const status = document.getElementById('recommendation-status');
+      const surveyStatus = document.getElementById('survey-rank-status');
+      surveyStatus.textContent = '';
+      const hours = Number(document.getElementById('recommendation-hours').value);
+      const deadline = Number(document.getElementById('recommendation-deadline').value);
+      const res = await api.rankProjects(state.answers, 5, {
+        hours_per_week: hours || null,
+        deadline_weeks: deadline || null,
+        completed_project_ids: state.completedProjects.map(project => project.key)
+      });
+      state.recommendationResponse = res;
+      if (res.needs_more_info) {
+        surveyStatus.textContent = `A little more information is needed: ${(res.missing || []).join(', ')}.`;
+        return;
+      }
+      status.hidden = true;
       state.recommendations = res.results || [];
       renderRecommendations(state.recommendations);
       switchStage('results');
@@ -480,24 +561,78 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderRecommendations(items) {
     const grid = document.getElementById('recommendations-grid');
     grid.innerHTML = '';
+    document.getElementById('recommendation-status').hidden = true;
     items.forEach(item => {
       const card = document.createElement('div');
       card.className = 'card';
       card.style.cursor = 'pointer';
       card.innerHTML = `
-        <div style="font-size:1.6rem;font-weight:800;color:var(--primary-orange);">${item.score}%</div>
-        <div style="font-size:1.05rem;font-weight:700;margin:4px 0;">${item.label}</div>
-        <p class="caption">${item.desc}</p>
+        <span class="tier-badge">${escapeHtml(item.tier || 'Baseline')}</span>
+        <div style="font-size:1.05rem;font-weight:700;margin:8px 0 4px;">${escapeHtml(item.label)}</div>
+        <p class="caption">${escapeHtml(item.desc)}</p>
         <div style="margin:10px 0;font-size:0.8rem;color:var(--text-secondary);">
-          ${item.domain} · ${item.build_hours} hrs · ₹${formatPrice(item.cost_inr)}
+          ${escapeHtml(item.domain)} · ${item.build_hours || '—'} hrs · ₹${formatPrice(item.cost_inr)}
         </div>
-        <button class="btn primary" style="width:100%;margin-top:6px;">Choose</button>
+        <button class="btn primary" type="button" data-choose-project style="width:100%;margin-top:6px;">View explanation</button>
+        <div class="recommendation-feedback" aria-label="Recommendation feedback">
+          <button class="btn ghost" type="button" data-feedback="built">Built</button>
+          <button class="btn ghost" type="button" data-feedback="too_hard">Too hard</button>
+          <button class="btn ghost" type="button" data-feedback="too_easy">Too easy</button>
+          <button class="btn ghost" type="button" data-feedback="not_interested">Not interested</button>
+        </div>
+        <span class="caption" data-feedback-status role="status"></span>
       `;
       card.addEventListener('click', () => inspectProjectDetail(item));
+      card.querySelector('[data-choose-project]').addEventListener('click', event => {
+        event.stopPropagation();
+        inspectProjectDetail(item);
+      });
+      card.querySelectorAll('[data-feedback]').forEach(button => {
+        button.addEventListener('click', async event => {
+          event.stopPropagation();
+          const status = card.querySelector('[data-feedback-status]');
+          button.disabled = true;
+          try {
+            const level = Number(state.answers.skill_level || state.answers.level);
+            await api.sendRecommendationFeedback(item.key, button.dataset.feedback, {
+              level: Number.isInteger(level) && level >= 1 && level <= 5 ? level : null,
+              role: String(state.answers.career || 'undecided').slice(0, 40)
+            });
+            status.textContent = 'Feedback recorded';
+          } catch (err) {
+            status.textContent = `Could not record feedback: ${err.message}`;
+            button.disabled = false;
+          }
+        });
+      });
       grid.appendChild(card);
     });
 
+    renderStarGoal(state.recommendationResponse?.goal);
     if (items.length > 0) inspectProjectDetail(items[0]);
+  }
+
+  function renderStarGoal(goal) {
+    const container = document.getElementById('star-goal-card');
+    if (!goal) {
+      container.innerHTML = '<p class="caption">A separate Star Project goal will appear when a profile has enough information.</p>';
+      return;
+    }
+    const steps = goal.step_labels || goal.steps || [];
+    const priceLabel = goal.price_status === 'pending_verification'
+      ? 'Price pending verification'
+      : 'Rough estimate; not a quote';
+    container.innerHTML = `
+      <p class="eyebrow">LONG-TERM STAR PROJECT GOAL</p>
+      <h3>${escapeHtml(goal.label)}</h3>
+      <p class="text-secondary">${escapeHtml(goal.desc)}</p>
+      <p class="caption">Estimated cost: ₹${formatPrice(goal.cost_inr)} · ${priceLabel}</p>
+      <p class="caption">${goal.eligible ? 'Current prerequisite path is reachable.' : 'Build the foundations below before attempting this goal.'}</p>
+      <h4>Prerequisite path</h4>
+      ${steps.length
+        ? `<ol class="goal-step-list">${steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol>`
+        : '<p class="caption">No remaining prerequisite steps.</p>'}
+    `;
   }
 
   function inspectProjectDetail(item) {
@@ -505,31 +640,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inspector = document.getElementById('project-detail-inspector');
     inspector.style.display = 'block';
 
-    document.getElementById('detail-project-title').textContent = `${item.label} · ${item.score}% fit`;
+    document.getElementById('detail-project-title').textContent = item.tier
+      ? `${item.label} · ${item.tier.replaceAll('_', ' ')}`
+      : `${item.label} · baseline recommendation`;
     document.getElementById('detail-project-desc').textContent = item.desc;
     document.getElementById('detail-meta-list').innerHTML = `
-      <div><b>Domain:</b> ${item.domain}</div>
-      <div><b>Estimated build time:</b> ${item.build_hours} hours</div>
-      <div><b>Estimated cost:</b> ₹${formatPrice(item.cost_inr)}</div>
-      <div><b>Parts availability in India:</b> ${item.parts_availability_india}/5</div>
-      <div><b>Tools required:</b> ${item.tools_required.join(', ') || 'Standard hand tools'}</div>
-      <div><b>Required skills:</b> ${item.required_skills.join(', ') || 'Beginner friendly'}</div>
+      <div><b>Domain:</b> ${escapeHtml(item.domain)}</div>
+      <div><b>Estimated build time:</b> ${item.build_hours || '—'} hours</div>
+      <div><b>Estimated cost:</b> ₹${formatPrice(item.cost_inr)} <span class="caption">${item.price_status ? `(${escapeHtml(item.price_status.replaceAll('_', ' '))})` : '(rough estimate; not a quote)'}</span></div>
+      <div><b>Parts availability in India:</b> ${item.parts_availability_india ?? '—'}/5</div>
+      <div><b>Tools required:</b> ${escapeHtml((item.tools_required || []).join(', ') || 'Standard hand tools')}</div>
+      <div><b>Required skills:</b> ${escapeHtml((item.required_skills || []).join(', ') || 'See skills to practise')}</div>
     `;
 
-    const tbody = document.querySelector('#detail-fit-table tbody');
-    tbody.innerHTML = '';
-    (item.fit_breakdown || []).forEach(row => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${row.factor}</td><td>${row.rating}</td><td><b>${row.fit}</b></td>`;
-      tbody.appendChild(tr);
-    });
+    document.getElementById('detail-reasons').innerHTML = (item.reasons || [])
+      .map(reason => `<span class="recommendation-chip">${escapeHtml(reason)}</span>`).join('')
+      || '<span class="caption">Reason details are available for the v2 scorer.</span>';
+    document.getElementById('detail-learn-skills').innerHTML = (item.learn_skills || [])
+      .map(skill => `<span class="recommendation-chip">${escapeHtml(skill)}</span>`).join('')
+      || '<span class="caption">No specific new skill tags are listed.</span>';
+    document.getElementById('detail-unlocks').innerHTML = (item.unlocks || [])
+      .map(key => `<span class="recommendation-chip">${escapeHtml(key.replaceAll('_', ' '))}</span>`).join('')
+      || '<span class="caption">No specific next projects are listed.</span>';
 
-    // Render SVG Radar Chart
-    document.getElementById('detail-radar-chart').innerHTML = item.chart_svg || '';
+    const factorLabels = [
+      ['interest', 'Interest'],
+      ['level', 'Level fit'],
+      ['feasibility', 'Feasibility'],
+      ['impact', 'Role impact']
+    ];
+    const factorBars = document.getElementById('detail-score-factors');
+    if (item.breakdown) {
+      factorBars.innerHTML = factorLabels.map(([key, label]) => {
+        const value = Math.max(0, Math.min(1, Number(item.breakdown[key]) || 0));
+        return `<div class="score-factor-row"><span>${label}</span><div class="score-factor-track" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="1" aria-valuenow="${value}"><div class="score-factor-fill" style="width:${value * 100}%"></div></div></div>`;
+      }).join('');
+    } else {
+      factorBars.innerHTML = '<p class="caption">Component explanations are available for the v2 scorer.</p>';
+    }
+    const flagLabels = {
+      cost_unverified: 'Cost has not been verified',
+      slightly_over_budget: 'Slightly above the stated budget',
+      low_information: 'Limited preference information',
+      build_first: 'A prerequisite should be built first'
+    };
+    document.getElementById('detail-flags').textContent = (item.flags || [])
+      .map(flag => flagLabels[flag] || flag.replaceAll('_', ' ')).join(' · ');
 
     // Action button
     const btn = document.getElementById('btn-build-bom-for-pick');
+    btn.disabled = !item.bom_supported;
+    btn.title = item.bom_supported ? '' : 'BOM generation is not available for this recommendation yet.';
+    btn.textContent = item.bom_supported ? '⚡ Build the BOM for this project' : 'BOM not available for this project';
     btn.onclick = async () => {
+      if (!item.bom_supported) return;
       try {
         await api.generateBom({ project: item.key, budget: item.cost_inr || 3500 });
         switchStage('bom');

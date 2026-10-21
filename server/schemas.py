@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -9,7 +9,21 @@ class SurveyAnswerRequest(BaseModel):
 
 class SurveyRankRequest(BaseModel):
     answers: Optional[Dict[str, Any]] = None
-    limit: int = 5
+    limit: int = Field(default=5, ge=1, le=20)
+    hours_per_week: Optional[int] = Field(default=None, ge=1, le=80)
+    deadline_weeks: Optional[int] = Field(default=None, ge=1, le=104)
+    completed_project_ids: Optional[List[str]] = None
+
+
+class RecommendationFeedbackContext(BaseModel):
+    level: Optional[int] = Field(default=None, ge=1, le=5)
+    role: Optional[str] = Field(default=None, max_length=40)
+
+
+class SurveyFeedbackRequest(BaseModel):
+    project_id: str
+    signal: Literal["built", "too_hard", "too_easy", "not_interested"]
+    context: RecommendationFeedbackContext = Field(default_factory=RecommendationFeedbackContext)
 
 
 class CareerResearchRequest(BaseModel):

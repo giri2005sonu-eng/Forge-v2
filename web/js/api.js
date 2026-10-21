@@ -37,11 +37,23 @@ const api = {
     });
   },
 
-  async rankProjects(answers = null, limit = 5) {
+  async rankProjects(answers = null, limit = 5, profileInputs = {}) {
     return this.req('/api/survey/rank', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers, limit })
+      body: JSON.stringify({ answers, limit, ...profileInputs })
+    });
+  },
+
+  async searchProjects(query) {
+    return this.req(`/api/projects/search?q=${encodeURIComponent(query)}`);
+  },
+
+  async sendRecommendationFeedback(projectId, signal, context = {}) {
+    return this.req('/api/survey/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, signal, context })
     });
   },
 

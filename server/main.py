@@ -14,6 +14,7 @@ from server.routes import (
     delivery,
     idea,
     optimizer,
+    projects,
     research,
     resume,
     stars,
@@ -71,6 +72,7 @@ app.include_router(optimizer.router)
 app.include_router(wiring.router)
 app.include_router(research.router)
 app.include_router(stars.router)
+app.include_router(projects.router)
 
 
 @app.get("/api/state")

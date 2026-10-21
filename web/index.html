@@ -107,6 +107,31 @@
           <div class="caption" id="survey-answered-count" style="margin-top:10px;text-align:right;">0 of 9 questions answered</div>
         </div>
 
+        <section class="card recommendation-context" aria-labelledby="recommendation-context-title">
+          <h4 id="recommendation-context-title">Planning context <span class="caption">(optional)</span></h4>
+          <p class="caption">Add your available time and projects you have already completed to improve readiness matching.</p>
+          <div class="recommendation-context-grid">
+            <label for="recommendation-hours">Hours available each week
+              <input id="recommendation-hours" type="number" min="1" max="80" step="1" placeholder="e.g. 6">
+            </label>
+            <label for="recommendation-deadline">Target completion
+              <select id="recommendation-deadline">
+                <option value="">No fixed deadline</option>
+                <option value="2">Within 2 weeks</option>
+                <option value="4">Within 1 month</option>
+                <option value="8">Within 2 months</option>
+                <option value="12">Within 3 months</option>
+                <option value="24">Within 6 months</option>
+              </select>
+            </label>
+            <label class="completed-project-field" for="completed-project-search">Projects already completed
+              <input id="completed-project-search" type="search" autocomplete="off" placeholder="Search the project catalog">
+              <div id="completed-project-search-results" class="project-search-results" role="listbox" aria-label="Project search results"></div>
+            </label>
+          </div>
+          <div id="completed-project-selection" class="completed-project-selection" aria-live="polite"></div>
+        </section>
+
         <!-- Resume CV Box -->
         <div class="card">
           <h4>📄 Upload your resume / CV</h4>
@@ -123,6 +148,7 @@
           <button class="btn primary" id="btn-get-recommendations">Recommend projects</button>
           <button class="btn ghost" id="btn-skip-discovery">Skip to BOM</button>
         </div>
+        <p id="survey-rank-status" class="caption" role="status" aria-live="polite"></p>
       </section>
 
       <!-- ── 2. RESULTS VIEW ── -->
@@ -135,27 +161,33 @@
           <button class="btn ghost" id="btn-back-to-questions">Back to questions</button>
         </div>
 
+        <div id="recommendation-status" class="card recommendation-status" role="status" aria-live="polite" hidden></div>
         <div class="grid-4" id="recommendations-grid">
           <!-- Recommended project cards rendered here -->
         </div>
 
-        <!-- Selected Project Fit Inspector & SVG Radar Chart -->
+        <!-- Selected project explanation and separate Star Project goal -->
         <div id="project-detail-inspector" style="margin-top:1.5rem;display:none;">
           <div class="grid-2">
             <div class="card" id="detail-card-left">
               <h3 id="detail-project-title">Project Title</h3>
               <p id="detail-project-desc" class="text-secondary"></p>
               <div id="detail-meta-list" style="margin:12px 0;font-size:0.84rem;line-height:1.6;"></div>
-              <table class="fg-t" id="detail-fit-table">
-                <thead><tr><th>Factor</th><th>Rating</th><th>Fit</th></tr></thead>
-                <tbody></tbody>
-              </table>
+              <h4>Why this fits</h4>
+              <div id="detail-reasons" class="recommendation-chips"></div>
+              <h4 style="margin-top:14px;">Skills you will practise</h4>
+              <div id="detail-learn-skills" class="recommendation-chips"></div>
+              <h4 style="margin-top:14px;">Projects this can unlock</h4>
+              <div id="detail-unlocks" class="recommendation-chips"></div>
+              <h4 style="margin-top:14px;">Score factors</h4>
+              <div id="detail-score-factors" class="score-factor-bars"></div>
+              <p id="detail-flags" class="caption"></p>
               <div style="margin-top:14px;">
                 <button class="btn primary" id="btn-build-bom-for-pick">⚡ Build the BOM for this project</button>
               </div>
             </div>
-            <div class="card" id="detail-card-right" style="display:flex;align-items:center;justify-content:center;">
-              <div id="detail-radar-chart" style="width:100%;"></div>
+            <div class="card" id="detail-card-right">
+              <div id="star-goal-card"></div>
             </div>
           </div>
         </div>

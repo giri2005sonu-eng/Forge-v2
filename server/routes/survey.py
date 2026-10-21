@@ -1,13 +1,30 @@
 import os
+import json
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
 from fastapi import APIRouter, Cookie, HTTPException, Response
 from typing import Optional
 
 from core import picker, pipeline
-from core.recommendation_catalog import PROJECT_CATALOG, PROJECT_FACTOR_CATALOG, RECOMMENDATION_PROJECT_KEYS
-from server.schemas import CareerResearchRequest, SurveyAnswerRequest, SurveyRankRequest
+from core.recommendation_catalog import (
+    PROJECT_CATALOG,
+    PROJECT_FACTOR_CATALOG,
+    RECOMMENDATION_PROJECT_KEYS,
+    STAR_PROJECTS,
+)
+from core.recommender_config import RECOMMENDER_VERSION
+from server.schemas import (
+    CareerResearchRequest,
+    SurveyAnswerRequest,
+    SurveyFeedbackRequest,
+    SurveyRankRequest,
+)
 from server.state import store
 
 router = APIRouter(prefix="/api/survey", tags=["survey"])
+FEEDBACK_PATH = Path(__file__).resolve().parents[2] / "core" / "project_data" / "recommender_feedback.jsonl"
+FEEDBACK_LOCK = threading.Lock()
 
 
 @router.get("/questions")
@@ -50,6 +67,91 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
     profile["languages"] = list(dict.fromkeys(profile.get("languages", []) + [item["id"] for item in resume_factors.get("languages", []) if item.get("confirmed")]))
     profile["tools"] = list(dict.fromkeys(profile.get("tools", []) + [item["id"] for item in resume_factors.get("tools", []) if item.get("confirmed")]))
     profile["resume"] = resume_factors
+    if req.hours_per_week is not None or req.deadline_weeks is not None:
+        existing_schedule = profile.get("schedule") or {}
+        profile["schedule"] = {
+            "hours_per_week": (
+                req.hours_per_week
+                if req.hours_per_week is not None
+                else existing_schedule.get("hours_per_week")
+            ),
+            "deadline_weeks": (
+                req.deadline_weeks
+                if req.deadline_weeks is not None
+                else existing_schedule.get("deadline_weeks")
+            ),
+        }
+    profile["completed_project_ids"] = sorted(
+        set(req.completed_project_ids)
+        if req.completed_project_ids is not None
+        else set(profile.get("completed_project_ids", []))
+    )
+    if session.career_research:
+        profile["career_research"] = session.career_research
+
+    if RECOMMENDER_VERSION == "v2":
+        ranked = picker.rank_factor_projects_v2(profile, limit=req.limit)
+        by_star_key = {project["key"]: project for project in STAR_PROJECTS}
+        results = []
+        for item in ranked["results"]:
+            proj = PROJECT_CATALOG[item.key]
+            meta = PROJECT_FACTOR_CATALOG[item.key]
+            results.append({
+                "key": item.key,
+                "label": proj.get("label", item.key),
+                "desc": proj.get("desc", ""),
+                "domain": meta.get("domain", ""),
+                "build_hours": meta.get("build_hours", 0),
+                "cost_inr": meta.get("cost_inr"),
+                "price_status": (
+                    meta.get("price_status")
+                    or by_star_key.get(item.key, {}).get("price_status")
+                    or ("unverified_estimate" if meta.get("cost_inr") is not None else "pending_verification")
+                ),
+                "parts_availability_india": meta.get("parts_availability_india", 3),
+                "tier": item.tier,
+                "reasons": item.reasons,
+                "learn_skills": item.learn_skills,
+                "unlocks": item.unlocks,
+                "flags": item.flags,
+                "breakdown": {
+                    "interest": item.interest,
+                    "level": item.level,
+                    "feasibility": item.feasibility,
+                    "impact": item.impact,
+                },
+                "readiness": item.readiness,
+                "debug_score": item.final,
+                "bom_supported": proj.get("bom_supported", False),
+                "is_star": item.is_star,
+            })
+
+        goal = ranked["goal"]
+        goal_result = None
+        if goal:
+            project = PROJECT_CATALOG[goal["key"]]
+            star = by_star_key.get(goal["key"], {})
+            goal_result = {
+                **goal,
+                "label": project.get("label", goal["key"]),
+                "desc": project.get("desc", ""),
+                "cost_inr": star.get("cost_inr"),
+                "price_status": star.get("price_status", "unverified_estimate"),
+                "step_labels": [
+                    PROJECT_CATALOG.get(key, {}).get("label", key)
+                    for key in goal["steps"]
+                ],
+            }
+        if not ranked["needs_more_info"]:
+            session.stage = "results"
+        return {
+            "recommender_version": "v2",
+            "results": results,
+            "goal": goal_result,
+            "needs_more_info": ranked["needs_more_info"],
+            "missing": ranked["missing"],
+            "total_available": len(RECOMMENDATION_PROJECT_KEYS),
+        }
 
     ranked = picker.rank_factor_projects(profile, limit=req.limit)
 
@@ -102,11 +204,30 @@ def rank_projects(req: SurveyRankRequest, forge_session: Optional[str] = Cookie(
 
     session.stage = "results"
     return {
+        "recommender_version": "v1",
         "results": results,
         "excluded": excluded,
         "total_available": len(RECOMMENDATION_PROJECT_KEYS),
         "survey_answer_count": sum(bool(profile.get(k)) for k in ("career", "experience", "languages", "tools", "hardware", "goal", "interests"))
     }
+
+
+@router.post("/feedback")
+def record_recommendation_feedback(req: SurveyFeedbackRequest):
+    from core.recommendation_catalog import PROJECT_CATALOG
+
+    if req.project_id not in PROJECT_CATALOG:
+        raise HTTPException(status_code=404, detail="Unknown project ID")
+    event = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "project_id": req.project_id,
+        "signal": req.signal,
+        "context": req.context.model_dump(exclude_none=True),
+    }
+    with FEEDBACK_LOCK:
+        with FEEDBACK_PATH.open("a", encoding="utf-8") as feedback_file:
+            feedback_file.write(json.dumps(event, separators=(",", ":")) + "\n")
+    return {"status": "recorded"}
 
 
 @router.post("/career-research")

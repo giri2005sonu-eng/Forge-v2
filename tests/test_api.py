@@ -1,3 +1,4 @@
+import json
 import os
 import io
 import zipfile
@@ -80,6 +81,60 @@ def test_survey_rank():
         assert "score" in first
         assert "chart_svg" in first
         assert "<svg" in first["chart_svg"]
+
+
+def test_project_search_and_recommendation_feedback(tmp_path, monkeypatch):
+    from server.routes import survey
+
+    res = client.get("/api/projects/search", params={"q": "line follower"})
+    assert res.status_code == 200
+    assert any("line" in project["label"].lower() for project in res.json()["projects"])
+
+    feedback_path = tmp_path / "feedback.jsonl"
+    monkeypatch.setattr(survey, "FEEDBACK_PATH", feedback_path)
+    feedback = client.post("/api/survey/feedback", json={
+        "project_id": "line_follower",
+        "signal": "built",
+        "context": {"level": 2, "role": "robotics"},
+    })
+    assert feedback.status_code == 200
+    event = json.loads(feedback_path.read_text(encoding="utf-8"))
+    assert event["project_id"] == "line_follower"
+    assert event["signal"] == "built"
+    assert event["context"] == {"level": 2, "role": "robotics"}
+    assert not {"email", "name", "user_id"} & event.keys()
+
+
+def test_survey_rank_v2_response(monkeypatch):
+    from server.routes import survey
+
+    monkeypatch.setattr(survey, "RECOMMENDER_VERSION", "v2")
+    response = client.post("/api/survey/rank", json={
+        "answers": {
+            "career": "Robotics",
+            "experience": ["Used a motor driver"],
+            "languages": ["Python"],
+            "schedule": {"hours_per_week": 6, "deadline_weeks": 8},
+            "budget_inr": 15000,
+            "tools": ["Soldering iron", "Multimeter"],
+            "hardware": ["Arduino"],
+            "goal": ["Portfolio"],
+            "interests": ["Robotics", "Embedded"],
+        },
+        "hours_per_week": 6,
+        "deadline_weeks": 8,
+        "completed_project_ids": [],
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["recommender_version"] == "v2"
+    assert not data["needs_more_info"]
+    assert data["results"]
+    first = data["results"][0]
+    assert "debug_score" in first
+    assert "score" not in first
+    assert set(first["breakdown"]) == {"interest", "level", "feasibility", "impact"}
+    assert "goal" in data
 
 
 def test_idea_match():
