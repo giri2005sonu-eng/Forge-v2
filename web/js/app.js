@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     recommendations: [],
     catalog: [],
     starProjects: [],
+    selectedStarProject: null,
     starsLoaded: false,
     activeBom: null,
     completedProjects: [],
@@ -90,7 +91,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     switchStage(previousStage, { recordHistory: false });
   }
 
-  document.getElementById('star-project-search')?.addEventListener('input', renderStarProjects);
   document.getElementById('star-project-sort')?.addEventListener('change', renderStarProjects);
 
   async function loadStarProjects() {
@@ -111,14 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const grid = document.getElementById('star-project-grid');
     const count = document.getElementById('star-project-count');
     if (!grid || !count) return;
-    const query = document.getElementById('star-project-search').value.trim().toLowerCase();
-    const projects = state.starProjects.filter(project => [
-      project.name,
-      project.domain,
-      project.description,
-      ...(project.skills || []),
-      ...(project.prerequisites || [])
-    ].join(' ').toLowerCase().includes(query));
+    const projects = [...state.starProjects];
     const sortValue = document.getElementById('star-project-sort').value;
     const [sortField, sortDirection] = sortValue.split('_');
     if (sortField !== 'default') {
@@ -136,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
     grid.replaceChildren();
-    count.textContent = `${projects.length} of ${state.starProjects.length} curated projects`;
+    count.textContent = `${projects.length} curated projects`;
 
     projects.forEach(project => {
       const card = document.createElement('article');
@@ -190,9 +183,74 @@ document.addEventListener('DOMContentLoaded', async () => {
         detailList.append(term, definition);
       });
       details.append(summary, detailList);
-      card.append(heading, domain, description, metrics, details);
+      const selectButton = document.createElement('button');
+      selectButton.className = 'btn star-project-select';
+      selectButton.type = 'button';
+      selectButton.textContent = state.selectedStarProject?.key === project.key
+        ? 'Selected'
+        : 'Select project';
+      selectButton.setAttribute('aria-pressed', String(state.selectedStarProject?.key === project.key));
+      selectButton.addEventListener('click', () => {
+        state.selectedStarProject = project;
+        renderStarProjects();
+      });
+      card.classList.toggle('star-project-card-selected', state.selectedStarProject?.key === project.key);
+      card.append(heading, domain, description, metrics, details, selectButton);
       grid.appendChild(card);
     });
+    renderSelectedStarProject();
+  }
+
+  function renderSelectedStarProject() {
+    const container = document.getElementById('star-project-selection');
+    const project = state.selectedStarProject;
+    if (!container) return;
+    container.hidden = !project;
+    if (!project) {
+      container.replaceChildren();
+      return;
+    }
+
+    const title = document.createElement('h3');
+    title.textContent = `Selected project: ${project.name}`;
+    const description = document.createElement('p');
+    description.className = 'text-secondary';
+    description.textContent = project.description;
+    const action = document.createElement('button');
+    action.className = 'btn primary';
+    action.type = 'button';
+    if (project.bom_supported) {
+      action.textContent = 'Build this project';
+      action.addEventListener('click', async () => {
+        action.disabled = true;
+        try {
+          const bom = await api.generateBom({
+            project: project.key,
+            budget: project.cost_inr ?? 3500
+          });
+          renderBomView(bom);
+          switchStage('bom');
+        } catch (err) {
+          action.disabled = false;
+          document.getElementById('star-project-selection-status').textContent =
+            `Could not open this build: ${err.message}`;
+        }
+      });
+    } else {
+      action.textContent = 'BOM not available yet';
+      action.disabled = true;
+      action.title = 'This curated project has no catalog bill of materials yet.';
+    }
+
+    const status = document.createElement('p');
+    status.id = 'star-project-selection-status';
+    status.className = 'caption';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = project.bom_supported
+      ? 'This project has a catalog BOM ready to open.'
+      : 'Project selected. A catalog BOM is not available for this build yet.';
+    container.replaceChildren(title, description, action, status);
   }
 
   document.getElementById('btn-toggle-optimizer')?.addEventListener('click', async () => {

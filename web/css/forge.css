@@ -319,9 +319,7 @@ body {
   border: 0;
 }
 
-.stars-toolbar input {
-  width: min(100%, 520px);
-}
+.stars-toolbar { justify-content: flex-end; }
 
 .star-sort-control {
   display: flex;
@@ -344,6 +342,15 @@ body {
   min-width: 0;
   padding: 20px;
 }
+
+.star-project-card-selected {
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 1px var(--primary-orange), 0 8px 28px var(--primary-orange-glow-sm);
+}
+
+.star-project-select { width: 100%; margin-top: 14px; }
+.star-project-selection h3 { margin-top: 0; }
+.star-project-selection[hidden] { display: none; }
 
 .star-project-heading {
   display: flex;
@@ -954,7 +961,6 @@ select {
   .fg-header-actions { width: 100%; justify-content: space-between; }
   .wokwi-actions .btn { width: 100%; }
   .stars-toolbar { align-items: flex-start; flex-direction: column; }
-  .stars-toolbar input { width: 100%; }
   .star-sort-control { width: 100%; align-items: flex-start; flex-direction: column; }
   .star-sort-control select { width: 100%; }
 }

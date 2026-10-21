@@ -28,6 +28,7 @@ def test_static_index():
     assert 'id="btn-evaluate-swap"' in res.text
     assert "Star projects" in res.text
     assert 'id="star-project-grid"' in res.text
+    assert 'id="star-project-search"' not in res.text
     assert 'id="star-project-sort"' in res.text
     assert 'value="hours_asc"' in res.text
     assert 'value="hours_desc"' in res.text
@@ -111,6 +112,23 @@ def test_project_search_and_recommendation_feedback(tmp_path, monkeypatch):
     assert event["signal"] == "built"
     assert event["context"] == {"level": 2, "role": "robotics"}
     assert not {"email", "name", "user_id"} & event.keys()
+
+
+def test_star_projects_include_bom_selection_support():
+    response = client.get("/api/stars")
+    assert response.status_code == 200
+    projects = response.json()["projects"]
+    assert projects
+    assert all("bom_supported" in project for project in projects)
+    assert any(project["bom_supported"] for project in projects)
+    assert any(not project["bom_supported"] for project in projects)
+    supported = next(project for project in projects if project["bom_supported"])
+    bom = client.post("/api/bom/generate", json={
+        "project": supported["key"],
+        "budget": supported["cost_inr"] or 3500,
+    })
+    assert bom.status_code == 200
+    assert bom.json()["label"] == supported["name"]
 
 
 def test_survey_rank_v2_response(monkeypatch):

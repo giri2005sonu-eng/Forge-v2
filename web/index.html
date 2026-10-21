@@ -63,8 +63,6 @@
           <p class="text-secondary">A hand-picked collection of standout projects, from advanced control and robotics to FPGA and embedded systems.</p>
         </div>
         <div class="stars-toolbar">
-          <label class="sr-only" for="star-project-search">Search star projects</label>
-          <input id="star-project-search" type="search" placeholder="Search projects, skills, and domains…">
           <label class="star-sort-control" for="star-project-sort">
             Sort by
             <select id="star-project-sort">
@@ -77,6 +75,7 @@
           </label>
           <p id="star-project-count" class="caption" role="status" aria-live="polite">Loading curated builds…</p>
         </div>
+        <section id="star-project-selection" class="card star-project-selection" aria-live="polite" hidden></section>
         <div class="grid-2 stars-grid" id="star-project-grid"></div>
       </section>
 
