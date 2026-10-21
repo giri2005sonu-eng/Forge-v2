@@ -124,6 +124,7 @@ def run():
         })
     return {
         "version": "v1",
+        "baseline_note": "Recalculated after phase 1 preserved raw 0-5 ratings; any score shifts from v1_pre_data_layer are due to zero-valued ratings no longer being clamped to 1.",
         "persona_count": len(PERSONAS),
         "synthetic_profile_count": len(profiles) - len(PERSONAS),
         "candidate_count": len(RECOMMENDATION_PROJECT_KEYS),

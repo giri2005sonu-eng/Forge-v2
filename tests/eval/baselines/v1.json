@@ -1,30 +1,33 @@
 {
-  "all_equal_top5_percent": 3.66,
-  "budget_perturbation_mean_jaccard": 0.906,
+  "all_equal_top5_percent": 0.91,
+  "baseline_note": "Recalculated after phase 1 preserved raw 0-5 ratings; any score shifts from v1_pre_data_layer are due to zero-valued ratings no longer being clamped to 1.",
+  "budget_perturbation_mean_jaccard": 0.89,
   "candidate_count": 165,
-  "coverage_percent": 39.39,
+  "coverage_percent": 46.06,
   "deterministic": true,
-  "level_violation_percent": 8.35,
-  "mean_distinct_top5_scores": 2.771,
-  "mean_top1_top5_gap": 2.134,
+  "level_violation_percent": 12.07,
+  "mean_distinct_top5_scores": 3.204,
+  "mean_top1_top5_gap": 2.726,
   "never_appearing": [
     "acrobatic_freestyle_drone",
-    "aggressive_overtaking_rc_bot",
+    "air_quality_monitor",
     "arduino_clone_board",
     "autonomous_mapping_drone",
     "balloon_tracker",
+    "battery_monitor",
     "battery_power_board",
     "bldc_esc_scratch",
     "bms_2s_pack",
     "buildroot_linux_driver",
     "camera_slider",
     "color_sorter",
-    "complex_track_drag_line_tracer",
+    "digital_dice",
     "door_window_sensors",
     "drowsiness_detector",
     "ekf_robot_localization",
     "energy_meter_ct",
-    "fall_detector",
+    "esp32_usbc_board",
+    "esp_now_mesh",
     "firmware_ci_hil",
     "first_kicad_pcb",
     "fm_radio_digital",
@@ -34,34 +37,26 @@
     "fpga_fir_filter",
     "fpga_logic_analyzer",
     "fpga_riscv_core",
+    "fpga_uart_txrx",
     "fpga_vga_pong",
     "fpv_speed_racer_drone",
-    "gesture_controlled_robot",
     "gps_tracker",
-    "greenhouse_controller",
-    "heavyweight_tactical_soccer_bot",
-    "high_speed_time_trial_rover",
     "indoor_obstacle_avoidance_drone",
     "ir_remote_hub",
     "led_chaser",
     "lifi_link",
-    "long_range_surveillance_drone",
     "lora_weather_node",
     "lqr_balancing_robot",
     "maze_solver",
     "maze_solving_micro_mouse",
-    "microros_diff_drive",
-    "mini_wind_turbine",
     "mppt_charge_controller",
     "music_visualizer",
-    "passing_assisting_bot",
+    "nrf24_long_range_rc",
     "payload_delivery_drone",
     "pov_display",
     "printed_robot_chassis",
     "pulse_monitor_display",
-    "pwm_fan_controller",
     "quadcopter_fc",
-    "rfid_attendance",
     "ros2_moveit_arm",
     "ros2_nav2_autonomy",
     "ros2_slam_lidar",
@@ -69,12 +64,11 @@
     "rtc_clock_alarm",
     "rtos_priority_inversion_lab",
     "rtos_robot_controller",
-    "search_rescue_thermal_drone",
     "self_balancing_robot",
+    "servo_robotic_arm",
     "smart_cane",
     "smart_curtain",
     "smart_helmet_alert",
-    "smart_irrigation",
     "smart_parking",
     "smart_watch_esp32",
     "solar_phone_charger",
@@ -89,24 +83,20 @@
     "stm32_can_network",
     "stm32_low_power_node",
     "stm32_lvgl_gui",
+    "stm32_sd_logger",
     "stm32_timers_encoder",
     "stm32_usb_hid",
     "sumo_bot",
     "swarm_coordination_drone",
-    "system_id_pid_rig",
     "teg_generator_demo",
     "temp_humidity_lcd",
     "temperature_gate",
     "theremin",
     "thrust_stand",
     "tiny_rtos_scheduler",
-    "tinyml_wake_word",
     "traffic_light",
     "ultra_fast_pid_line_follower",
     "ultrasonic_meter",
-    "vision_based_racing_car",
-    "vision_line_follower",
-    "weather_station",
     "zephyr_ble_sensor"
   ],
   "persona_count": 28,
@@ -122,23 +112,23 @@
       "results": [
         {
           "key": "ldr_light_tracker",
-          "score": 87
-        },
-        {
-          "key": "motion_alarm_notify",
-          "score": 87
+          "score": 84
         },
         {
           "key": "pan_tilt_mount",
-          "score": 87
+          "score": 84
         },
         {
-          "key": "rf_remote_switch",
-          "score": 87
+          "key": "smart_dustbin",
+          "score": 84
         },
         {
           "key": "water_level_controller",
-          "score": 87
+          "score": 84
+        },
+        {
+          "key": "motion_alarm_notify",
+          "score": 83
         }
       ]
     },
@@ -146,24 +136,24 @@
       "name": "embedded beginner low budget",
       "results": [
         {
-          "key": "motion_alarm_notify",
-          "score": 84
-        },
-        {
-          "key": "rf_remote_switch",
-          "score": 84
+          "key": "smart_dustbin",
+          "score": 81
         },
         {
           "key": "water_level_controller",
-          "score": 84
+          "score": 81
         },
         {
-          "key": "drone_sim_pid",
-          "score": 83
+          "key": "motion_alarm_notify",
+          "score": 80
         },
         {
-          "key": "pan_tilt_mount",
-          "score": 82
+          "key": "posture_corrector",
+          "score": 80
+        },
+        {
+          "key": "opencv_color_tracker",
+          "score": 79
         }
       ]
     },
@@ -171,24 +161,24 @@
       "name": "robotics maker",
       "results": [
         {
-          "key": "gimbal_stabilizer",
-          "score": 78
-        },
-        {
           "key": "stepper_turntable",
-          "score": 78
-        },
-        {
-          "key": "rc_plane_stabilizer",
           "score": 77
         },
         {
-          "key": "dc_motor_speed_pid",
+          "key": "gimbal_stabilizer",
           "score": 76
         },
         {
-          "key": "reaction_game",
-          "score": 75
+          "key": "rc_plane_stabilizer",
+          "score": 76
+        },
+        {
+          "key": "dc_motor_speed_pid",
+          "score": 73
+        },
+        {
+          "key": "ldr_light_tracker",
+          "score": 72
         }
       ]
     },
@@ -196,24 +186,24 @@
       "name": "advanced firmware",
       "results": [
         {
-          "key": "led_matrix_display",
-          "score": 81
+          "key": "stepper_turntable",
+          "score": 80
+        },
+        {
+          "key": "emg_controlled_claw",
+          "score": 79
         },
         {
           "key": "payload_dropper",
-          "score": 81
+          "score": 79
         },
         {
-          "key": "rf_remote_switch",
-          "score": 81
+          "key": "ros2_teleop_sensors",
+          "score": 79
         },
         {
-          "key": "stepper_turntable",
-          "score": 81
-        },
-        {
-          "key": "water_level_controller",
-          "score": 81
+          "key": "flex_sensor_glove",
+          "score": 78
         }
       ]
     },
@@ -221,24 +211,24 @@
       "name": "resume-only skills",
       "results": [
         {
-          "key": "reaction_game",
-          "score": 84
-        },
-        {
-          "key": "digital_dice",
-          "score": 82
-        },
-        {
           "key": "payload_dropper",
-          "score": 82
-        },
-        {
-          "key": "rf_remote_switch",
-          "score": 82
+          "score": 81
         },
         {
           "key": "stepper_turntable",
-          "score": 82
+          "score": 81
+        },
+        {
+          "key": "ldr_light_tracker",
+          "score": 80
+        },
+        {
+          "key": "water_level_controller",
+          "score": 80
+        },
+        {
+          "key": "reaction_game",
+          "score": 79
         }
       ]
     },
@@ -246,24 +236,24 @@
       "name": "three Arduino projects",
       "results": [
         {
-          "key": "led_matrix_display",
-          "score": 81
-        },
-        {
           "key": "payload_dropper",
-          "score": 81
+          "score": 79
         },
         {
-          "key": "rf_remote_switch",
-          "score": 81
+          "key": "ros2_teleop_sensors",
+          "score": 79
         },
         {
           "key": "stepper_turntable",
-          "score": 81
+          "score": 79
         },
         {
-          "key": "water_level_controller",
-          "score": 81
+          "key": "emg_controlled_claw",
+          "score": 78
+        },
+        {
+          "key": "greenhouse_controller",
+          "score": 78
         }
       ]
     },
@@ -271,24 +261,24 @@
       "name": "vision learner",
       "results": [
         {
-          "key": "drone_sim_pid",
-          "score": 84
-        },
-        {
-          "key": "motion_alarm_notify",
-          "score": 83
-        },
-        {
           "key": "opencv_color_tracker",
-          "score": 83
+          "score": 81
         },
         {
           "key": "pan_tilt_mount",
-          "score": 83
+          "score": 80
         },
         {
-          "key": "rf_remote_switch",
-          "score": 83
+          "key": "smart_dustbin",
+          "score": 80
+        },
+        {
+          "key": "water_level_controller",
+          "score": 80
+        },
+        {
+          "key": "motion_alarm_notify",
+          "score": 79
         }
       ]
     },
@@ -297,23 +287,23 @@
       "results": [
         {
           "key": "gesture_car",
-          "score": 82
-        },
-        {
-          "key": "wifi_rc_car",
-          "score": 82
-        },
-        {
-          "key": "smart_dustbin",
-          "score": 81
-        },
-        {
-          "key": "ble_item_tracker",
           "score": 80
         },
         {
-          "key": "eink_dashboard",
+          "key": "wifi_rc_car",
+          "score": 80
+        },
+        {
+          "key": "camera_doorbell",
           "score": 79
+        },
+        {
+          "key": "smart_dustbin",
+          "score": 78
+        },
+        {
+          "key": "water_rocket_altimeter",
+          "score": 78
         }
       ]
     },
@@ -321,24 +311,24 @@
       "name": "sensing beginner",
       "results": [
         {
-          "key": "motion_alarm_notify",
-          "score": 85
+          "key": "water_level_controller",
+          "score": 82
         },
         {
           "key": "rf_remote_switch",
-          "score": 85
+          "score": 81
         },
         {
-          "key": "water_level_controller",
-          "score": 84
+          "key": "smart_dustbin",
+          "score": 81
         },
         {
           "key": "ldr_light_tracker",
-          "score": 83
+          "score": 80
         },
         {
           "key": "pan_tilt_mount",
-          "score": 83
+          "score": 80
         }
       ]
     },
@@ -346,24 +336,24 @@
       "name": "mechanics lab access",
       "results": [
         {
-          "key": "motion_alarm_notify",
-          "score": 79
+          "key": "ldr_light_tracker",
+          "score": 76
         },
         {
-          "key": "rf_remote_switch",
-          "score": 79
+          "key": "stepper_turntable",
+          "score": 76
+        },
+        {
+          "key": "wall_follower",
+          "score": 76
         },
         {
           "key": "water_level_controller",
-          "score": 79
+          "score": 76
         },
         {
-          "key": "ldr_light_tracker",
-          "score": 78
-        },
-        {
-          "key": "parametric_enclosure",
-          "score": 78
+          "key": "dc_motor_speed_pid",
+          "score": 75
         }
       ]
     },
@@ -371,24 +361,24 @@
       "name": "no tools laptop",
       "results": [
         {
+          "key": "water_level_controller",
+          "score": 82
+        },
+        {
           "key": "motion_alarm_notify",
-          "score": 85
+          "score": 81
         },
         {
           "key": "rf_remote_switch",
-          "score": 85
+          "score": 81
         },
         {
-          "key": "water_level_controller",
-          "score": 85
+          "key": "opencv_color_tracker",
+          "score": 79
         },
         {
-          "key": "drone_sim_pid",
-          "score": 83
-        },
-        {
-          "key": "keypad_lock",
-          "score": 82
+          "key": "esp32cam_stream",
+          "score": 78
         }
       ]
     },
@@ -396,24 +386,24 @@
       "name": "tight schedule",
       "results": [
         {
-          "key": "smart_dustbin",
-          "score": 84
-        },
-        {
-          "key": "motion_alarm_notify",
-          "score": 83
-        },
-        {
           "key": "pan_tilt_mount",
-          "score": 83
+          "score": 81
         },
         {
-          "key": "water_level_controller",
-          "score": 83
+          "key": "smart_dustbin",
+          "score": 81
         },
         {
           "key": "ldr_light_tracker",
-          "score": 82
+          "score": 80
+        },
+        {
+          "key": "water_level_controller",
+          "score": 80
+        },
+        {
+          "key": "gripper_force_sensing",
+          "score": 79
         }
       ]
     },
@@ -422,23 +412,23 @@
       "results": [
         {
           "key": "smart_dustbin",
-          "score": 86
-        },
-        {
-          "key": "motion_alarm_notify",
-          "score": 84
+          "score": 83
         },
         {
           "key": "pan_tilt_mount",
-          "score": 84
-        },
-        {
-          "key": "water_level_controller",
-          "score": 84
+          "score": 82
         },
         {
           "key": "gripper_force_sensing",
-          "score": 83
+          "score": 81
+        },
+        {
+          "key": "water_level_controller",
+          "score": 81
+        },
+        {
+          "key": "ldr_light_tracker",
+          "score": 80
         }
       ]
     },
@@ -447,23 +437,23 @@
       "results": [
         {
           "key": "pan_tilt_mount",
-          "score": 84
+          "score": 82
         },
         {
           "key": "smart_dustbin",
-          "score": 84
+          "score": 81
         },
         {
           "key": "gripper_force_sensing",
-          "score": 83
+          "score": 80
         },
         {
-          "key": "motion_alarm_notify",
-          "score": 83
+          "key": "ldr_light_tracker",
+          "score": 80
         },
         {
           "key": "wall_follower",
-          "score": 83
+          "score": 80
         }
       ]
     },
@@ -471,24 +461,24 @@
       "name": "ESP32 owner",
       "results": [
         {
-          "key": "smart_light_wifi",
-          "score": 88
+          "key": "esp32cam_stream",
+          "score": 84
         },
         {
-          "key": "esp32cam_stream",
-          "score": 86
+          "key": "smart_light_wifi",
+          "score": 84
         },
         {
           "key": "gesture_car",
-          "score": 86
-        },
-        {
-          "key": "motion_alarm_notify",
-          "score": 86
+          "score": 83
         },
         {
           "key": "wifi_rc_car",
-          "score": 86
+          "score": 83
+        },
+        {
+          "key": "camera_doorbell",
+          "score": 82
         }
       ]
     },
@@ -496,24 +486,24 @@
       "name": "STM32 owner advanced",
       "results": [
         {
-          "key": "led_matrix_display",
-          "score": 81
+          "key": "stepper_turntable",
+          "score": 80
         },
         {
           "key": "payload_dropper",
-          "score": 81
+          "score": 79
         },
         {
-          "key": "rf_remote_switch",
-          "score": 81
+          "key": "ros2_teleop_sensors",
+          "score": 79
         },
         {
-          "key": "stepper_turntable",
-          "score": 81
+          "key": "emg_controlled_claw",
+          "score": 78
         },
         {
-          "key": "water_level_controller",
-          "score": 81
+          "key": "greenhouse_controller",
+          "score": 78
         }
       ]
     },
@@ -522,23 +512,23 @@
       "results": [
         {
           "key": "dc_motor_speed_pid",
-          "score": 79
+          "score": 76
         },
         {
-          "key": "drone_sim_pid",
-          "score": 79
+          "key": "rc_plane_stabilizer",
+          "score": 74
         },
         {
-          "key": "motion_alarm_notify",
-          "score": 77
-        },
-        {
-          "key": "rf_remote_switch",
-          "score": 77
+          "key": "stepper_turntable",
+          "score": 74
         },
         {
           "key": "wall_follower",
-          "score": 77
+          "score": 74
+        },
+        {
+          "key": "water_level_controller",
+          "score": 74
         }
       ]
     },
@@ -547,23 +537,23 @@
       "results": [
         {
           "key": "gesture_car",
-          "score": 81
-        },
-        {
-          "key": "gsm_sms_alert",
-          "score": 81
-        },
-        {
-          "key": "rf_remote_switch",
-          "score": 81
+          "score": 78
         },
         {
           "key": "wifi_rc_car",
-          "score": 81
+          "score": 78
         },
         {
-          "key": "drone_sim_pid",
-          "score": 79
+          "key": "camera_doorbell",
+          "score": 77
+        },
+        {
+          "key": "gsm_sms_alert",
+          "score": 77
+        },
+        {
+          "key": "payload_dropper",
+          "score": 77
         }
       ]
     },
@@ -571,24 +561,24 @@
       "name": "experienced robotics",
       "results": [
         {
-          "key": "gimbal_stabilizer",
-          "score": 78
-        },
-        {
           "key": "rc_plane_stabilizer",
-          "score": 78
+          "score": 77
         },
         {
           "key": "stepper_turntable",
-          "score": 78
+          "score": 77
         },
         {
-          "key": "dc_motor_speed_pid",
+          "key": "gimbal_stabilizer",
           "score": 76
         },
         {
-          "key": "parametric_enclosure",
-          "score": 75
+          "key": "dc_motor_speed_pid",
+          "score": 73
+        },
+        {
+          "key": "ldr_light_tracker",
+          "score": 72
         }
       ]
     },
@@ -596,24 +586,24 @@
       "name": "power electronics",
       "results": [
         {
-          "key": "motion_alarm_notify",
-          "score": 86
-        },
-        {
-          "key": "rf_remote_switch",
-          "score": 86
-        },
-        {
           "key": "water_level_controller",
-          "score": 86
+          "score": 83
         },
         {
-          "key": "drone_sim_pid",
-          "score": 84
+          "key": "motion_alarm_notify",
+          "score": 82
         },
         {
           "key": "posture_corrector",
-          "score": 84
+          "score": 82
+        },
+        {
+          "key": "rf_remote_switch",
+          "score": 82
+        },
+        {
+          "key": "ros2_teleop_sensors",
+          "score": 81
         }
       ]
     },
@@ -622,23 +612,23 @@
       "results": [
         {
           "key": "smart_dustbin",
-          "score": 84
-        },
-        {
-          "key": "motion_alarm_notify",
-          "score": 82
-        },
-        {
-          "key": "water_level_controller",
           "score": 82
         },
         {
           "key": "opencv_color_tracker",
-          "score": 81
+          "score": 79
         },
         {
-          "key": "drone_sim_pid",
-          "score": 80
+          "key": "water_level_controller",
+          "score": 79
+        },
+        {
+          "key": "water_rocket_altimeter",
+          "score": 79
+        },
+        {
+          "key": "motion_alarm_notify",
+          "score": 78
         }
       ]
     },
@@ -650,20 +640,20 @@
           "score": 79
         },
         {
-          "key": "motion_alarm_notify",
-          "score": 79
+          "key": "aggressive_overtaking_rc_bot",
+          "score": 76
         },
         {
-          "key": "rf_remote_switch",
-          "score": 79
+          "key": "smart_dustbin",
+          "score": 76
         },
         {
           "key": "dc_motor_speed_pid",
-          "score": 78
+          "score": 75
         },
         {
-          "key": "drone_sim_pid",
-          "score": 78
+          "key": "esp32cam_stream",
+          "score": 75
         }
       ]
     },
@@ -671,24 +661,24 @@
       "name": "budget constrained maker",
       "results": [
         {
+          "key": "ldr_light_tracker",
+          "score": 80
+        },
+        {
           "key": "rf_remote_switch",
-          "score": 84
+          "score": 80
         },
         {
           "key": "motion_alarm_notify",
-          "score": 83
-        },
-        {
-          "key": "drone_sim_pid",
-          "score": 82
-        },
-        {
-          "key": "ldr_light_tracker",
-          "score": 82
+          "score": 79
         },
         {
           "key": "keypad_lock",
-          "score": 81
+          "score": 77
+        },
+        {
+          "key": "drone_sim_pid",
+          "score": 76
         }
       ]
     },
@@ -697,23 +687,23 @@
       "results": [
         {
           "key": "object_tracking_pan_tilt",
-          "score": 81
+          "score": 80
+        },
+        {
+          "key": "complex_track_drag_line_tracer",
+          "score": 78
         },
         {
           "key": "esp_mini_drone",
-          "score": 80
+          "score": 78
         },
         {
-          "key": "servo_robotic_arm",
-          "score": 80
+          "key": "vision_based_racing_car",
+          "score": 78
         },
         {
           "key": "rc_hovercraft",
-          "score": 79
-        },
-        {
-          "key": "smart_dustbin",
-          "score": 79
+          "score": 77
         }
       ]
     },
@@ -721,24 +711,24 @@
       "name": "career undecided with IoT interest",
       "results": [
         {
-          "key": "smart_light_wifi",
-          "score": 87
+          "key": "esp32cam_stream",
+          "score": 83
         },
         {
-          "key": "esp32cam_stream",
-          "score": 86
+          "key": "smart_light_wifi",
+          "score": 83
         },
         {
           "key": "motion_alarm_notify",
-          "score": 85
-        },
-        {
-          "key": "drone_sim_pid",
-          "score": 83
+          "score": 81
         },
         {
           "key": "gesture_car",
-          "score": 83
+          "score": 80
+        },
+        {
+          "key": "water_level_controller",
+          "score": 80
         }
       ]
     },
@@ -746,24 +736,24 @@
       "name": "beginner no budget limit",
       "results": [
         {
+          "key": "water_level_controller",
+          "score": 80
+        },
+        {
           "key": "motion_alarm_notify",
-          "score": 83
+          "score": 79
         },
         {
           "key": "rf_remote_switch",
-          "score": 83
+          "score": 79
         },
         {
-          "key": "water_level_controller",
-          "score": 83
+          "key": "opencv_color_tracker",
+          "score": 77
         },
         {
-          "key": "drone_sim_pid",
-          "score": 81
-        },
-        {
-          "key": "keypad_lock",
-          "score": 80
+          "key": "esp32cam_stream",
+          "score": 76
         }
       ]
     },
@@ -771,24 +761,24 @@
       "name": "robotics moderate budget and time",
       "results": [
         {
-          "key": "gimbal_stabilizer",
-          "score": 81
+          "key": "stepper_turntable",
+          "score": 80
         },
         {
           "key": "payload_dropper",
-          "score": 81
+          "score": 79
         },
         {
-          "key": "stepper_turntable",
-          "score": 81
+          "key": "rc_plane_stabilizer",
+          "score": 79
         },
         {
           "key": "dc_motor_speed_pid",
-          "score": 80
+          "score": 78
         },
         {
           "key": "gripper_force_sensing",
-          "score": 80
+          "score": 78
         }
       ]
     },
@@ -797,23 +787,23 @@
       "results": [
         {
           "key": "flex_sensor_glove",
-          "score": 80
-        },
-        {
-          "key": "gesture_car",
-          "score": 79
-        },
-        {
-          "key": "led_matrix_display",
-          "score": 79
-        },
-        {
-          "key": "nfc_lock",
           "score": 79
         },
         {
           "key": "water_rocket_altimeter",
-          "score": 79
+          "score": 77
+        },
+        {
+          "key": "face_recognition_lock",
+          "score": 76
+        },
+        {
+          "key": "fall_detector",
+          "score": 76
+        },
+        {
+          "key": "gesture_car",
+          "score": 76
         }
       ]
     }

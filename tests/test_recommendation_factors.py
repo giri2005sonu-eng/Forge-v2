@@ -1,4 +1,6 @@
 import json
+import csv
+from pathlib import Path
 
 from core import picker, pipeline, resume
 from core.data import PROJECTS, PROJECT_FACTORS
@@ -6,11 +8,16 @@ from core.recommendation_catalog import (
     COMPETITION_EVENT_COUNTS,
     COMPETITION_EVENTS,
     COMPETITION_PROJECT_KEYS,
+    DOMAIN_TAGS,
     PROJECT_CATALOG,
     PROJECT_FACTOR_CATALOG,
+    RECOMMENDATION_PROJECT_KEYS,
     STAR_PROJECTS,
+    STAR_COLLISION_ALLOWLIST,
+    STAR_KEYS,
     competition_projects_for_event,
 )
+from core.skill_vocab import ALLOWED_SKILL_TAGS
 
 
 def test_nine_questions_and_factor_metadata_cover_supported_projects():
@@ -114,6 +121,85 @@ def test_star_catalog_has_aerospace_domain_and_hides_unverified_large_costs():
         assert by_key[key]["price_status"] == "pending_verification"
     assert by_key["f1tenth_autonomous_racecar"]["price_status"] == "unverified_estimate"
     assert by_key["f1tenth_autonomous_racecar"]["cost_inr"] == 55000
+
+
+def test_csv_ratings_preserve_raw_zero_to_five_scale():
+    assert PROJECT_FACTOR_CATALOG["led_chaser"]["ai_vision"] == 0
+    assert PROJECT_FACTOR_CATALOG["led_chaser"]["difficulty"] == 1
+    assert PROJECT_FACTOR_CATALOG["quadcopter_fc"]["ai_vision"] == 0
+
+
+def test_competition_domains_use_main_project_taxonomy():
+    main_taxonomy = set(DOMAIN_TAGS) | set(DOMAIN_TAGS.values())
+    assert all(
+        PROJECT_FACTOR_CATALOG[key]["domain"] in main_taxonomy
+        for key in RECOMMENDATION_PROJECT_KEYS
+    )
+
+
+def test_star_ids_merge_once_and_only_expected_rows_collide():
+    actual_collisions = {
+        key for key in STAR_KEYS
+        if PROJECT_CATALOG[key]["catalog_source"] != "star projects"
+    }
+    assert actual_collisions == STAR_COLLISION_ALLOWLIST
+    assert len(STAR_KEYS) == 20
+    assert all(PROJECT_CATALOG[key]["is_star"] for key in STAR_KEYS)
+    assert STAR_KEYS & RECOMMENDATION_PROJECT_KEYS == STAR_COLLISION_ALLOWLIST
+
+
+def test_csv_skill_tags_stay_inside_reviewed_vocabulary():
+    data_dir = Path(__file__).parents[1] / "core" / "project_data"
+    unknown = {}
+    for filename in ("projects.csv", "competition_projects.csv", "star_projects.csv"):
+        with (data_dir / filename).open(encoding="utf-8-sig", newline="") as source:
+            for row in csv.DictReader(source):
+                tags = {tag.strip() for tag in row.get("skills", "").split("|") if tag.strip()}
+                outside = tags - ALLOWED_SKILL_TAGS
+                if outside:
+                    unknown[f"{filename}:{row.get('id')}"] = sorted(outside)
+    assert not unknown
+
+
+def test_csv_price_provenance_columns_exist_and_report_unverified_rows():
+    data_dir = Path(__file__).parents[1] / "core" / "project_data"
+    missing = {}
+    for filename in ("projects.csv", "competition_projects.csv", "star_projects.csv"):
+        with (data_dir / filename).open(encoding="utf-8-sig", newline="") as source:
+            rows = list(csv.DictReader(source))
+        assert rows and {"last_verified", "price_source"} <= rows[0].keys()
+        missing[filename] = sum(
+            not row["last_verified"].strip() or not row["price_source"].strip()
+            for row in rows
+        )
+    print(f"Rows missing price verification metadata: {missing}")
+
+
+def test_all_catalog_prerequisites_exist_and_graph_is_acyclic():
+    graph = {
+        key: set(meta.get("prerequisites", set()))
+        for key, meta in PROJECT_FACTOR_CATALOG.items()
+    }
+    assert all(
+        prerequisite in graph
+        for prerequisites in graph.values()
+        for prerequisite in prerequisites
+    )
+    visiting, visited = set(), set()
+
+    def visit(key):
+        if key in visiting:
+            raise AssertionError(f"Prerequisite cycle includes {key}")
+        if key in visited:
+            return
+        visiting.add(key)
+        for prerequisite in graph[key]:
+            visit(prerequisite)
+        visiting.remove(key)
+        visited.add(key)
+
+    for project_key in graph:
+        visit(project_key)
 
 
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():
