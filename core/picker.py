@@ -1,6 +1,7 @@
 """Recommendation helper: plain scoring (no AI). Same answers (and same resume) always give the same result."""
 import math
 from dataclasses import dataclass, field
+import math
 from . import resume as resume_mod
 from .data import PROJECTS
 from .recommendation_catalog import PROJECT_FACTOR_CATALOG, RECOMMENDATION_PROJECT_KEYS
@@ -32,10 +33,21 @@ from .recommender_config import (
     W_INTEREST,
     W_LEARN,
     BUDGET_OVERAGE_FLOOR,
+    GREAT_FIT_LEVEL_MIN,
+    MAX_DO_NOW_PICKS,
+    MAX_PER_DOMAIN,
+    MMR_DOMAIN_WEIGHT,
+    MMR_FACTOR_WEIGHT,
+    MMR_LAMBDA,
+    MMR_SKILL_WEIGHT,
+    STAR_DO_NOW_LEVEL_MIN,
+    STAR_DO_NOW_READINESS_MIN,
+    STAR_GOAL_MAX_UNMET_STEPS,
 )
 from .role_impact import CAREER_ROLE_MAP, impact_for
 from .prereqs import GRAPH
 from .coverage import coverage_gain
+from .recommendation_catalog import PROJECT_CATALOG, STAR_KEYS
 
 
 @dataclass
@@ -53,6 +65,10 @@ class ScoreResult:
     learn_skills: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
     excluded: bool = False
+    level_delta: float = 0.0
+    tier: str = "good_fit"
+    unlocks: list[str] = field(default_factory=list)
+    is_star: bool = False
 
 
 def build_recommender_context(profile):
@@ -240,7 +256,147 @@ def score_project_v2(key, profile, ctx=None):
         readiness=readiness, coverage=coverage,
         reasons=reasons[:3], learn_skills=learn_skills,
         flags=sorted(set(flags)), excluded=excluded,
+        level_delta=difficulty_delta, is_star=key in STAR_KEYS,
     )
+
+
+def _factor_cosine(left_key, right_key):
+    factors = ("electronics", "programming", "fabrication", "control_math", "ai_vision", "wireless_iot")
+    left = [PROJECT_FACTOR_CATALOG[left_key].get(name, 0) for name in factors]
+    right = [PROJECT_FACTOR_CATALOG[right_key].get(name, 0) for name in factors]
+    denominator = math.sqrt(sum(value * value for value in left) * sum(value * value for value in right))
+    return sum(a * b for a, b in zip(left, right)) / denominator if denominator else 0.0
+
+
+def _project_similarity(left_key, right_key):
+    left = PROJECT_FACTOR_CATALOG[left_key]
+    right = PROJECT_FACTOR_CATALOG[right_key]
+    left_skills = set(left.get("required_skills", set()))
+    right_skills = set(right.get("required_skills", set()))
+    union = left_skills | right_skills
+    skill_similarity = len(left_skills & right_skills) / len(union) if union else 1.0
+    same_domain = left.get("domain") == right.get("domain")
+    return (
+        MMR_SKILL_WEIGHT * skill_similarity
+        + MMR_DOMAIN_WEIGHT * same_domain
+        + MMR_FACTOR_WEIGHT * _factor_cosine(left_key, right_key)
+    )
+
+
+def _mmr_select(candidates, limit=MAX_DO_NOW_PICKS):
+    selected, domain_counts = [], {}
+    remaining = list(candidates)
+    while remaining and len(selected) < limit:
+        best, best_score = None, float("-inf")
+        for candidate in remaining:
+            domain = PROJECT_FACTOR_CATALOG[candidate.key]["domain"]
+            if domain_counts.get(domain, 0) >= MAX_PER_DOMAIN:
+                continue
+            redundancy = max(
+                (_project_similarity(candidate.key, item.key) for item in selected),
+                default=0.0,
+            )
+            mmr_score = candidate.final - MMR_LAMBDA * redundancy
+            if mmr_score > best_score or (
+                mmr_score == best_score and candidate.key < best.key
+            ):
+                best, best_score = candidate, mmr_score
+        if best is None:
+            break
+        selected.append(best)
+        domain = PROJECT_FACTOR_CATALOG[best.key]["domain"]
+        domain_counts[domain] = domain_counts.get(domain, 0) + 1
+        remaining.remove(best)
+    return selected
+
+
+def rank_factor_projects_v2(profile, limit=MAX_DO_NOW_PICKS):
+    """Return readiness-gated do-now picks and one unconstrained Star Project goal."""
+    ctx = build_recommender_context(profile)
+    done, user_skills = ctx["done"], ctx["user_skills"]
+    scored = []
+    substitutions = {}
+    for key in sorted(RECOMMENDATION_PROJECT_KEYS):
+        result = score_project_v2(key, profile, ctx)
+        if result.excluded:
+            continue
+        if result.readiness < 0.6:
+            next_project = GRAPH.next_step(key, done, user_skills)
+            if next_project:
+                substitutions.setdefault(next_project, set()).add(key)
+            continue
+        if result.is_star and (
+            result.readiness < STAR_DO_NOW_READINESS_MIN
+            or result.level < STAR_DO_NOW_LEVEL_MIN
+        ):
+            continue
+        scored.append(result)
+
+    for key, unlocks in substitutions.items():
+        if key in {item.key for item in scored}:
+            next(item for item in scored if item.key == key).unlocks = sorted(
+                set(next(item for item in scored if item.key == key).unlocks) | unlocks
+            )
+            continue
+        replacement = score_project_v2(key, profile, ctx)
+        if replacement.excluded or replacement.readiness < 0.6:
+            continue
+        if replacement.is_star and (
+            replacement.readiness < STAR_DO_NOW_READINESS_MIN
+            or replacement.level < STAR_DO_NOW_LEVEL_MIN
+        ):
+            continue
+        replacement.tier = "build_first"
+        replacement.flags = sorted(set(replacement.flags) | {"build_first"})
+        replacement.unlocks = sorted(unlocks)
+        replacement.reasons = ["A prerequisite step for a project you matched"]
+        scored.append(replacement)
+
+    scored.sort(key=lambda item: (-item.final, item.key))
+    selected = _mmr_select(scored, min(MAX_DO_NOW_PICKS, limit))
+    selected_keys = {item.key for item in selected}
+    ordered_scores = sorted((item.final for item in selected), reverse=True)
+    top_third_count = max(1, math.ceil(len(ordered_scores) / 3)) if ordered_scores else 0
+    top_third = set(ordered_scores[:top_third_count])
+    for item in selected:
+        if item.tier == "build_first":
+            continue
+        if item.is_star or item.level_delta > 1:
+            item.tier = "stretch"
+        elif item.level >= GREAT_FIT_LEVEL_MIN and item.final in top_third:
+            item.tier = "great_fit"
+        else:
+            item.tier = "good_fit"
+        item.unlocks = GRAPH.unlocks(item.key)[:2]
+
+    star_goal_candidates = []
+    goal_profile = dict(profile, budget_inr=None, schedule={})
+    goal_ctx = build_recommender_context(goal_profile)
+    for key in STAR_KEYS:
+        chain = GRAPH.unmet_chain(key, done)
+        result = score_project_v2(key, goal_profile, goal_ctx)
+        star_goal_candidates.append((key, chain, result.impact))
+    reachable = [
+        item for item in star_goal_candidates
+        if len(item[1]) <= STAR_GOAL_MAX_UNMET_STEPS
+        and item[0] not in selected_keys
+    ]
+    if reachable:
+        goal_key, goal_steps, _ = max(
+            reachable, key=lambda item: (item[2], -len(item[1]), item[0])
+        )
+        goal_eligible = True
+    else:
+        remaining = [item for item in star_goal_candidates if item[0] not in selected_keys]
+        goal_key, goal_steps, _ = min(
+            remaining or star_goal_candidates,
+            key=lambda item: (len(item[1]), -item[2], item[0]),
+        )
+        goal_eligible = False
+    return {
+        "results": selected,
+        "goal": {"key": goal_key, "steps": goal_steps, "eligible": goal_eligible},
+    }
 
 QUESTIONS = [
  ("career", "What is your career direction?", {"Embedded systems": "embedded", "Robotics": "robotics", "ML / vision": "vision", "IoT": "iot", "Undecided": "undecided"}),

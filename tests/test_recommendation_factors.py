@@ -290,6 +290,31 @@ def test_portfolio_coverage_rewards_new_embedded_evidence():
     assert rtos > basic
 
 
+def test_v2_selection_caps_results_and_blocks_unready_projects():
+    from core.picker import rank_factor_projects_v2
+    from core.recommender_config import MAX_PER_DOMAIN, STAR_DO_NOW_LEVEL_MIN, STAR_DO_NOW_READINESS_MIN
+
+    profile = {
+        "career": ["embedded"],
+        "interests": ["embedded", "robotics"],
+        "experience": ["sensor_read", "soldering", "motor_driver"],
+        "budget_inr": 25000,
+    }
+    result = rank_factor_projects_v2(profile)
+    picks = result["results"]
+    assert len(picks) <= 4
+    assert all(item.readiness >= 0.6 for item in picks)
+    domains = [PROJECT_FACTOR_CATALOG[item.key]["domain"] for item in picks]
+    assert all(domains.count(domain) <= MAX_PER_DOMAIN for domain in set(domains))
+    assert result["goal"]["key"] in STAR_KEYS
+    assert result["goal"]["key"] not in {item.key for item in picks}
+    assert all(
+        not item.is_star
+        or (item.readiness >= STAR_DO_NOW_READINESS_MIN and item.level >= STAR_DO_NOW_LEVEL_MIN)
+        for item in picks
+    )
+
+
 def test_resume_factor_quotes_must_be_verbatim_and_ids_allowed():
     source = "Read a sensor in C and soldered a small board."
     result = resume.validate_factors(source, {
