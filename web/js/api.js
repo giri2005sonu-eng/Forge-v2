@@ -87,6 +87,10 @@ const api = {
     return this.req('/api/bom/catalog');
   },
 
+  async getBom() {
+    return this.req('/api/bom');
+  },
+
   async generateBom(params) {
     return this.req('/api/bom/generate', {
       method: 'POST',

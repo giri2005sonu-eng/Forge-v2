@@ -390,14 +390,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     document.getElementById('bom-origin-banner').innerHTML = `<div class="alert success">${originMap[bom.origin] || 'Verified architecture.'}</div>`;
 
-    renderComponentCards(bom.parts || {}, bom.bill?.lines || []);
+    renderComponentCards(bom.parts || {}, bom.bill?.lines || [], bom.parts_offers || {}, bom.choice || {}, bom.manual || {});
     renderChecks(bom.checks || []);
     renderBillTable(bom.bill);
     loadWiringStudio();
     loadDeliveryOptimizer();
   }
 
-  function renderComponentCards(parts, lines) {
+  function renderComponentCards(parts, lines, partsOffers = {}, choice = {}, manual = {}) {
     const container = document.getElementById('bom-components-container');
     container.innerHTML = '';
     const lineMap = {};
@@ -409,9 +409,85 @@ document.addEventListener('DOMContentLoaded', async () => {
       const statusLabel = line.source === 'live' ? 'LIVE PRICE' : (line.source === 'manual' ? 'YOUR PICK' : 'ESTIMATED');
       const badgeCls = line.source === 'live' ? 'PASS' : (line.source === 'manual' ? 'WARN' : 'UNKNOWN');
       const priceText = (line.unit !== null && line.unit !== undefined) ? `₹${formatPrice(line.unit * line.qty)}` : '—';
+      const offerInfo = partsOffers[part.id] || { verified: [], unverified: [] };
+      const chosenUrl = manual[part.id] ? null : (choice[part.id] || (offerInfo.verified[0]?.url));
 
       const card = document.createElement('div');
       card.className = 'component-card';
+
+      let offersHtml = '';
+      if (offerInfo.warning) {
+        offersHtml += `<div class="alert warning" style="margin-bottom:8px;">${offerInfo.warning}</div>`;
+      }
+
+      if (offerInfo.verified && offerInfo.verified.length > 0) {
+        offersHtml += `<div style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);margin:8px 0 6px 0;letter-spacing:0.04em;">VERIFIED PRICES · LOWEST FIRST</div>`;
+        offerInfo.verified.forEach(o => {
+          const isSelected = (chosenUrl === o.url);
+          offersHtml += `
+            <div class="offer-row ${isSelected ? 'selected' : ''}">
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <b>${o.vendor}</b>
+                  <span class="caption">${(o.name || '').slice(0, 70)}</span>
+                  ${o.suspect ? '<span class="b FAIL">CHECK SUSPECT</span>' : ''}
+                </div>
+                <div class="caption" style="margin-top:4px;">
+                  ${o.quote ? `Evidence: “${o.quote.slice(0, 100)}” · ` : ''}
+                  Checked ${o.checked_at || 'live'} · Method: ${o.method || 'page rules'}
+                </div>
+              </div>
+              <div style="text-align:right;min-width:140px;">
+                <div style="font-size:1.1rem;font-weight:700;color:var(--primary-orange);">₹${formatPrice(o.price)}</div>
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:6px;">
+                  <a href="${o.url}" target="_blank" rel="noopener noreferrer" class="caption" style="color:var(--text-secondary);text-decoration:underline;">View product ↗</a>
+                  ${isSelected
+                    ? '<span class="b PASS">SELECTED</span>'
+                    : `<button class="btn btn-sm btn-pick-offer" data-pid="${part.id}" data-url="${o.url}">Use this</button>`}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      if (offerInfo.unverified && offerInfo.unverified.length > 0) {
+        offersHtml += `
+          <div style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);margin:14px 0 6px 0;letter-spacing:0.04em;">PRICE NOT VERIFIED</div>
+          <p class="caption">These pages were found, but no price could be confirmed from their text. You may choose one and type the price you saw:</p>
+        `;
+        offerInfo.unverified.forEach(uo => {
+          const manualEntry = manual[part.id] || {};
+          const isManual = (manualEntry.url === uo.url);
+          offersHtml += `
+            <div class="offer-row ${isManual ? 'selected' : ''}" style="margin-top:6px;">
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <b>${uo.vendor}</b>
+                  <span class="caption">${(uo.name || 'Listing name not verified').slice(0, 60)}</span>
+                  <span class="b UNKNOWN">PRICE NOT VERIFIED</span>
+                  ${isManual ? '<span class="b WARN">YOUR PICK</span>' : ''}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                  <input type="number" class="manual-price-val" placeholder="Price seen (₹)" style="width:130px;padding:4px 8px;font-size:0.85rem;" value="${isManual ? (manualEntry.price || '') : ''}">
+                  <button class="btn btn-sm btn-save-manual" data-pid="${part.id}" data-url="${uo.url}" data-name="${uo.name || ''}">Use this listing</button>
+                  <a href="${uo.url}" target="_blank" rel="noopener noreferrer" class="caption" style="color:var(--text-secondary);text-decoration:underline;margin-left:8px;">View product ↗</a>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      if (!offerInfo.verified?.length && !offerInfo.unverified?.length) {
+        if (part.seed_price !== null && part.seed_price !== undefined) {
+          offersHtml += `<p class="caption">No verified shop price found yet. Using team estimate of ₹${formatPrice(part.seed_price)} (not checked on any page).</p>`;
+        } else {
+          offersHtml += `<p class="caption">No verified shop price found yet. This part is not included in the total until a price is verified or entered.</p>`;
+        }
+        offersHtml += `<p class="caption" style="margin-top:6px;color:var(--primary-orange);">Click <b>⚡ Find live prices</b> above to scan vendors with TinyFish.</p>`;
+      }
+
       card.innerHTML = `
         <div class="component-card-header">
           <div style="display:flex;align-items:center;gap:12px;">
@@ -425,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="component-card-body">
           <p class="caption">${part.note || part.why || 'Engineering component'}</p>
           <div class="offer-list" style="margin-top:10px;">
-            <p class="caption">Click <b>⚡ Find live prices</b> above to scan Indian electronic shops.</p>
+            ${offersHtml}
           </div>
         </div>
       `;
@@ -433,6 +509,37 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.querySelector('.component-card-header').onclick = () => {
         card.classList.toggle('open');
       };
+
+      // Button handlers inside card
+      card.querySelectorAll('.btn-pick-offer').forEach(btn => {
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+          const pid = btn.dataset.pid;
+          const url = btn.dataset.url;
+          await api.setChoice('pick', pid, url);
+          const updatedBom = await api.getBom();
+          renderBomView(updatedBom);
+        };
+      });
+
+      card.querySelectorAll('.btn-save-manual').forEach(btn => {
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+          const pid = btn.dataset.pid;
+          const url = btn.dataset.url;
+          const name = btn.dataset.name;
+          const parentRow = btn.closest('.offer-row');
+          const input = parentRow.querySelector('.manual-price-val');
+          const val = parseFloat(input?.value);
+          if (isNaN(val) || val <= 0) {
+            alert('Please enter a valid price in ₹');
+            return;
+          }
+          await api.setChoice('manual', pid, url, val, name);
+          const updatedBom = await api.getBom();
+          renderBomView(updatedBom);
+        };
+      });
 
       container.appendChild(card);
     });
@@ -497,10 +604,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       async () => {
         box.textContent += 'Done! Re-computing verified bill...\n';
-        const updatedBill = await api.getBill();
-        renderBillTable(updatedBill);
-        document.getElementById('metric-total-cost').textContent = `₹${formatPrice(updatedBill.total ?? updatedBill.grand_total ?? 0)}`;
-        document.getElementById('metric-live-priced').textContent = `${updatedBill.live_priced_count || 0} live`;
+        const updatedBom = await api.getBom();
+        renderBomView(updatedBom);
       }
     );
   });

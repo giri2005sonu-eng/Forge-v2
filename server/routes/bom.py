@@ -101,6 +101,13 @@ def generate_bom(req: BomGenerateRequest, forge_session: Optional[str] = Cookie(
     return _build_response_payload(session)
 
 
+@router.get("")
+@router.get("/")
+def get_current_bom(forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    return _build_response_payload(session)
+
+
 import datetime as dt
 
 def _build_response_payload(session):
@@ -118,6 +125,37 @@ def _build_response_payload(session):
     b = bill.make(parts, session.live, session.choice, session.budget, label, manual=session.manual)
     tot = b["tot"]
 
+    parts_offers = {}
+    for pid in session.live:
+        raw_v = bill.offers_for(pid, session.live)
+        verified = []
+        for o in raw_v:
+            verified.append({
+                "url": o.get("url"),
+                "price": o.get("price"),
+                "name": o.get("name"),
+                "vendor": bill.vendor(o.get("url", "")),
+                "quote": o.get("quote"),
+                "checked_at": o.get("checked_at"),
+                "method": o.get("method"),
+                "note": o.get("note"),
+                "suspect": o.get("suspect"),
+            })
+        raw_u = bill.unverified_for(pid, session.live)
+        unverified = []
+        for o in raw_u:
+            unverified.append({
+                "url": o.get("url"),
+                "name": o.get("name"),
+                "vendor": bill.vendor(o.get("url", "")),
+                "note": o.get("note"),
+            })
+        parts_offers[pid] = {
+            "verified": verified,
+            "unverified": unverified,
+            "warning": pipeline.spread_warning(session.live.get(pid, [])),
+        }
+
     return {
         "status": "ok",
         "stage": session.stage,
@@ -130,6 +168,9 @@ def _build_response_payload(session):
         "parts": parts,
         "checks": checks,
         "alternatives": alternatives,
+        "parts_offers": parts_offers,
+        "choice": session.choice,
+        "manual": session.manual,
         "bill": {
             "ref": b["ref"],
             "date": str(dt.date.today()),
@@ -162,26 +203,33 @@ async def stream_sourcing(forge_session: Optional[str] = Cookie(None)):
         queue = asyncio.Queue()
 
         def log_callback(msg):
-            session.research.setdefault("log", []).append(str(msg))
-            queue.put_nowait(str(msg))
+            msg_str = str(msg)
+            session.research.setdefault("log", []).append(msg_str)
+            queue.put_nowait(msg_str)
 
         # Run sourcing in executor
         loop = asyncio.get_running_loop()
 
         def do_sourcing():
-            if session.bom_origin == "rule" and session.project in PROJECTS:
-                cand_parts = pipeline.candidate_parts(session.project)
-                for p in cand_parts:
-                    if p.get("none"):
-                        continue
-                    try:
-                        session.live[p["id"]] = pipeline.source_part(p, log=log_callback)
-                    except Exception as e:
-                        log_callback(f"{p['name']}: {e}")
-                session.res = pipeline.select(session.project, session.budget, session.bluetooth or PROJECTS[session.project]["bt"], session.live)
-            else:
-                gem = None if session.bom_origin == "gemini" else int(os.getenv("FORGE_DATASET_GEMINI_FALLBACK", "0"))
-                custom_bom.source_all(parts, session.live, log=log_callback, gemini_max=gem, skip_done=True)
+            try:
+                if session.bom_origin == "rule" and session.project in PROJECTS:
+                    cand_parts = pipeline.candidate_parts(session.project)
+                    for p in cand_parts:
+                        if p.get("none"):
+                            continue
+                        try:
+                            session.live[p["id"]] = pipeline.source_part(p, log=log_callback)
+                        except Exception as e:
+                            log_callback(f"{p['name']}: {e}")
+                    session.res = pipeline.select(session.project, session.budget, session.bluetooth or PROJECTS[session.project]["bt"], session.live)
+                else:
+                    gem = None if session.bom_origin == "gemini" else int(os.getenv("FORGE_DATASET_GEMINI_FALLBACK", "0"))
+                    part_list = [p for p in parts.values() if isinstance(p, dict) and not p.get("none")] if isinstance(parts, dict) else parts
+                    custom_bom.source_all(part_list, session.live, log=log_callback, gemini_max=gem, skip_done=True)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                log_callback(f"Sourcing error: {e}")
 
         task = loop.run_in_executor(None, do_sourcing)
 
@@ -189,7 +237,12 @@ async def stream_sourcing(forge_session: Optional[str] = Cookie(None)):
             while not queue.empty():
                 line = await queue.get()
                 yield {"event": "log", "data": json.dumps({"text": line})}
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.15)
+
+        try:
+            await task
+        except Exception as e:
+            log_callback(f"Task error: {e}")
 
         # Flush any remaining logs
         while not queue.empty():
