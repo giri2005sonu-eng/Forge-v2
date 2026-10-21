@@ -1,0 +1,285 @@
+import asyncio
+import copy
+import json
+import os
+from fastapi import APIRouter, Cookie, HTTPException, Query, Response
+from fastapi.responses import Response, StreamingResponse
+from sse_starlette.sse import EventSourceResponse
+from typing import Optional
+
+from core import bill, custom_bom, hybrid_bom, ledger, pipeline, project_store
+from core.data import PROJECTS, QTY
+from server.schemas import BomChoiceRequest, BomGenerateRequest
+from server.state import store
+
+router = APIRouter(prefix="/api/bom", tags=["bom"])
+
+
+@router.get("/catalog")
+def get_catalog():
+    options = project_store.options()
+    labels = {o["key"]: o["label"] for o in options}
+    return {"options": options, "labels": labels, "total": len(options)}
+
+
+@router.post("/generate")
+def generate_bom(req: BomGenerateRequest, forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    session.budget = req.budget
+    session.bluetooth = req.bluetooth
+    tinyfish_enabled = bool(os.getenv("TINYFISH_API_KEY"))
+
+    # Free-text new idea flow
+    if req.custom_idea:
+        session.custom, session.custom_error, session.res = None, None, None
+        try:
+            counter = session.gemini_counter
+            out = hybrid_bom.resolve(req.custom_idea, req.budget, req.bluetooth, counter, skip_local=req.skip_local)
+        except ValueError as e:
+            session.custom_error = str(e)
+            raise HTTPException(status_code=400, detail=str(e))
+
+        if out["origin"] == "rule":
+            session.custom, session.project, session.bom_origin = None, out["project"], "rule"
+            needs_bt = req.bluetooth or PROJECTS[out["project"]]["bt"]
+            session.res = pipeline.select(out["project"], req.budget, needs_bt, session.live)
+            session.stage = "bom"
+            return _build_response_payload(session)
+
+        if out["plan"] is None:
+            # Similar catalog projects suggested
+            session.suggest = dict(idea=req.custom_idea, items=out["suggestions"])
+            return {
+                "status": "suggest",
+                "suggestions": out["suggestions"],
+                "idea": req.custom_idea,
+            }
+
+        plan = out["plan"]
+        session.res = None
+        session.custom_error, session.suggest = None, None
+        session.custom = dict(
+            idea=req.custom_idea,
+            label=plan["label"],
+            parts=plan["parts"],
+            notes=plan.get("notes", []),
+            origin=plan["origin"],
+            meta=plan,
+        )
+        session.bom_origin = plan["origin"]
+        session.stage = "bom"
+        return _build_response_payload(session)
+
+    # Catalog project selection flow
+    key = req.project or "general:line_follower"
+    session.custom_error, session.suggest = None, None
+
+    if key.startswith("general:") and key.split(":", 1)[1] in PROJECTS:
+        project_id = key.split(":", 1)[1]
+        session.custom, session.project, session.bom_origin = None, project_id, "rule"
+        needs_bt = req.bluetooth or PROJECTS[project_id]["bt"]
+        session.res = pipeline.select(project_id, req.budget, needs_bt, session.live)
+        session.stage = "bom"
+        return _build_response_payload(session)
+
+    plan = project_store.get_plan(key)
+    if not plan:
+        raise HTTPException(status_code=404, detail=f"Project '{key}' not found in catalog")
+
+    session.res = None
+    session.custom = dict(
+        idea=None,
+        label=plan["label"],
+        parts=plan["parts"],
+        notes=plan.get("notes", []),
+        origin=plan["origin"],
+        meta=plan,
+    )
+    session.bom_origin = plan["origin"]
+    session.project = key
+    session.stage = "bom"
+    return _build_response_payload(session)
+
+
+import datetime as dt
+
+def _build_response_payload(session):
+    parts = session.get_active_parts()
+    label = session.get_build_label()
+    checks = []
+    alternatives = []
+    if session.res and session.res.get("best"):
+        checks = session.res["best"].get("checks", [])
+        alternatives = [
+            {"cost": r["cost"], "parts": [p["name"] for p in r["parts"].values() if not p.get("none")]}
+            for r in session.res.get("alternatives", [])
+        ]
+
+    b = bill.make(parts, session.live, session.choice, session.budget, label, manual=session.manual)
+    tot = b["tot"]
+
+    return {
+        "status": "ok",
+        "stage": session.stage,
+        "label": label,
+        "project": session.project,
+        "budget": session.budget,
+        "bluetooth": session.bluetooth,
+        "origin": session.bom_origin or "rule",
+        "parts_count": len([p for p in parts.values() if not p.get("none")]),
+        "parts": parts,
+        "checks": checks,
+        "alternatives": alternatives,
+        "bill": {
+            "ref": b["ref"],
+            "date": str(dt.date.today()),
+            "lines": b["lines"],
+            "parts_subtotal": tot["subtotal"],
+            "live_priced_count": tot["n_live"],
+            "total_items": tot["n_items"],
+            "grand_total": tot["subtotal"],
+            "tot": tot,
+        },
+    }
+
+
+@router.get("/sourcing/stream")
+async def stream_sourcing(forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    tinyfish_enabled = bool(os.getenv("TINYFISH_API_KEY"))
+
+    async def event_generator():
+        yield {"event": "start", "data": json.dumps({"message": "Starting live price sourcing..."})}
+        if not tinyfish_enabled:
+            yield {
+                "event": "log",
+                "data": json.dumps({"text": "TinyFish API key not configured. Using catalog estimates."}),
+            }
+            yield {"event": "complete", "data": json.dumps({"message": "Sourcing completed."})}
+            return
+
+        parts = session.get_active_parts()
+        queue = asyncio.Queue()
+
+        def log_callback(msg):
+            session.research.setdefault("log", []).append(str(msg))
+            queue.put_nowait(str(msg))
+
+        # Run sourcing in executor
+        loop = asyncio.get_running_loop()
+
+        def do_sourcing():
+            if session.bom_origin == "rule" and session.project in PROJECTS:
+                cand_parts = pipeline.candidate_parts(session.project)
+                for p in cand_parts:
+                    if p.get("none"):
+                        continue
+                    try:
+                        session.live[p["id"]] = pipeline.source_part(p, log=log_callback)
+                    except Exception as e:
+                        log_callback(f"{p['name']}: {e}")
+                session.res = pipeline.select(session.project, session.budget, session.bluetooth or PROJECTS[session.project]["bt"], session.live)
+            else:
+                gem = None if session.bom_origin == "gemini" else int(os.getenv("FORGE_DATASET_GEMINI_FALLBACK", "0"))
+                custom_bom.source_all(parts, session.live, log=log_callback, gemini_max=gem, skip_done=True)
+
+        task = loop.run_in_executor(None, do_sourcing)
+
+        while not task.done():
+            while not queue.empty():
+                line = await queue.get()
+                yield {"event": "log", "data": json.dumps({"text": line})}
+            await asyncio.sleep(0.1)
+
+        # Flush any remaining logs
+        while not queue.empty():
+            line = await queue.get()
+            yield {"event": "log", "data": json.dumps({"text": line})}
+
+        yield {"event": "complete", "data": json.dumps({"message": "Live sourcing complete!"})}
+
+    return EventSourceResponse(event_generator())
+
+
+@router.post("/choice")
+def set_choice(req: BomChoiceRequest, forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    if req.action == "reset":
+        session.choice.clear()
+        session.manual.clear()
+    elif req.action == "pick":
+        if not req.part_id or not req.url:
+            raise HTTPException(status_code=400, detail="part_id and url required for pick")
+        session.choice[req.part_id] = req.url
+        session.manual.pop(req.part_id, None)
+    elif req.action == "manual":
+        if not req.part_id or not req.url:
+            raise HTTPException(status_code=400, detail="part_id and url required for manual pick")
+        session.manual[req.part_id] = {
+            "url": req.url,
+            "name": req.name or "",
+            "price": float(req.price or 0.0),
+        }
+    return {"status": "ok", "choice": session.choice, "manual": session.manual}
+
+
+@router.get("/bill")
+def get_bill(forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    parts = session.get_active_parts()
+    label = session.get_build_label()
+    b = bill.make(parts, session.live, session.choice, session.budget, label, manual=session.manual)
+    tot = b["tot"]
+    return {
+        "ref": b["ref"],
+        "date": str(dt.date.today()),
+        "label": label,
+        "budget": session.budget,
+        "total": tot["subtotal"],
+        "parts_subtotal": tot["subtotal"],
+        "live_priced_count": tot["n_live"],
+        "total_items": tot["n_items"],
+        "lines": b["lines"],
+        "tot": tot,
+        "html": b["html"],
+    }
+
+
+@router.get("/bill.pdf")
+def download_bill_pdf(forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    parts = session.get_active_parts()
+    label = session.get_build_label()
+    b = bill.make(parts, session.live, session.choice, session.budget, label, manual=session.manual)
+    pdf_bytes = b.get("pdf")
+    if not pdf_bytes:
+        raise HTTPException(status_code=500, detail="Failed to generate PDF")
+    filename = f"forge_bill_{session.project}_{b['ref'][3:11]}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/ledger")
+def get_ledger(forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    parts = session.get_active_parts()
+    rows = ledger.rows(parts, session.live, session.choice, session.manual)
+    summary = ledger.summary(rows)
+    return {"rows": rows, "summary": summary}
+
+
+@router.get("/ledger.csv")
+def download_ledger_csv(forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    parts = session.get_active_parts()
+    rows = ledger.rows(parts, session.live, session.choice, session.manual)
+    csv_text = ledger.to_csv(rows)
+    filename = f"forge_evidence_ledger_{session.project}.csv"
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

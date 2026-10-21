@@ -1,0 +1,166 @@
+import os
+import pytest
+from fastapi.testclient import TestClient
+
+from server.main import app
+
+client = TestClient(app)
+
+
+def test_static_index():
+    res = client.get("/")
+    assert res.status_code == 200
+    assert "FORGE" in res.text
+    assert "Discovery" in res.text
+
+
+def test_get_state():
+    res = client.get("/api/state")
+    assert res.status_code == 200
+    data = res.json()
+    assert "stage" in data
+    assert "budget" in data
+
+
+def test_survey_questions():
+    res = client.get("/api/survey/questions")
+    assert res.status_code == 200
+    qs = res.json()
+    assert len(qs) == 9
+    assert qs[0]["key"] == "career"
+
+
+def test_survey_rank():
+    payload = {
+        "answers": {
+            "career": "Robotics engineer",
+            "experience": ["arduino"],
+            "interests": ["autonomous_navigation"]
+        },
+        "limit": 5
+    }
+    res = client.post("/api/survey/rank", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert "results" in data
+    assert len(data["results"]) <= 5
+    if data["results"]:
+        first = data["results"][0]
+        assert "score" in first
+        assert "chart_svg" in first
+        assert "<svg" in first["chart_svg"]
+
+
+def test_idea_match():
+    res = client.post("/api/idea/match", json={"text": "plant watering robot"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "reason" in data
+    assert "supported" in data
+
+
+def test_competition_events_and_projects():
+    res = client.get("/api/competition/events")
+    assert res.status_code == 200
+    events = res.json()
+    assert len(events) > 0
+    first_ev = events[0]["name"]
+
+    p_res = client.get(f"/api/competition/projects?event={first_ev}")
+    assert p_res.status_code == 200
+    p_data = p_res.json()
+    assert "projects" in p_data
+
+
+def test_bom_catalog_and_generate():
+    cat_res = client.get("/api/bom/catalog")
+    assert cat_res.status_code == 200
+    catalog = cat_res.json()
+    assert catalog["total"] == 168
+
+    gen_res = client.post("/api/bom/generate", json={
+        "project": "general:line_follower",
+        "budget": 3500,
+        "bluetooth": False
+    })
+    assert gen_res.status_code == 200
+    bom = gen_res.json()
+    assert bom["status"] == "ok"
+    assert "parts" in bom
+    assert "bill" in bom
+    assert bom["bill"]["grand_total"] > 0
+
+
+def test_bom_choice_and_manual_unverified():
+    # Generate line follower build
+    client.post("/api/bom/generate", json={"project": "general:line_follower", "budget": 3500})
+
+    # Pick a verified offer
+    pick_res = client.post("/api/bom/choice", json={
+        "action": "pick",
+        "part_id": "ctrl_nano",
+        "url": "https://robu.in/product/arduino-nano"
+    })
+    assert pick_res.status_code == 200
+    assert pick_res.json()["choice"]["ctrl_nano"] == "https://robu.in/product/arduino-nano"
+
+    # User-picked unverified listing with typed price
+    manual_res = client.post("/api/bom/choice", json={
+        "action": "manual",
+        "part_id": "ctrl_nano",
+        "url": "https://example.com/unverified-nano",
+        "price": 280.0,
+        "name": "Local Store Nano"
+    })
+    assert manual_res.status_code == 200
+    assert manual_res.json()["manual"]["ctrl_nano"]["price"] == 280.0
+
+    # Bill should reflect the manual price line
+    bill_res = client.get("/api/bom/bill")
+    assert bill_res.status_code == 200
+    bill_data = bill_res.json()
+    nano_line = next((l for l in bill_data["lines"] if l["part_id"] == "ctrl_nano"), None)
+    assert nano_line is not None
+    assert nano_line["source"] == "manual"
+    assert nano_line["unit"] == 280.0
+
+    # Reset choice
+    reset_res = client.post("/api/bom/choice", json={"action": "reset"})
+    assert reset_res.status_code == 200
+    assert reset_res.json()["choice"] == {}
+
+
+def test_bom_downloads_pdf_and_csv():
+    client.post("/api/bom/generate", json={"project": "general:line_follower", "budget": 3500})
+
+    # PDF download
+    pdf_res = client.get("/api/bom/bill.pdf")
+    assert pdf_res.status_code == 200
+    assert pdf_res.headers["content-type"] == "application/pdf"
+    assert len(pdf_res.content) > 100
+
+    # Ledger CSV download
+    csv_res = client.get("/api/bom/ledger.csv")
+    assert csv_res.status_code == 200
+    assert "text/csv" in csv_res.headers["content-type"]
+    assert "Part ID" in csv_res.text or "part_id" in csv_res.text.lower()
+
+
+def test_wiring_and_firmware():
+    client.post("/api/bom/generate", json={"project": "general:line_follower", "budget": 3500})
+    w_res = client.get("/api/wiring")
+    assert w_res.status_code == 200
+    w_data = w_res.json()
+    assert "controller" in w_data
+    assert "connections" in w_data
+    assert "arduino_code" in w_data
+    assert "void setup()" in w_data["arduino_code"]
+
+
+def test_delivery_optimization():
+    client.post("/api/bom/generate", json={"project": "general:line_follower", "budget": 3500})
+    d_res = client.post("/api/delivery/optimize")
+    assert d_res.status_code == 200
+    d_data = d_res.json()
+    assert "split" in d_data
+    assert "smart" in d_data

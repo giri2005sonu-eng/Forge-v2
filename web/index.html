@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FORGE — Project Planning &amp; Execution Copilot</title>
+  <link rel="stylesheet" href="/css/forge.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="fg-header-container">
+      <div class="fg-header-brand">
+        <div class="fg-header-logo">⚡</div>
+        <div>
+          <div class="fg-header-title">
+            FORGE <span class="fg-header-subtitle">— Project Planning &amp; Execution Copilot</span>
+          </div>
+          <div class="fg-header-tagline">
+            Autonomous Project Architecture &nbsp;·&nbsp; Live Market Sourcing &nbsp;·&nbsp; Hardware Verification &amp; Execution
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="fg-copilot-badge">⚡ COPILOT ACTIVE</span>
+      </div>
+    </header>
+
+    <!-- Step Tracker -->
+    <nav class="fg-tracker-wrap" id="step-tracker">
+      <div class="fg-tracker-line"></div>
+      <div class="fg-step-pill active" data-stage="pick">
+        <span class="fg-step-num">1</span>
+        <span>Discovery</span>
+      </div>
+      <div class="fg-step-pill pending" data-stage="results">
+        <span class="fg-step-num">2</span>
+        <span>Recommended</span>
+      </div>
+      <div class="fg-step-pill pending" data-stage="competition">
+        <span class="fg-step-num">3</span>
+        <span>Competition</span>
+      </div>
+      <div class="fg-step-pill pending" data-stage="bom">
+        <span class="fg-step-num">4</span>
+        <span>Planning</span>
+      </div>
+    </nav>
+
+    <!-- Main Views Container -->
+    <main id="app-viewport">
+      <!-- ── 1. DISCOVERY VIEW ── -->
+      <section id="view-discovery" class="view-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <div>
+            <h2>🎯 Project Discovery &amp; Planning Copilot</h2>
+            <p class="text-secondary">Tell us what you have built, your target skills, and constraints.</p>
+          </div>
+          <button class="btn" id="btn-goto-competition">Build to compete ➔</button>
+        </div>
+
+        <!-- 9-Question Survey Card -->
+        <div class="card" id="survey-card" style="border-color:rgba(255,122,26,0.3);position:relative;">
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.75rem;letter-spacing:0.12em;color:var(--accent-amber);margin-bottom:8px;">
+            <span id="survey-step-indicator">QUESTION 01 / 09</span>
+            <span>OPTIONAL · SKIP ANY</span>
+          </div>
+          <div style="height:3px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin-bottom:14px;">
+            <div id="survey-progress-bar" style="height:100%;width:11%;background:linear-gradient(90deg,#FF7A1A,#FF9F43);transition:width 0.3s ease;"></div>
+          </div>
+          <h3 id="survey-question-text" style="font-size:1.35rem;margin-bottom:1rem;">Question text goes here</h3>
+          
+          <div id="survey-input-container">
+            <!-- Dynamic input options rendered here -->
+          </div>
+
+          <div style="display:flex;justify-content:space-between;margin-top:1.5rem;">
+            <button class="btn ghost" id="survey-prev-btn" disabled>Back</button>
+            <button class="btn primary" id="survey-next-btn">Next</button>
+          </div>
+          <div class="caption" id="survey-answered-count" style="margin-top:10px;text-align:right;">0 of 9 questions answered</div>
+        </div>
+
+        <!-- Resume CV Box -->
+        <div class="card">
+          <h4>📄 Upload your resume / CV</h4>
+          <p class="caption" style="margin:4px 0 12px;">Your resume text is parsed by Gemini to extract confirmed factors with supporting quotes.</p>
+          <div id="resume-upload-zone" style="display:flex;align-items:center;gap:12px;">
+            <input type="file" id="resume-file-input" accept=".pdf,.docx,.txt" style="display:none;">
+            <button class="btn" id="btn-trigger-upload">Select Resume (PDF / DOCX)</button>
+            <span id="resume-status-label" class="caption">No file selected.</span>
+          </div>
+          <div id="resume-factors-list" style="margin-top:12px;display:none;"></div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:1rem;">
+          <button class="btn primary" id="btn-get-recommendations">Recommend projects</button>
+          <button class="btn ghost" id="btn-skip-discovery">Skip to BOM</button>
+        </div>
+      </section>
+
+      <!-- ── 2. RESULTS VIEW ── -->
+      <section id="view-results" class="view-panel" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <div>
+            <h2>Projects that fit you</h2>
+            <p class="caption" id="results-count-caption">Ranked based on your survey answers.</p>
+          </div>
+          <button class="btn ghost" id="btn-back-to-questions">Back to questions</button>
+        </div>
+
+        <div class="grid-4" id="recommendations-grid">
+          <!-- Recommended project cards rendered here -->
+        </div>
+
+        <!-- Selected Project Fit Inspector & SVG Radar Chart -->
+        <div id="project-detail-inspector" style="margin-top:1.5rem;display:none;">
+          <div class="grid-2">
+            <div class="card" id="detail-card-left">
+              <h3 id="detail-project-title">Project Title</h3>
+              <p id="detail-project-desc" class="text-secondary"></p>
+              <div id="detail-meta-list" style="margin:12px 0;font-size:0.84rem;line-height:1.6;"></div>
+              <table class="fg-t" id="detail-fit-table">
+                <thead><tr><th>Factor</th><th>Rating</th><th>Fit</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div style="margin-top:14px;">
+                <button class="btn primary" id="btn-build-bom-for-pick">⚡ Build the BOM for this project</button>
+              </div>
+            </div>
+            <div class="card" id="detail-card-right" style="display:flex;align-items:center;justify-content:center;">
+              <div id="detail-radar-chart" style="width:100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Free-text Idea Match Box -->
+        <div class="card" style="margin-top:1.5rem;">
+          <h4>Or describe your own idea</h4>
+          <div style="display:flex;gap:10px;margin-top:8px;">
+            <input type="text" id="input-idea-match" placeholder="e.g. a car that follows my hand, or smart plant pot">
+            <button class="btn primary" id="btn-submit-idea">Match my idea</button>
+          </div>
+          <div id="idea-match-result" style="margin-top:10px;"></div>
+        </div>
+      </section>
+
+      <!-- ── 3. COMPETITION VIEW ── -->
+      <section id="view-competition" class="view-panel" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <div>
+            <h2>Build to compete</h2>
+            <p class="caption">Choose an event, then shortlist projects verified for competition rules.</p>
+          </div>
+          <button class="btn ghost" id="btn-back-from-competition">Back</button>
+        </div>
+
+        <div class="card">
+          <label for="select-competition-event"><b>Select Competition or Event</b></label>
+          <select id="select-competition-event" style="margin-top:6px;"></select>
+        </div>
+
+        <div id="competition-projects-container" class="grid-2" style="margin-top:1rem;">
+          <!-- Competition projects cards -->
+        </div>
+      </section>
+
+      <!-- ── 4. PLANNING & BOM STUDIO VIEW ── -->
+      <section id="view-bom" class="view-panel" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <div>
+            <h2 id="bom-project-heading">Hardware Architecture &amp; Bill of Materials</h2>
+            <p class="caption" id="bom-project-tagline">168 verified robot component lists · Live pricing · Electrical compatibility</p>
+          </div>
+        </div>
+
+        <!-- Catalog Selector & Ideation Input Card -->
+        <div class="card">
+          <div class="grid-2" style="margin-bottom:14px;">
+            <div>
+              <label><b>Budget (₹)</b></label>
+              <input type="number" id="bom-budget-input" value="3500" step="500" min="1000">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:20px;">
+              <input type="checkbox" id="bom-bluetooth-toggle" style="width:18px;height:18px;">
+              <label for="bom-bluetooth-toggle" style="cursor:pointer;"><b>Requires Bluetooth</b></label>
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label><b>1 · Select Architecture from Catalog (168 pre-verified projects)</b></label>
+            <div style="display:flex;gap:10px;margin-top:6px;">
+              <select id="select-catalog-project"></select>
+              <button class="btn primary" id="btn-generate-catalog-bom">Generate BOM</button>
+            </div>
+          </div>
+
+          <div>
+            <label><b>2 · Or Ideate &amp; Plan Custom Build</b></label>
+            <div style="display:flex;gap:10px;margin-top:6px;">
+              <input type="text" id="input-custom-build" placeholder="e.g. a plant watering robot, or a mini sumo bot">
+              <button class="btn" id="btn-plan-custom-build">Plan new build</button>
+            </div>
+          </div>
+          <div id="bom-origin-banner" style="margin-top:12px;"></div>
+        </div>
+
+        <!-- Summary Metrics Row -->
+        <div class="grid-3" style="margin-bottom:1.25rem;">
+          <div class="card" style="padding:1rem;">
+            <div class="caption">TOTAL ESTIMATED COST</div>
+            <div id="metric-total-cost" style="font-size:1.6rem;font-weight:800;color:var(--text-primary);margin-top:4px;">₹0</div>
+          </div>
+          <div class="card" style="padding:1rem;">
+            <div class="caption">ACTIVE COMPONENTS</div>
+            <div id="metric-components-count" style="font-size:1.6rem;font-weight:800;color:var(--text-primary);margin-top:4px;">0 parts</div>
+          </div>
+          <div class="card" style="padding:1rem;">
+            <div class="caption">LIVE PRICED ITEMS</div>
+            <div id="metric-live-priced" style="font-size:1.6rem;font-weight:800;color:var(--primary-orange);margin-top:4px;">0 / 0 live</div>
+          </div>
+        </div>
+
+        <!-- Sourcing Action Bar & SSE Terminal Log -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h4>Live Market Sourcing (TinyFish)</h4>
+              <p class="caption">Searches Indian electronics vendors (robu.in, robocraze, electronicscomp) and reads live quotes.</p>
+            </div>
+            <button class="btn primary" id="btn-find-live-prices">⚡ Find live prices</button>
+          </div>
+          <div id="sourcing-log-box" class="log-box" style="display:none;"></div>
+        </div>
+
+        <!-- Component Cards List -->
+        <div id="bom-components-container" style="margin-top:1.5rem;">
+          <!-- Component cards rendered here -->
+        </div>
+
+        <!-- Compatibility Rule Checks -->
+        <div class="card" id="bom-checks-card" style="margin-top:1.5rem;">
+          <h4>System Compatibility Checks</h4>
+          <div id="bom-checks-list" style="margin-top:8px;"></div>
+        </div>
+
+        <!-- Delivery Optimizer Panel -->
+        <div class="card" id="delivery-optimizer-card" style="margin-top:1.5rem;">
+          <h4>Multi-Store Delivery Optimizer</h4>
+          <p class="caption">Compare cheapest part-by-part splitting vs consolidated single-store ordering.</p>
+          <div class="grid-3" id="delivery-strategies-grid" style="margin-top:12px;"></div>
+          <div style="margin-top:12px;text-align:right;">
+            <a id="btn-download-cart-csv" class="btn" href="/api/delivery/cart-csv" target="_blank">Download Cart CSV</a>
+          </div>
+        </div>
+
+        <!-- Hardware Wiring & Starter Firmware Studio -->
+        <div class="card" id="wiring-studio-card" style="margin-top:1.5rem;">
+          <h4>Hardware Wiring &amp; Wokwi Cloud Simulation</h4>
+          <p class="caption">Pin-to-pin wiring guide, visual SVG canvas, and Wokwi project hand-off.</p>
+          
+          <div class="tabs-nav" style="margin-top:12px;">
+            <button class="tab-btn active" data-wiring-tab="schematic">Visual Schematic</button>
+            <button class="tab-btn" data-wiring-tab="pinout">Pinout Table</button>
+            <button class="tab-btn" data-wiring-tab="wokwi">Wokwi Simulation</button>
+            <button class="tab-btn" data-wiring-tab="firmware">Auto-Generated Code</button>
+          </div>
+
+          <div id="tab-content-schematic" class="wiring-tab-pane">
+            <div id="wiring-svg-container" style="background:#090B10;border-radius:10px;padding:12px;overflow-x:auto;"></div>
+          </div>
+          <div id="tab-content-pinout" class="wiring-tab-pane" style="display:none;">
+            <table class="fg-t" id="pinout-table">
+              <thead><tr><th>Part Pin</th><th>Direction</th><th>Controller Pin</th><th>Signal Type</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="tab-content-wokwi" class="wiring-tab-pane" style="display:none;">
+            <p class="caption">Download diagram.json and open in Wokwi simulator:</p>
+            <textarea id="wokwi-json-preview" readonly style="width:100%;height:140px;background:#05060A;border:1px solid var(--card-border);border-radius:8px;font-family:var(--font-mono);font-size:0.75rem;color:#A7F3D0;padding:8px;"></textarea>
+          </div>
+          <div id="tab-content-firmware" class="wiring-tab-pane" style="display:none;">
+            <pre id="firmware-code-preview" style="background:#05060A;padding:12px;border-radius:8px;font-size:0.78rem;color:#38BDF8;overflow-x:auto;max-height:280px;"></pre>
+          </div>
+        </div>
+
+        <!-- Invoice Bill Table Sheet -->
+        <div class="fg-sheet" style="margin-top:1.5rem;">
+          <div class="fg-head">
+            <div class="fg-brand">FORGE INVOICE &amp; BILL</div>
+            <div class="caption" id="bill-ref-label">REF: FG-000000</div>
+          </div>
+          <div class="fg-meta">
+            <span>Project: <b id="bill-meta-project">Line Follower</b></span>
+            <span>Date: <b id="bill-meta-date">Today</b></span>
+          </div>
+          <table class="fg-t" id="bill-table-view">
+            <thead>
+              <tr><th>Item</th><th>Role</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem;">
+            <a class="btn primary" href="/api/bom/bill.pdf" target="_blank">Download bill as PDF</a>
+            <a class="btn" href="/api/bom/ledger.csv" target="_blank">Download evidence ledger (CSV)</a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
