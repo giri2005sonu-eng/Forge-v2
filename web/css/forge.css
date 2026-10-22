@@ -2293,3 +2293,139 @@ table.cmp td.na {
   color: #19E3B1;
 }
 
+/* ── Evidence Ledger ── */
+.evidence-ledger-card {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-lg, 12px);
+  padding: 16px 20px;
+}
+
+.ledger-details summary {
+  cursor: pointer;
+  list-style: none;
+  outline: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ledger-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.ledger-arrow-icon {
+  font-size: 0.85rem;
+  color: var(--text-muted, #94A3B8);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.ledger-details[open] .ledger-arrow-icon {
+  transform: rotate(0deg);
+}
+
+.ledger-details:not([open]) .ledger-arrow-icon {
+  transform: rotate(-90deg);
+}
+
+.ledger-table-wrapper {
+  background: rgba(10, 15, 28, 0.7);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+table.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+table.ledger-table thead tr {
+  background: #0B1120;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+table.ledger-table th {
+  font: 600 11px var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94A3B8;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid #1E293B;
+  white-space: nowrap;
+}
+
+table.ledger-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: #E2E8F0;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+table.ledger-table tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.status-verified {
+  color: #10B981;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  display: inline-block;
+}
+
+.status-seed {
+  color: #94A3B8;
+  font-weight: 500;
+  background: rgba(148, 163, 184, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  display: inline-block;
+}
+
+.status-unverified {
+  color: #F59E0B;
+  font-weight: 500;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  display: inline-block;
+}
+
+.status-user-entered {
+  color: #38BDF8;
+  font-weight: 600;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  display: inline-block;
+}
+
+.ledger-url-link {
+  color: #38BDF8;
+  text-decoration: none;
+  max-width: 260px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  font-size: 0.8rem;
+}
+
+.ledger-url-link:hover {
+  text-decoration: underline;
+  color: #7DD3FC;
+}
+
+

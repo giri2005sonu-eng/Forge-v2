@@ -1349,6 +1349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadWiringStudio();
     loadDeliveryOptimizer();
     loadSpecsStudio();
+    loadEvidenceLedger();
   }
 
   function renderComponentCards(parts, lines, partsOffers = {}, choice = {}, manual = {}) {
@@ -2244,6 +2245,64 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
+
+  // ── 10. Evidence Ledger ──
+  async function loadEvidenceLedger() {
+    const titleText = document.getElementById('ledger-title-text');
+    const tbody = document.getElementById('tbody-evidence-ledger');
+    if (!titleText || !tbody) return;
+
+    try {
+      tbody.innerHTML = '<tr><td colspan="9" class="caption text-muted" style="padding:16px;text-align:center;">Loading evidence ledger...</td></tr>';
+      const data = await api.getLedger();
+      const rows = data.rows || [];
+      const summary = data.summary || {};
+
+      const verifiedCount = summary.verified || 0;
+      const seedCount = summary.seed || 0;
+      const unverifiedCount = summary.unverified || 0;
+      const manualCount = summary.manual || 0;
+
+      let summaryParts = [`Evidence ledger`, `${verifiedCount} verified`, `${seedCount} seed values`, `${unverifiedCount} unverified links`];
+      if (manualCount > 0) {
+        summaryParts.push(`${manualCount} user-entered`);
+      }
+      titleText.textContent = summaryParts.join(' · ');
+
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="caption text-muted" style="padding:16px;text-align:center;">No ledger rows recorded for this build.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const status = r.status || '';
+        let statusCls = 'status-seed';
+        if (status === 'verified') statusCls = 'status-verified';
+        else if (status === 'unverified') statusCls = 'status-unverified';
+        else if (status === 'user-entered') statusCls = 'status-user-entered';
+
+        const url = r.source_url || '';
+        const urlDisplay = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="ledger-url-link" title="${escapeHtml(url)}">${escapeHtml(url)}</a>` : '';
+
+        return `
+          <tr>
+            <td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">${escapeHtml(r.part_id || '')}</td>
+            <td style="font-weight:600;">${escapeHtml(r.part || '')}</td>
+            <td style="color:var(--text-secondary);">${escapeHtml(r.role || '')}</td>
+            <td style="font-family:var(--font-mono);font-size:0.8rem;color:#A5B4FC;">${escapeHtml(r.field || '')}</td>
+            <td style="font-weight:600;color:#F8FAFC;">${escapeHtml(String(r.value ?? ''))}</td>
+            <td style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(r.unit || '')}</td>
+            <td><span class="${statusCls}">${escapeHtml(status)}</span></td>
+            <td style="color:var(--text-secondary);">${escapeHtml(r.source || '')}</td>
+            <td>${urlDisplay}</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      console.warn('Evidence ledger load error:', err);
+      tbody.innerHTML = `<tr><td colspan="9" class="alert warning" style="padding:12px;">Could not load evidence ledger: ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
 
   // Resume Upload Trigger
   document.getElementById('btn-trigger-upload')?.addEventListener('click', () => {

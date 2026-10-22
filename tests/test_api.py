@@ -29,6 +29,9 @@ def test_static_index():
     assert 'id="select-specs-component"' in res.text
     assert 'id="toggle-compare-specs"' in res.text
     assert 'id="specs-table-container"' in res.text
+    assert 'id="evidence-ledger-section"' in res.text
+    assert 'id="table-evidence-ledger"' in res.text
+    assert 'id="btn-download-ledger-csv"' in res.text
     assert 'id="btn-evaluate-swap"' in res.text
     assert "Star projects" in res.text
     assert 'id="star-project-grid"' in res.text
@@ -524,5 +527,19 @@ def test_specs_and_comparison_endpoints():
 
     assert "<table class=\"cmp\">" in cmp_data["html"]
     assert "class=\"best\"" in cmp_data["html"]
+
+    # 4. Verify Evidence Ledger API
+    ledger_res = test_client.get("/api/bom/ledger")
+    assert ledger_res.status_code == 200
+    ledger_data = ledger_res.json()
+    assert "rows" in ledger_data
+    assert "summary" in ledger_data
+    assert len(ledger_data["rows"]) > 0
+    assert any(r["field"] == "vin_min_v" for r in ledger_data["rows"])
+
+    csv_res = test_client.get("/api/bom/ledger.csv")
+    assert csv_res.status_code == 200
+    assert "part_id,part,role" in csv_res.text
+
 
 

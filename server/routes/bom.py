@@ -7,7 +7,7 @@ from fastapi.responses import Response, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from typing import Optional
 
-from core import bill, component_catalog, compatibility_engine, custom_bom, hybrid_bom, ledger, optimizer, pipeline, project_store
+from core import bill, component_catalog, compatibility_engine, custom_bom, hybrid_bom, ledger, optimizer, part_specs, pipeline, project_store
 from core.data import PROJECTS, QTY
 from server.schemas import BomChoiceRequest, BomGenerateRequest
 from server.state import store
@@ -351,6 +351,11 @@ def download_bill_pdf(forge_session: Optional[str] = Cookie(None)):
 def get_ledger(forge_session: Optional[str] = Cookie(None)):
     session = store.get_or_create(forge_session)
     parts = session.get_active_parts()
+    for p in parts.values():
+        if not p.get("specs") and not p.get("none"):
+            sp = part_specs.find_specs_in_dataset(p.get("name"))
+            if sp:
+                p["specs"] = sp
     rows = ledger.rows(parts, session.live, session.choice, session.manual)
     summary = ledger.summary(rows)
     return {"rows": rows, "summary": summary}
@@ -360,11 +365,17 @@ def get_ledger(forge_session: Optional[str] = Cookie(None)):
 def download_ledger_csv(forge_session: Optional[str] = Cookie(None)):
     session = store.get_or_create(forge_session)
     parts = session.get_active_parts()
+    for p in parts.values():
+        if not p.get("specs") and not p.get("none"):
+            sp = part_specs.find_specs_in_dataset(p.get("name"))
+            if sp:
+                p["specs"] = sp
     rows = ledger.rows(parts, session.live, session.choice, session.manual)
     csv_text = ledger.to_csv(rows)
-    filename = f"forge_evidence_ledger_{session.project}.csv"
+    filename = f"forge_evidence_ledger_{session.project or 'build'}.csv"
     return Response(
         content=csv_text,
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+

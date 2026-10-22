@@ -48,7 +48,7 @@ def rows(parts, live, choice=None, manual=None):
         for o in bill.unverified_for(p["id"], live):
             out.append(dict(base, field="listing", value="price not verified", unit="", status="unverified", source=_host(o["url"]),
                             source_url=o["url"], retrieved_at=o.get("checked_at") or "", method="", quote="", note=o.get("note") or "No verifiable price on the page"))
-        for k, v in p["specs"].items():
+        for k, v in (p.get("specs") or {}).items():
             out.append(dict(base, field=k, value=v, unit=UNITS.get(k) or part_specs.unit(k), status="seed", source="FORGE seed catalog", source_url="",
                             retrieved_at="", method="typical datasheet value", quote="", note=SEED_NOTE))
     return out
