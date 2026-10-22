@@ -9,10 +9,26 @@ from server.state import store
 router = APIRouter(prefix="/api/research", tags=["research"])
 
 
-@router.post("/guides")
-def research_guides(req: GuidesResearchRequest, forge_session: Optional[str] = Cookie(None)):
+@router.get("/guides")
+def get_research_guides(forge_session: Optional[str] = Cookie(None)):
     session = store.get_or_create(forge_session)
-    label = req.project_label or session.get_build_label()
+    label = session.get_build_label()
+    res = session.research.get(label)
+    tinyfish_enabled = bool(os.getenv("TINYFISH_API_KEY"))
+    gemini_enabled = bool(os.getenv("GEMINI_API_KEY"))
+    return {
+        "result": res,
+        "label": label,
+        "enabled": bool(tinyfish_enabled and gemini_enabled),
+        "tinyfish_enabled": tinyfish_enabled,
+        "gemini_enabled": gemini_enabled
+    }
+
+
+@router.post("/guides")
+def research_guides(req: Optional[GuidesResearchRequest] = None, forge_session: Optional[str] = Cookie(None)):
+    session = store.get_or_create(forge_session)
+    label = (req.project_label if req and req.project_label else None) or session.get_build_label()
     tinyfish_enabled = bool(os.getenv("TINYFISH_API_KEY"))
     gemini_enabled = bool(os.getenv("GEMINI_API_KEY"))
 
@@ -22,7 +38,7 @@ def research_guides(req: GuidesResearchRequest, forge_session: Optional[str] = C
     log_entries = []
     res = research.research(label, log=log_entries.append)
     session.research[label] = res
-    return {"result": res, "log": log_entries}
+    return {"result": res, "log": log_entries, "label": label}
 
 
 @router.get("/specs")

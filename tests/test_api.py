@@ -25,6 +25,9 @@ def test_static_index():
     assert 'class="fg-header-subtitle"' not in res.text
     assert 'class="fg-header-tagline"' not in res.text
     assert 'id="project-optimizer-card"' in res.text
+    assert 'id="research-guides-card"' in res.text
+    assert 'id="btn-research-build-guides"' in res.text
+    assert 'id="research-results-container"' in res.text
     assert 'id="specs-studio-card"' in res.text
     assert 'id="select-specs-component"' in res.text
     assert 'id="toggle-compare-specs"' in res.text
@@ -540,6 +543,14 @@ def test_specs_and_comparison_endpoints():
     csv_res = test_client.get("/api/bom/ledger.csv")
     assert csv_res.status_code == 200
     assert "part_id,part,role" in csv_res.text
+
+    # 5. Verify Research Guides API
+    research_get = test_client.get("/api/research/guides")
+    assert research_get.status_code == 200
+    res_data = research_get.json()
+    assert "label" in res_data
+    assert "enabled" in res_data
+
 
 
 

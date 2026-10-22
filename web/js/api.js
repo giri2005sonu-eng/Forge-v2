@@ -208,6 +208,18 @@ const api = {
     return this.req('/api/research/specs/fetch-missing', {
       method: 'POST'
     });
+  },
+
+  async getResearchGuides() {
+    return this.req('/api/research/guides');
+  },
+
+  async researchGuides(projectLabel = null) {
+    return this.req('/api/research/guides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_label: projectLabel })
+    });
   }
 };
 

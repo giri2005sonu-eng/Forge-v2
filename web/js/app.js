@@ -1348,6 +1348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderBillTable(bom.bill);
     loadWiringStudio();
     loadDeliveryOptimizer();
+    loadResearchGuides();
     loadSpecsStudio();
     loadEvidenceLedger();
   }
@@ -2303,6 +2304,150 @@ document.addEventListener('DOMContentLoaded', async () => {
       tbody.innerHTML = `<tr><td colspan="9" class="alert warning" style="padding:12px;">Could not load evidence ledger: ${escapeHtml(err.message)}</td></tr>`;
     }
   }
+
+  // ── 11. Research What This Project Needs (Build Guides) ──
+  async function loadResearchGuides() {
+    const card = document.getElementById('research-guides-card');
+    if (!card) return;
+
+    const btn = document.getElementById('btn-research-build-guides');
+    const badge = document.getElementById('research-guides-badge');
+    const statusText = document.getElementById('research-status-text');
+    const resultsContainer = document.getElementById('research-results-container');
+
+    try {
+      const data = await api.getResearchGuides();
+      if (!data.enabled) {
+        if (btn) {
+          btn.title = 'Requires TINYFISH_API_KEY and GEMINI_API_KEY in environment';
+        }
+        if (statusText) {
+          statusText.textContent = data.enabled ? '' : '(Live search requires TINYFISH_API_KEY & GEMINI_API_KEY)';
+        }
+      }
+
+      if (data.result && data.result.items && data.result.items.length > 0) {
+        renderResearchResults(data.result);
+      } else {
+        if (badge) {
+          badge.textContent = 'Ready';
+          badge.className = 'badge UNKNOWN';
+        }
+        if (resultsContainer) resultsContainer.style.display = 'none';
+      }
+    } catch (err) {
+      console.warn('Research guides load error:', err);
+    }
+  }
+
+  function renderResearchResults(result) {
+    const badge = document.getElementById('research-guides-badge');
+    const resultsContainer = document.getElementById('research-results-container');
+    const summaryCaption = document.getElementById('research-summary-caption');
+    const itemsList = document.getElementById('research-items-list');
+    const sourcesContainer = document.getElementById('research-guides-sources');
+    const linksContainer = document.getElementById('research-guides-links');
+
+    if (!result || !resultsContainer || !itemsList) return;
+
+    const items = result.items || [];
+    const guides = result.guides || [];
+    const mapped = items.filter(i => i.role && i.role !== 'other');
+    const unmapped = items.filter(i => !i.role || i.role === 'other');
+
+    if (badge) {
+      badge.textContent = `${items.length} parts found`;
+      badge.className = 'badge PASS';
+    }
+
+    if (summaryCaption) {
+      summaryCaption.textContent = `${items.length} components stated in ${guides.length} guides; ` +
+        `${mapped.length} map to parts we can rule-check, ${unmapped.length} do not (shown as not covered).`;
+    }
+
+    // Guides links
+    if (sourcesContainer && linksContainer) {
+      if (guides.length > 0) {
+        sourcesContainer.style.display = 'block';
+        linksContainer.innerHTML = guides.map((u, i) => `
+          <div>
+            <span class="caption text-muted">${i + 1}.</span>
+            <a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer" class="package-item-link">${escapeHtml(u)} ↗</a>
+          </div>
+        `).join('');
+      } else {
+        sourcesContainer.style.display = 'none';
+      }
+    }
+
+    // Component items
+    itemsList.innerHTML = items.map(item => {
+      const isMapped = item.role && item.role !== 'other';
+      const icon = isMapped ? '✅' : '⚠️';
+      const roleText = isMapped ? item.role : 'not covered by our catalog';
+      const quote = (item.quote || '').slice(0, 160);
+      const url = item.url || '';
+
+      return `
+        <div class="research-item-box">
+          <div class="research-item-header">
+            <span>${icon}</span>
+            <span>${escapeHtml(item.name || '')}</span>
+            <span class="caption text-muted">· ${escapeHtml(roleText)}</span>
+          </div>
+          ${quote ? `
+            <div class="research-item-quote">
+              “${escapeHtml(quote)}”
+              ${url ? `— <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="research-item-url">${escapeHtml(url)}</a>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    resultsContainer.style.display = 'block';
+  }
+
+  // Click handler for Research Build Guides button
+  document.getElementById('btn-research-build-guides')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-research-build-guides');
+    const logBox = document.getElementById('research-log-box');
+    const statusText = document.getElementById('research-status-text');
+    const origText = btn ? btn.textContent : '';
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Researching build guides...';
+    }
+    if (statusText) statusText.textContent = 'Searching web and extracting components with quotes...';
+    if (logBox) {
+      logBox.style.display = 'block';
+      logBox.innerHTML = '<div class="log-entry">Connecting to TinyFish search engine & fetcher...</div>';
+    }
+
+    try {
+      const res = await api.researchGuides();
+      if (res && res.log && logBox) {
+        logBox.innerHTML = res.log.map(l => `<div class="log-entry">${escapeHtml(l)}</div>`).join('');
+      }
+      if (res && res.result) {
+        renderResearchResults(res.result);
+        if (statusText) statusText.textContent = 'Research completed successfully.';
+      }
+    } catch (err) {
+      console.warn('Research guides error:', err);
+      if (logBox) {
+        logBox.innerHTML += `<div class="log-entry error" style="color:#F87171;">Error: ${escapeHtml(err.message)}</div>`;
+      }
+      if (statusText) statusText.textContent = `Error: ${err.message}`;
+      alert(`Research build guides error: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    }
+  });
 
   // Resume Upload Trigger
   document.getElementById('btn-trigger-upload')?.addEventListener('click', () => {

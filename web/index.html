@@ -335,6 +335,43 @@
           <div id="bom-checks-list" style="margin-top:8px;"></div>
         </div>
 
+        <!-- Research What This Project Needs (TinyFish Search + Fetch + Gemini) -->
+        <section class="card research-guides-card" id="research-guides-card" style="margin-top:1.5rem;" aria-labelledby="research-guides-heading">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h4 id="research-guides-heading" style="margin:0;display:flex;align-items:center;gap:8px;">
+                🔍 Research what this project needs <span class="caption" style="font-weight:400;color:var(--text-muted);font-size:0.95rem;">· Search + Fetch (free)</span>
+              </h4>
+              <p class="caption" style="margin:4px 0 0 0;">TinyFish searches Google and fetches real DIY build guides, while Gemini extracts verified parts with verbatim quotes.</p>
+            </div>
+            <div id="research-guides-badge" class="badge"></div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <button class="btn btn-purple" id="btn-research-build-guides" type="button">Research build guides</button>
+              <span id="research-status-text" class="caption" style="color:var(--text-muted);"></span>
+            </div>
+
+            <!-- Log / Progress Box -->
+            <div id="research-log-box" class="log-box" style="display:none;margin-top:12px;max-height:160px;overflow-y:auto;"></div>
+
+            <!-- Results Section -->
+            <div id="research-results-container" style="display:none;margin-top:16px;">
+              <div id="research-summary-caption" class="caption" style="font-weight:600;color:var(--text-primary);margin-bottom:12px;"></div>
+              
+              <!-- Guides References -->
+              <div id="research-guides-sources" style="margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border-color);border-radius:8px;display:none;">
+                <div class="caption text-muted" style="font-weight:600;margin-bottom:6px;">📖 Analyzed Build Guides:</div>
+                <div id="research-guides-links" style="display:flex;flex-direction:column;gap:4px;"></div>
+              </div>
+
+              <!-- Component Items List -->
+              <div id="research-items-list" class="research-items-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- Component Datasheet Specs & Comparison Studio -->
         <section class="card specs-panel" id="specs-studio-card" style="margin-top:1.5rem;" aria-labelledby="specs-heading">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
