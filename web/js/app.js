@@ -1348,6 +1348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderBillTable(bom.bill);
     loadWiringStudio();
     loadDeliveryOptimizer();
+    loadSpecsStudio();
   }
 
   function renderComponentCards(parts, lines, partsOffers = {}, choice = {}, manual = {}) {
@@ -2022,6 +2023,227 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.warn('Delivery optimizer:', err);
     }
   }
+
+  // ── 9. Component Datasheet Specs & Comparison Studio ──
+  let specsData = null;
+  let selectedSpecPartName = null;
+  let selectedAlternativeNames = new Set();
+
+  async function loadSpecsStudio() {
+    const card = document.getElementById('specs-studio-card');
+    if (!card) return;
+
+    const compSelect = document.getElementById('select-specs-component');
+    const toggleContainer = document.getElementById('specs-compare-toggle-container');
+    const altsPicker = document.getElementById('specs-alternatives-picker');
+    const tableContainer = document.getElementById('specs-table-container');
+    const missingContainer = document.getElementById('specs-missing-container');
+    const missingText = document.getElementById('specs-missing-text');
+    const badge = document.getElementById('specs-header-badge');
+
+    try {
+      if (tableContainer) {
+        tableContainer.innerHTML = '<div class="caption text-muted" style="padding:16px;">Loading component datasheet specs...</div>';
+      }
+      const data = await api.getSpecs();
+      specsData = data;
+
+      const parts = data.parts || [];
+      const without = data.without_specs || [];
+
+      if (badge) {
+        badge.textContent = `${parts.length} with specs`;
+        badge.className = parts.length > 0 ? 'badge PASS' : 'badge WARN';
+      }
+
+      if (missingContainer && missingText) {
+        if (without.length > 0) {
+          missingContainer.style.display = 'block';
+          missingText.textContent = `No typed specs for: ${without.slice(0, 8).join(', ')}${without.length > 8 ? ' ...' : ''}`;
+        } else {
+          missingContainer.style.display = 'none';
+        }
+      }
+
+      if (!parts || parts.length === 0) {
+        if (tableContainer) {
+          tableContainer.innerHTML = '<div class="caption text-muted" style="padding:16px;">No component in this build has typed datasheet specs in the library.</div>';
+        }
+        if (compSelect) compSelect.innerHTML = '<option value="">(No parts with specs)</option>';
+        if (toggleContainer) toggleContainer.style.display = 'none';
+        if (altsPicker) altsPicker.style.display = 'none';
+        return;
+      }
+
+      const previousChoice = selectedSpecPartName;
+      if (compSelect) {
+        compSelect.innerHTML = '';
+        parts.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.name;
+          opt.textContent = `${p.name} (${p.role || 'part'})`;
+          compSelect.appendChild(opt);
+        });
+
+        if (previousChoice && parts.some(p => p.name === previousChoice)) {
+          compSelect.value = previousChoice;
+        } else {
+          compSelect.value = parts[0].name;
+        }
+        selectedSpecPartName = compSelect.value;
+      }
+
+      await updateSpecsViewForPart();
+    } catch (err) {
+      console.warn('Specs studio error:', err);
+      if (tableContainer) {
+        tableContainer.innerHTML = `<div class="alert warning">Could not load specs: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+  }
+
+  async function updateSpecsViewForPart() {
+    if (!specsData || !specsData.parts) return;
+    const currentPart = specsData.parts.find(p => p.name === selectedSpecPartName);
+    if (!currentPart) return;
+
+    const toggleContainer = document.getElementById('specs-compare-toggle-container');
+    const toggleInput = document.getElementById('toggle-compare-specs');
+    const toggleLabel = document.getElementById('label-compare-toggle');
+    const altsPicker = document.getElementById('specs-alternatives-picker');
+    const alts = currentPart.alternatives || [];
+    const pluralName = currentPart.plural_role || 'parts';
+
+    if (alts.length > 0) {
+      if (toggleContainer) toggleContainer.style.display = 'flex';
+      if (toggleLabel) toggleLabel.textContent = `Compare with other ${pluralName}`;
+
+      const defaultPicks = alts.slice(0, 3).map(a => a.name);
+      selectedAlternativeNames = new Set(defaultPicks);
+
+      renderAlternativeChips(alts);
+    } else {
+      if (toggleContainer) toggleContainer.style.display = 'none';
+      if (toggleInput) toggleInput.checked = false;
+      if (altsPicker) altsPicker.style.display = 'none';
+    }
+
+    if (toggleInput && toggleInput.checked && alts.length > 0) {
+      if (altsPicker) altsPicker.style.display = 'block';
+      await renderSpecsComparisonTable(currentPart.name, Array.from(selectedAlternativeNames));
+    } else {
+      if (altsPicker) altsPicker.style.display = 'none';
+      await renderSpecsComparisonTable(currentPart.name, []);
+    }
+  }
+
+  function renderAlternativeChips(alts) {
+    const altsChips = document.getElementById('specs-alternatives-chips');
+    const altsCount = document.getElementById('specs-picker-count');
+    if (!altsChips) return;
+
+    altsChips.innerHTML = '';
+    if (altsCount) altsCount.textContent = `${selectedAlternativeNames.size} of 4 selected`;
+
+    alts.forEach(alt => {
+      const isSelected = selectedAlternativeNames.has(alt.name);
+      const chip = document.createElement('label');
+      chip.className = `specs-chip ${isSelected ? 'active' : ''}`;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = alt.name;
+      cb.checked = isSelected;
+
+      cb.addEventListener('change', async () => {
+        if (cb.checked) {
+          if (selectedAlternativeNames.size >= 4) {
+            cb.checked = false;
+            alert('You can compare up to 4 alternatives at once.');
+            return;
+          }
+          selectedAlternativeNames.add(alt.name);
+          chip.classList.add('active');
+        } else {
+          selectedAlternativeNames.delete(alt.name);
+          chip.classList.remove('active');
+        }
+        if (altsCount) altsCount.textContent = `${selectedAlternativeNames.size} of 4 selected`;
+        await renderSpecsComparisonTable(selectedSpecPartName, Array.from(selectedAlternativeNames));
+      });
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = alt.name;
+
+      const badge = document.createElement('span');
+      badge.className = 'specs-chip-badge';
+      const sharedCount = alt.shared_keys?.length || 0;
+      badge.textContent = `${sharedCount} shared`;
+
+      chip.appendChild(cb);
+      chip.appendChild(nameSpan);
+      chip.appendChild(badge);
+      altsChips.appendChild(chip);
+    });
+  }
+
+  async function renderSpecsComparisonTable(partName, compareWith = []) {
+    const tableContainer = document.getElementById('specs-table-container');
+    if (!tableContainer) return;
+
+    try {
+      tableContainer.innerHTML = '<div class="caption text-muted" style="padding:16px;">Updating specs table...</div>';
+      const res = await api.compareSpecs(partName, compareWith);
+      if (res && res.html) {
+        tableContainer.innerHTML = res.html;
+      } else {
+        tableContainer.innerHTML = '<div class="caption text-muted" style="padding:16px;">No comparison table available.</div>';
+      }
+    } catch (err) {
+      console.warn('Comparison error:', err);
+      tableContainer.innerHTML = `<div class="alert warning">Comparison error: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // Specs event listeners
+  document.getElementById('select-specs-component')?.addEventListener('change', async (e) => {
+    selectedSpecPartName = e.target.value;
+    await updateSpecsViewForPart();
+  });
+
+  document.getElementById('toggle-compare-specs')?.addEventListener('change', async (e) => {
+    const altsPicker = document.getElementById('specs-alternatives-picker');
+    if (!selectedSpecPartName) return;
+
+    if (e.target.checked) {
+      if (altsPicker) altsPicker.style.display = 'block';
+      await renderSpecsComparisonTable(selectedSpecPartName, Array.from(selectedAlternativeNames));
+    } else {
+      if (altsPicker) altsPicker.style.display = 'none';
+      await renderSpecsComparisonTable(selectedSpecPartName, []);
+    }
+  });
+
+  document.getElementById('btn-fetch-missing-specs')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-fetch-missing-specs');
+    const origText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Fetching with Gemini...';
+    }
+    try {
+      const res = await api.fetchMissingSpecs();
+      alert(`Fetched missing specs (${res.fetched_count ?? 'done'}).`);
+      await loadSpecsStudio();
+    } catch (err) {
+      alert(`Failed to fetch specs with Gemini: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    }
+  });
 
   // Resume Upload Trigger
   document.getElementById('btn-trigger-upload')?.addEventListener('click', () => {

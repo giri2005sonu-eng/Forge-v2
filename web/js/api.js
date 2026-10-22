@@ -190,5 +190,24 @@ const api = {
 
   async resetSwaps() {
     return this.req('/api/optimizer/reset', { method: 'POST' });
+  },
+
+  async getSpecs() {
+    return this.req('/api/research/specs');
+  },
+
+  async compareSpecs(partName, compareWith = []) {
+    return this.req('/api/research/specs/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ part_name: partName, compare_with: compareWith })
+    });
+  },
+
+  async fetchMissingSpecs() {
+    return this.req('/api/research/specs/fetch-missing', {
+      method: 'POST'
+    });
   }
 };
+

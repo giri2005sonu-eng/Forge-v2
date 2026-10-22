@@ -25,6 +25,10 @@ def test_static_index():
     assert 'class="fg-header-subtitle"' not in res.text
     assert 'class="fg-header-tagline"' not in res.text
     assert 'id="project-optimizer-card"' in res.text
+    assert 'id="specs-studio-card"' in res.text
+    assert 'id="select-specs-component"' in res.text
+    assert 'id="toggle-compare-specs"' in res.text
+    assert 'id="specs-table-container"' in res.text
     assert 'id="btn-evaluate-swap"' in res.text
     assert "Star projects" in res.text
     assert 'id="star-project-grid"' in res.text
@@ -481,4 +485,44 @@ def test_project_optimizer_auto_resolve_flow():
         part_names = [p["name"] for p in bom_updated["parts"].values()]
         assert "Arduino Nano" in part_names
         assert "HC-05 Bluetooth Serial Module" in part_names
+
+
+def test_specs_and_comparison_endpoints():
+    test_client = TestClient(app)
+    # 1. Generate BOM for Line Follower
+    gen_res = test_client.post("/api/bom/generate", json={"project": "general:line_follower", "budget": 3500})
+    assert gen_res.status_code == 200
+
+    # 2. Get specs for build
+    specs_res = test_client.get("/api/research/specs")
+    assert specs_res.status_code == 200
+    data = specs_res.json()
+    assert "parts" in data
+    assert "spec_parts" in data
+    assert len(data["parts"]) > 0
+
+    # Check controller part (Arduino Nano)
+    ctrl_part = next((p for p in data["parts"] if "nano" in p["name"].lower() or p["role"] == "controller"), None)
+    assert ctrl_part is not None
+    assert ctrl_part["plural_role"] == "microcontrollers"
+    assert "logic_v" in ctrl_part["specs"]
+    assert len(ctrl_part["alternatives"]) > 0
+
+    # 3. Compare specs with alternatives
+    alt_names = [a["name"] for a in ctrl_part["alternatives"][:3]]
+    cmp_res = test_client.post("/api/research/specs/compare", json={
+        "part_name": ctrl_part["name"],
+        "compare_with": alt_names
+    })
+    assert cmp_res.status_code == 200
+    cmp_data = cmp_res.json()
+    assert "table" in cmp_data
+    assert "html" in cmp_data
+    assert ctrl_part["name"] in cmp_data["table"]["columns"]
+    for alt in alt_names:
+        assert alt in cmp_data["table"]["columns"]
+
+    assert "<table class=\"cmp\">" in cmp_data["html"]
+    assert "class=\"best\"" in cmp_data["html"]
+
 

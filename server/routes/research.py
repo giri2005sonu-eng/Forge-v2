@@ -38,7 +38,28 @@ def get_specs_for_build(forge_session: Optional[str] = Cookie(None)):
 
     spec_parts = {p["name"]: p["specs"] for p in parts.values() if not p.get("none") and p.get("specs")}
     without = [p["name"] for p in parts.values() if not p.get("none") and not p.get("specs")]
-    return {"spec_parts": spec_parts, "without_specs": without}
+
+    enriched_parts = []
+    for p in parts.values():
+        if not p.get("none") and p.get("specs"):
+            role = p.get("role", "")
+            alt_pool = part_specs.alternatives(role, p["specs"], exclude_name=p.get("name"), limit=60, min_shared=1)
+            alts = [{"key": k, "name": name, "shared_keys": shared} for k, name, shared in alt_pool]
+            enriched_parts.append({
+                "id": p.get("id"),
+                "name": p["name"],
+                "role": role,
+                "plural_role": part_specs.plural(role),
+                "specs": p["specs"],
+                "alternatives": alts
+            })
+
+    return {
+        "spec_parts": spec_parts,
+        "parts": enriched_parts,
+        "without_specs": without,
+        "gemini_available": bool(os.getenv("GEMINI_API_KEY"))
+    }
 
 
 @router.post("/specs/compare")
@@ -46,16 +67,35 @@ def compare_specs(req: SpecsCompareRequest, forge_session: Optional[str] = Cooki
     session = store.get_or_create(forge_session)
     parts = session.get_active_parts()
     part = next((p for p in parts.values() if p.get("name") == req.part_name), None)
-    if not part or not part.get("specs"):
-        raise HTTPException(status_code=404, detail=f"No typed specs found for '{req.part_name}'")
+    if not part:
+        part = next((p for p in parts.values() if p.get("id") == req.part_name), None)
 
-    items = [(req.part_name, part["specs"])]
+    if not part or not part.get("specs"):
+        if part:
+            sp = part_specs.find_specs_in_dataset(part.get("name"))
+            if sp:
+                part["specs"] = sp
+        if not part or not part.get("specs"):
+            sp = part_specs.find_specs_in_dataset(req.part_name)
+            if sp:
+                part = {"name": req.part_name, "role": "", "specs": sp}
+            else:
+                raise HTTPException(status_code=404, detail=f"No typed specs found for '{req.part_name}'")
+
+    items = [(part["name"], part["specs"])]
     if req.compare_with:
-        pool = part_specs.alternatives(part["role"], part["specs"], exclude_name=req.part_name, limit=60)
+        pool = part_specs.alternatives(part.get("role", ""), part["specs"], exclude_name=part["name"], limit=60, min_shared=1)
         names = {name: key for key, name, _ in pool}
+        keys = {key: name for key, name, _ in pool}
         for n in req.compare_with:
             if n in names:
                 items.append((n, part_specs.specs_for(names[n])))
+            elif n in keys:
+                items.append((keys[n], part_specs.specs_for(n)))
+            else:
+                sp = part_specs.specs_for(n) or part_specs.find_specs_in_dataset(n)
+                if sp:
+                    items.append((n, sp))
 
     table = part_specs.compare(items)
     html = part_specs.compare_html(table)

@@ -335,6 +335,57 @@
           <div id="bom-checks-list" style="margin-top:8px;"></div>
         </div>
 
+        <!-- Component Datasheet Specs & Comparison Studio -->
+        <section class="card specs-panel" id="specs-studio-card" style="margin-top:1.5rem;" aria-labelledby="specs-heading">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h4 id="specs-heading" style="margin:0;display:flex;align-items:center;gap:8px;">📊 Component Datasheet Specs &amp; Comparison Studio</h4>
+              <p class="caption" style="margin:4px 0 0 0;">Typical datasheet values for common hobby boards &amp; chips. Highlights best value in green when comparing.</p>
+            </div>
+            <div id="specs-header-badge" class="badge"></div>
+          </div>
+
+          <div id="specs-studio-content" style="margin-top:14px;">
+            <div class="specs-controls" style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;">
+              <div style="flex:1;min-width:240px;">
+                <label for="select-specs-component"><b>Component in your build</b></label>
+                <select id="select-specs-component" style="margin-top:6px;width:100%;"></select>
+              </div>
+              <div id="specs-compare-toggle-container" style="display:none;align-items:center;gap:8px;padding-bottom:10px;">
+                <input type="checkbox" id="toggle-compare-specs" style="width:18px;height:18px;cursor:pointer;">
+                <label for="toggle-compare-specs" id="label-compare-toggle" style="cursor:pointer;font-weight:600;user-select:none;">Compare with other parts</label>
+              </div>
+            </div>
+
+            <div id="specs-alternatives-picker" style="display:none;margin-top:14px;padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--border-color);border-radius:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                <span id="specs-picker-label" class="caption" style="font-weight:600;color:var(--text-primary);">Pick parts to compare (most similar first, max 4):</span>
+                <span id="specs-picker-count" class="caption" style="color:var(--primary-teal);font-weight:600;"></span>
+              </div>
+              <div id="specs-alternatives-chips" class="specs-chips-container" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            </div>
+
+            <div id="specs-table-container" class="specs-table-wrapper" style="margin-top:14px;overflow-x:auto;">
+              <!-- Comparison or single specs table injected here -->
+            </div>
+
+            <div id="specs-footnote" class="caption" style="margin-top:12px;font-size:0.8rem;color:var(--text-muted);">
+              Typed by the team for the common hobby board or chip; a different listing can differ. Prices are not shown here: they come only from live pages.
+            </div>
+
+            <div id="specs-missing-container" style="margin-top:14px;padding:12px 16px;background:rgba(255,255,255,0.02);border:1px dashed var(--border-color);border-radius:8px;display:none;">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                <div style="flex:1;min-width:240px;">
+                  <div style="font-size:0.88rem;color:var(--text-secondary);font-weight:500;" id="specs-missing-text"></div>
+                  <div class="caption" style="margin-top:2px;">Missing datasheet specs can be fetched and learned automatically using Gemini.</div>
+                </div>
+                <button class="btn ghost" id="btn-fetch-missing-specs" type="button" style="white-space:nowrap;">🤖 Fetch specs for missing parts with Gemini</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
         <!-- Delivery Optimizer Panel -->
         <div class="card" id="delivery-optimizer-card" style="margin-top:1.5rem;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
